@@ -1,0 +1,39 @@
+# Python virtual environments & symlinks
+.venv
+.venv/
+venv
+venv/
+ENV/
+env/
+
+# Python cache & compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Environment variables & local secrets
+.env
+*.env.local
+
+# Database binary storage & certificates
+database/mysql_data/
+*.ibd
+*.sdi
+*.pem
+undo_*
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor & IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log

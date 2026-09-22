@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Products Catalog | Warehouse Optimizer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Common Navigation Bar -->
+  <nav class="navbar">
+    <a href="index.html" class="nav-brand">
+      Warehouse Optimizer
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Dashboard</a></li>
+      <li><a href="products.html" class="active">Products</a></li>
+      <li><a href="layout.html">Layout Optimizer</a></li>
+      <li><a href="graph.html">Warehouse Graph</a></li>
+      <li><a href="order-picking.html">Order Picking</a></li>
+    </ul>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Warehouse Product Catalog</h1>
+        <p class="page-subtitle">Inventory items, categories, assigned shelf locations, and pick frequencies</p>
+      </div>
+      <div>
+        <a href="layout.html" class="btn btn-primary">Optimize Layout &rarr;</a>
+      </div>
+    </div>
+
+    <div class="concept-tag">
+      <strong>DBMS & Catalog Concept:</strong> Products are mapped to storage shelves in MySQL (`products.assigned_shelf_id`). The pick frequency is computed via `SUM(sales.units_sold)` across 6 months of historical transactions.
+    </div>
+
+    <!-- Filter and Search Controls -->
+    <div class="card" style="padding: 1rem 1.5rem; margin-bottom: 1.5rem;">
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+          <div>
+            <label for="search-input" class="form-label" style="margin-bottom: 0.25rem;">Search Product:</label>
+            <input type="text" id="search-input" class="form-input" placeholder="Search by name..." oninput="applyFilters()">
+          </div>
+          <div>
+            <label for="category-filter" class="form-label" style="margin-bottom: 0.25rem;">Category:</label>
+            <select id="category-filter" class="form-select" onchange="applyFilters()">
+              <option value="ALL">All Categories</option>
+              <option value="Electronics">Electronics</option>
+              <option value="Fasteners">Fasteners</option>
+              <option value="Heavy">Heavy (Special Handling)</option>
+              <option value="Fragile">Fragile (Special Handling)</option>
+              <option value="Tools">Tools</option>
+              <option value="Safety">Safety</option>
+            </select>
+          </div>
+        </div>
+        <div style="font-size: 0.9rem; color: var(--text-muted);" id="product-count-label">
+          Showing 0 products
+        </div>
+      </div>
+    </div>
+
+    <!-- Products Table -->
+    <div class="card">
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 80px;">ID</th>
+              <th>Product Name</th>
+              <th>Category</th>
+              <th>Assigned Shelf</th>
+              <th>Pick Frequency (Sales Velocity)</th>
+              <th>Priority Tier</th>
+            </tr>
+          </thead>
+          <tbody id="products-table-body">
+            <tr>
+              <td colspan="6" style="text-align: center; color: var(--text-muted);">Loading products from /api/products...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allProducts = [];
+
+    async function loadProducts() {
+      try {
+        const res = await fetch('/api/products');
+        allProducts = await res.json();
+        renderProducts(allProducts);
+      } catch (err) {
+        console.error("Failed to load products:", err);
+      }
+    }
+
+    function renderProducts(items) {
+      const tbody = document.getElementById('products-table-body');
+      tbody.innerHTML = '';
+
+      document.getElementById('product-count-label').textContent = `Showing ${items.length} of ${allProducts.length} products`;
+
+      if (items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No matching products found.</td></tr>';
+        return;
+      }
+
+      items.forEach(p => {
+        const tr = document.createElement('tr');
+
+        let catBadge = 'badge-primary';
+        if (p.category === 'Fragile') catBadge = 'badge-warning';
+        if (p.category === 'Heavy') catBadge = 'badge-danger';
+        if (p.category === 'Fasteners') catBadge = 'badge-success';
+
+        // Calculate velocity tier
+        let tier = '<span class="badge">Medium</span>';
+        if (p.pick_frequency >= 2000) {
+          tier = '<span class="badge badge-success">High Velocity</span>';
+        } else if (p.pick_frequency < 1000) {
+          tier = '<span class="badge badge-warning">Low Velocity</span>';
+        }
+
+        tr.innerHTML = `
+          <td><strong>#${p.id}</strong></td>
+          <td><strong>${p.name}</strong></td>
+          <td><span class="badge ${catBadge}">${p.category}</span></td>
+          <td>${p.assigned_shelf_id ? `Shelf ${p.assigned_shelf_id}` : '<span style="color: #94a3b8;">Unassigned</span>'}</td>
+          <td><strong>${p.pick_frequency.toLocaleString()} units</strong></td>
+          <td>${tier}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function applyFilters() {
+      const search = document.getElementById('search-input').value.toLowerCase();
+      const category = document.getElementById('category-filter').value;
+
+      const filtered = allProducts.filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(search);
+        const matchesCategory = (category === 'ALL') || (p.category === category);
+        return matchesSearch && matchesCategory;
+      });
+
+      renderProducts(filtered);
+    }
+
+    document.addEventListener('DOMContentLoaded', loadProducts);
+  </script>
+</body>
+</html>

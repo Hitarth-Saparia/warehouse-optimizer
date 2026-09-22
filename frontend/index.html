@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard | Warehouse Optimizer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Common Navigation Bar -->
+  <nav class="navbar">
+    <a href="index.html" class="nav-brand">
+      Warehouse Optimizer
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html" class="active">Dashboard</a></li>
+      <li><a href="products.html">Products</a></li>
+      <li><a href="layout.html">Layout Optimizer</a></li>
+      <li><a href="graph.html">Warehouse Graph</a></li>
+      <li><a href="order-picking.html">Order Picking</a></li>
+    </ul>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Warehouse Optimization Dashboard</h1>
+        <p class="page-subtitle">Evaluation of Greedy Layout Assignment & Graph-based Order Picking</p>
+      </div>
+      <div>
+        <button class="btn btn-secondary" onclick="loadDashboard()">Refresh Data</button>
+      </div>
+    </div>
+
+    <div class="concept-tag">
+      <strong>Viva / Demo Concept:</strong> This system applies <em>Greedy Heuristic Slotting</em> based on Pareto sales velocity and <em>TSP Graph Routing</em> (Dijkstra + Permutations) to minimize worker travel distance.
+    </div>
+
+    <!-- Summary Metrics -->
+    <div class="stats-grid">
+      <div class="stat-card highlight">
+        <div class="stat-label">Total Catalog Products</div>
+        <div class="stat-value" id="stat-products">--</div>
+        <div class="stat-desc">Across 5 distinct product categories</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Storage Shelves</div>
+        <div class="stat-value" id="stat-shelves">--</div>
+        <div class="stat-desc">4 storage aisles + 1 packing station</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Customer Orders</div>
+        <div class="stat-value" id="stat-orders">--</div>
+        <div class="stat-desc">Sample orders for routing validation</div>
+      </div>
+      <div class="stat-card success">
+        <div class="stat-label">Pick Efficiency Gain</div>
+        <div class="stat-value" id="stat-reduction" style="color: #16a34a;">--%</div>
+        <div class="stat-desc" id="stat-saved-desc">Distance reduction achieved</div>
+      </div>
+    </div>
+
+    <!-- Before vs After Empirical Proof Banner -->
+    <div class="card">
+      <div class="card-title">
+        <span>Empirical Proof: Before vs After Optimization</span>
+        <span class="badge badge-success">Live Evaluation</span>
+      </div>
+      <div class="comparison-banner">
+        <div class="comparison-metric">
+          <div class="label">Baseline Avg Pick Distance</div>
+          <div class="val" id="banner-before">-- m</div>
+          <div class="stat-desc" style="color: #94a3b8;">Random shelf placement</div>
+        </div>
+        <div class="comparison-metric">
+          <div class="label">Optimized Avg Pick Distance</div>
+          <div class="val" id="banner-after">-- m</div>
+          <div class="stat-desc" style="color: #94a3b8;">Greedy velocity slotting</div>
+        </div>
+        <div class="comparison-metric reduction">
+          <div class="label">Average Distance Reduction</div>
+          <div class="val" id="banner-reduction">--%</div>
+          <div class="stat-desc" style="color: #86efac;">Shorter round trips</div>
+        </div>
+        <div class="comparison-metric">
+          <div class="label">Total Distance Saved</div>
+          <div class="val" id="banner-saved" style="color: #60a5fa;">-- m</div>
+          <div class="stat-desc" style="color: #94a3b8;">Across evaluated orders</div>
+        </div>
+      </div>
+
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+        The table below shows route distances calculated for sample customer orders under both layouts using graph shortest-path routing:
+      </p>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Customer</th>
+              <th>Item Count</th>
+              <th>Routing Algorithm</th>
+              <th>Before Layout</th>
+              <th>After Layout</th>
+              <th>Distance Saved</th>
+              <th>Reduction %</th>
+            </tr>
+          </thead>
+          <tbody id="orders-breakdown-body">
+            <tr>
+              <td colspan="8" style="text-align: center; color: var(--text-muted);">Loading comparison data from /api/statistics...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function loadDashboard() {
+      try {
+        const res = await fetch('/api/statistics');
+        const data = await res.json();
+
+        // Populate Summary Stats
+        document.getElementById('stat-products').textContent = data.total_products || 0;
+        document.getElementById('stat-shelves').textContent = data.total_shelves || 0;
+        document.getElementById('stat-orders').textContent = data.total_orders || 0;
+        document.getElementById('stat-reduction').textContent = data.percent_reduction + '%';
+        document.getElementById('stat-saved-desc').textContent = `${data.total_distance_saved} meters saved`;
+
+        // Populate Comparison Banner
+        document.getElementById('banner-before').textContent = data.avg_distance_before + ' m';
+        document.getElementById('banner-after').textContent = data.avg_distance_after + ' m';
+        document.getElementById('banner-reduction').textContent = '-' + data.percent_reduction + '%';
+        document.getElementById('banner-saved').textContent = data.total_distance_saved + ' m';
+
+        // Populate Table
+        const tbody = document.getElementById('orders-breakdown-body');
+        tbody.innerHTML = '';
+
+        if (!data.order_breakdown || data.order_breakdown.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No orders found.</td></tr>';
+          return;
+        }
+
+        data.order_breakdown.forEach(row => {
+          const tr = document.createElement('tr');
+          const isTsp = row.algorithm.includes('Exact');
+          const badgeClass = isTsp ? 'badge-primary' : 'badge-warning';
+
+          tr.innerHTML = `
+            <td><strong>#${row.order_id}</strong></td>
+            <td>${row.customer_name}</td>
+            <td>${row.item_count} items</td>
+            <td><span class="badge ${badgeClass}">${row.algorithm}</span></td>
+            <td>${row.distance_before} m</td>
+            <td><strong>${row.distance_after} m</strong></td>
+            <td style="color: #16a34a; font-weight: 600;">-${row.distance_saved} m</td>
+            <td><span class="badge badge-success">${row.pct_saved}%</span></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error("Failed to load statistics:", err);
+      }
+    }
+
+    // Auto-load on page ready
+    document.addEventListener('DOMContentLoaded', loadDashboard);
+  </script>
+</body>
+</html>

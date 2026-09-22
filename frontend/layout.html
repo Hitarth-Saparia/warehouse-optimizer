@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Layout Optimizer | Warehouse Optimizer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Common Navigation Bar -->
+  <nav class="navbar">
+    <a href="index.html" class="nav-brand">
+      Warehouse Optimizer
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Dashboard</a></li>
+      <li><a href="products.html">Products</a></li>
+      <li><a href="layout.html" class="active">Layout Optimizer</a></li>
+      <li><a href="graph.html">Warehouse Graph</a></li>
+      <li><a href="order-picking.html">Order Picking</a></li>
+    </ul>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Greedy Layout Optimizer</h1>
+        <p class="page-subtitle">Assign high-velocity products closer to the packing station under capacity and safety constraints</p>
+      </div>
+      <div style="display: flex; gap: 0.75rem;">
+        <button id="btn-run" class="btn btn-primary" onclick="runLayoutOptimization()">Run Layout Optimizer</button>
+        <button id="btn-save" class="btn btn-success" onclick="saveLayout()" disabled>Save Layout to MySQL</button>
+      </div>
+    </div>
+
+    <div class="concept-tag">
+      <strong>Optimization Heuristic:</strong>
+      1. Products sorted by pick frequency descending.<br>
+      2. Shelves sorted by distance to packing ascending.<br>
+      3. Greedy assignment to nearest eligible shelf.<br>
+      4. Constraints checked: Shelf capacity &le; 5, Fragile and Heavy categories strictly segregated.
+    </div>
+
+    <!-- Optimization Status / Alert -->
+    <div id="status-alert" class="alert alert-info" style="display: none;"></div>
+
+    <!-- Optimization Summary Cards -->
+    <div class="stats-grid" id="summary-cards" style="display: none;">
+      <div class="stat-card highlight">
+        <div class="stat-label">Products Analyzed</div>
+        <div class="stat-value" id="res-total">0</div>
+        <div class="stat-desc">All catalog items evaluated</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Shelves Reallocated</div>
+        <div class="stat-value" id="res-moved">0</div>
+        <div class="stat-desc">Products moved to closer shelves</div>
+      </div>
+      <div class="stat-card success">
+        <div class="stat-label">Distance Saved / Cycle</div>
+        <div class="stat-value" id="res-saved" style="color: #16a34a;">0 m</div>
+        <div class="stat-desc">Travel reduction per pick iteration</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Constraint Violations</div>
+        <div class="stat-value" style="color: #16a34a;">0</div>
+        <div class="stat-desc">Capacities and safety rules respected</div>
+      </div>
+    </div>
+
+    <!-- Side-by-Side Comparison Table -->
+    <div class="card">
+      <div class="card-title">
+        <span>Old vs New Shelf Assignments (Side-by-Side Diff)</span>
+        <span id="diff-count-badge" class="badge">Awaiting Optimization</span>
+      </div>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Category</th>
+              <th>Pick Frequency</th>
+              <th>Current (Old) Shelf</th>
+              <th>Current Distance</th>
+              <th>Optimized (New) Shelf</th>
+              <th>New Distance</th>
+              <th>Distance Delta</th>
+            </tr>
+          </thead>
+          <tbody id="layout-diff-body">
+            <tr>
+              <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                Click "Run Layout Optimizer" to generate the greedy allocation plan.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentProposedAssignments = null;
+
+    async function runLayoutOptimization() {
+      const btnRun = document.getElementById('btn-run');
+      const alertBox = document.getElementById('status-alert');
+      btnRun.textContent = "Optimizing...";
+      btnRun.disabled = true;
+
+      try {
+        const res = await fetch('/api/layout/optimize', { method: 'POST' });
+        const data = await res.json();
+
+        currentProposedAssignments = data.assignments;
+
+        // Show Summary
+        document.getElementById('summary-cards').style.display = 'grid';
+        document.getElementById('res-total').textContent = data.summary.total_products;
+        document.getElementById('res-moved').textContent = data.summary.moved_count;
+        document.getElementById('res-saved').textContent = data.summary.total_distance_saved_per_round + ' m';
+
+        // Update alert
+        alertBox.className = 'alert alert-info';
+        alertBox.style.display = 'block';
+        alertBox.innerHTML = `<strong>Optimization Plan Ready!</strong> Proposed moving ${data.summary.moved_count} items to closer shelves, saving ${data.summary.total_distance_saved_per_round} meters per pick cycle. Click "Save Layout to MySQL" to apply.`;
+
+        // Render Table Diff
+        const tbody = document.getElementById('layout-diff-body');
+        tbody.innerHTML = '';
+
+        data.assignments.forEach(item => {
+          const tr = document.createElement('tr');
+          const isMoved = item.old_shelf_id !== item.new_shelf_id;
+          const isCloser = item.distance_diff > 0;
+
+          let diffBadge = '<span class="badge">Unchanged</span>';
+          if (isMoved && isCloser) {
+            diffBadge = `<span class="badge badge-success">&#9660; -${item.distance_diff}m Closer</span>`;
+          } else if (isMoved && !isCloser) {
+            diffBadge = `<span class="badge badge-warning">&#9650; +${Math.abs(item.distance_diff)}m</span>`;
+          }
+
+          let catBadge = 'badge-primary';
+          if (item.category === 'Fragile') catBadge = 'badge-warning';
+          if (item.category === 'Heavy') catBadge = 'badge-danger';
+
+          tr.innerHTML = `
+            <td><strong>${item.product_name}</strong></td>
+            <td><span class="badge ${catBadge}">${item.category}</span></td>
+            <td>${item.pick_frequency.toLocaleString()}</td>
+            <td style="color: #64748b;">Shelf ${item.old_shelf_id || 'None'}</td>
+            <td style="color: #64748b;">${item.old_distance} m</td>
+            <td><strong style="color: #2563eb;">Shelf ${item.new_shelf_id}</strong></td>
+            <td><strong>${item.new_distance} m</strong></td>
+            <td>${diffBadge}</td>
+          `;
+
+          if (isMoved && isCloser) {
+            tr.style.backgroundColor = '#f0fdf4';
+          }
+          tbody.appendChild(tr);
+        });
+
+        document.getElementById('diff-count-badge').className = 'badge badge-primary';
+        document.getElementById('diff-count-badge').textContent = `${data.assignments.length} Products Allocated`;
+        document.getElementById('btn-save').disabled = false;
+
+      } catch (err) {
+        alertBox.className = 'alert alert-danger';
+        alertBox.style.display = 'block';
+        alertBox.textContent = 'Error running optimization: ' + err.message;
+      } finally {
+        btnRun.textContent = "Run Layout Optimizer";
+        btnRun.disabled = false;
+      }
+    }
+
+    async function saveLayout() {
+      if (!currentProposedAssignments) return;
+      const btnSave = document.getElementById('btn-save');
+      btnSave.textContent = "Saving...";
+      btnSave.disabled = true;
+
+      try {
+        const res = await fetch('/api/layout/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assignments: currentProposedAssignments })
+        });
+        const data = await res.json();
+
+        const alertBox = document.getElementById('status-alert');
+        alertBox.className = 'alert alert-success';
+        alertBox.style.display = 'block';
+        alertBox.innerHTML = `<strong>Saved!</strong> ${data.message} The new layout is now active across the database.`;
+      } catch (err) {
+        alert("Failed to save layout: " + err.message);
+      } finally {
+        btnSave.textContent = "Save Layout to MySQL";
+        btnSave.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

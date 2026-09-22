@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Warehouse Graph | Warehouse Optimizer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Common Navigation Bar -->
+  <nav class="navbar">
+    <a href="index.html" class="nav-brand">
+      Warehouse Optimizer
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Dashboard</a></li>
+      <li><a href="products.html">Products</a></li>
+      <li><a href="layout.html">Layout Optimizer</a></li>
+      <li><a href="graph.html" class="active">Warehouse Graph</a></li>
+      <li><a href="order-picking.html">Order Picking</a></li>
+    </ul>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Warehouse Topology Graph</h1>
+        <p class="page-subtitle">Discrete Graph Model: Nodes represent shelves and packing station; weighted edges represent aisle distances</p>
+      </div>
+      <div>
+        <button class="btn btn-secondary" onclick="loadGraph()">Reload Graph</button>
+      </div>
+    </div>
+
+    <div class="concept-tag">
+      <strong>Graph Theory & Discrete Math:</strong> Modeled as an undirected weighted graph $G = (V, E)$ stored in MySQL tables `shelves` (vertices) and `edges` (weighted connections). Used by Dijkstra's algorithm to calculate shortest corridor distances.
+    </div>
+
+    <!-- Canvas Layout & Details Inspector -->
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start;">
+      
+      <!-- Graph Canvas Container -->
+      <div class="card" style="padding: 1rem;">
+        <div class="card-title">
+          <span>Warehouse Aisle Floorplan</span>
+          <div style="display: flex; gap: 0.5rem; font-size: 0.8rem; font-weight: normal;">
+            <span style="display: flex; align-items: center; gap: 0.25rem;"><span style="width: 12px; height: 12px; background: #16a34a; border-radius: 50%; display: inline-block;"></span> Packing Station</span>
+            <span style="display: flex; align-items: center; gap: 0.25rem;"><span style="width: 12px; height: 12px; background: #2563eb; border-radius: 4px; display: inline-block;"></span> Shelf Node</span>
+          </div>
+        </div>
+
+        <div class="canvas-wrapper">
+          <canvas id="graph-canvas" width="820" height="520" style="background: #ffffff; cursor: pointer;"></canvas>
+        </div>
+      </div>
+
+      <!-- Node Inspector Panel -->
+      <div class="card">
+        <div class="card-title">Location Inspector</div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Click on any node in the canvas to inspect its details and connections.
+        </p>
+
+        <div id="inspector-content">
+          <div class="stat-card highlight" style="margin-bottom: 1rem;">
+            <div class="stat-label">Selected Node</div>
+            <div class="stat-value" id="node-id">Shelf 1</div>
+            <div class="stat-desc" id="node-type">Packing & Dispatch Hub</div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.25rem;">
+            <div style="background: #f8fafc; border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Distance to Packing</div>
+              <div style="font-size: 1.2rem; font-weight: 700; color: var(--text-main);" id="node-dist">0.0 m</div>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Capacity / Load</div>
+              <div style="font-size: 1.2rem; font-weight: 700; color: var(--text-main);" id="node-load">0 / 999</div>
+            </div>
+          </div>
+
+          <div class="card-title" style="font-size: 0.95rem; margin-bottom: 0.5rem;">Direct Corridors (Adjacent Edges)</div>
+          <div id="node-neighbors" style="font-size: 0.875rem; color: var(--text-main);">
+            <em>Click a shelf node to see its aisle connections.</em>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let graphData = { nodes: [], edges: [] };
+    let selectedNodeId = 1;
+
+    async function loadGraph() {
+      const canvas = document.getElementById('graph-canvas');
+      try {
+        const res = await fetch('/api/warehouse/graph');
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || errData.hint || `HTTP ${res.status}`);
+        }
+        graphData = await res.json();
+        if (!graphData.nodes || graphData.nodes.length === 0) {
+          throw new Error("No warehouse nodes found in database. Please run: ./run.sh --seed");
+        }
+        drawGraph();
+        selectNode(1);
+      } catch (err) {
+        console.error("Failed to load graph:", err);
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Render user-friendly error card on canvas
+        ctx.fillStyle = '#fef2f2';
+        ctx.fillRect(80, 160, canvas.width - 160, 180);
+        ctx.strokeStyle = '#f87171';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(80, 160, canvas.width - 160, 180);
+
+        ctx.fillStyle = '#b91c1c';
+        ctx.font = 'bold 18px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚠️ Database Not Connected or Empty', canvas.width / 2, 210);
+
+        ctx.fillStyle = '#4b5563';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(err.message.substring(0, 75), canvas.width / 2, 245);
+
+        ctx.fillStyle = '#1e293b';
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText('Fix: Ensure MySQL is running, then run: ./run.sh --seed', canvas.width / 2, 285);
+      }
+    }
+
+    function drawGraph() {
+      const canvas = document.getElementById('graph-canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Create quick node lookup
+      const nodeMap = {};
+      graphData.nodes.forEach(n => {
+        nodeMap[n.id] = n;
+      });
+
+      // 1. Draw Edges (Aisles / Crossways)
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#cbd5e1';
+
+      graphData.edges.forEach(e => {
+        const u = nodeMap[e.from_shelf_id];
+        const v = nodeMap[e.to_shelf_id];
+        if (u && v) {
+          ctx.beginPath();
+          ctx.moveTo(u.x, u.y);
+          ctx.lineTo(v.x, v.y);
+          ctx.stroke();
+
+          // Edge distance label along corridor
+          const midX = (u.x + v.x) / 2;
+          const midY = (u.y + v.y) / 2;
+          ctx.fillStyle = '#64748b';
+          ctx.font = '10px monospace';
+          ctx.fillText(`${e.distance}m`, midX + 3, midY - 3);
+        }
+      });
+
+      // 2. Draw Nodes (Shelves and Packing)
+      graphData.nodes.forEach(n => {
+        const isPacking = n.id === 1;
+        const isSelected = n.id === selectedNodeId;
+
+        ctx.beginPath();
+        if (isPacking) {
+          // Packing Station (Origin Node)
+          ctx.arc(n.x, n.y, 22, 0, 2 * Math.PI);
+          ctx.fillStyle = isSelected ? '#15803d' : '#16a34a';
+          ctx.fill();
+          ctx.lineWidth = isSelected ? 4 : 2;
+          ctx.strokeStyle = isSelected ? '#bbf7d0' : '#ffffff';
+          ctx.stroke();
+
+          // Icon / Label
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText("PACK", n.x, n.y);
+        } else {
+          // Storage Shelf
+          const w = 44;
+          const h = 26;
+          const x = n.x - w / 2;
+          const y = n.y - h / 2;
+
+          ctx.fillStyle = isSelected ? '#1d4ed8' : '#2563eb';
+          ctx.strokeStyle = isSelected ? '#93c5fd' : '#1e3a8a';
+          ctx.lineWidth = isSelected ? 3 : 1;
+
+          ctx.roundRect(x, y, w, h, 5);
+          ctx.fill();
+          ctx.stroke();
+
+          // Shelf Text
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`S-${n.id}`, n.x, n.y - 1);
+        }
+      });
+    }
+
+    function selectNode(id) {
+      selectedNodeId = id;
+      drawGraph();
+
+      const n = graphData.nodes.find(node => node.id === id);
+      if (!n) return;
+
+      const isPacking = n.id === 1;
+      document.getElementById('node-id').textContent = isPacking ? "Shelf 1 (Packing Area)" : `Shelf ${n.id}`;
+      document.getElementById('node-type').textContent = isPacking ? "Origin & Dispatch Station" : `Aisle Storage Location`;
+      document.getElementById('node-dist').textContent = `${n.distance_to_packing} m`;
+      document.getElementById('node-load').textContent = isPacking ? "Infinite" : `${n.current_load} / ${n.capacity}`;
+
+      // Neighbors
+      const neighbors = graphData.edges.filter(e => e.from_shelf_id === id || e.to_shelf_id === id);
+      const neighborDiv = document.getElementById('node-neighbors');
+      if (neighbors.length === 0) {
+        neighborDiv.innerHTML = '<em>No direct edges</em>';
+      } else {
+        neighborDiv.innerHTML = '<ul style="list-style: none; padding: 0;">' + 
+          neighbors.map(e => {
+            const other = (e.from_shelf_id === id) ? e.to_shelf_id : e.from_shelf_id;
+            const otherLabel = (other === 1) ? 'Packing Area (Shelf 1)' : `Shelf ${other}`;
+            return `<li style="padding: 0.3rem 0; border-bottom: 1px solid #f1f5f9;">&bull; Direct aisle to <strong>${otherLabel}</strong> (${e.distance}m)</li>`;
+          }).join('') + '</ul>';
+      }
+    }
+
+    // Canvas click handling to select shelf node
+    const canvas = document.getElementById('graph-canvas');
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const clickX = (e.clientX - rect.left) * scaleX;
+      const clickY = (e.clientY - rect.top) * scaleY;
+
+      let clicked = null;
+      for (const n of graphData.nodes) {
+        const radius = (n.id === 1) ? 28 : 28;
+        const dist = Math.hypot(n.x - clickX, n.y - clickY);
+        if (dist <= radius) {
+          clicked = n.id;
+          break;
+        }
+      }
+
+      if (clicked) {
+        selectNode(clicked);
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', loadGraph);
+  </script>
+</body>
+</html>

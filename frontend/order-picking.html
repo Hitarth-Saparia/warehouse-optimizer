@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Picking Route Optimizer | Warehouse Optimizer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Common Navigation Bar -->
+  <nav class="navbar">
+    <a href="index.html" class="nav-brand">
+      Warehouse Optimizer
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Dashboard</a></li>
+      <li><a href="products.html">Products</a></li>
+      <li><a href="layout.html">Layout Optimizer</a></li>
+      <li><a href="graph.html">Warehouse Graph</a></li>
+      <li><a href="order-picking.html" class="active">Order Picking</a></li>
+    </ul>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Order Picking Route Optimizer</h1>
+        <p class="page-subtitle">Traveling Salesperson Problem (TSP) solver for picking order items and returning to dispatch</p>
+      </div>
+    </div>
+
+    <div class="concept-tag">
+      <strong>TSP Algorithm Strategy:</strong>
+      If order stop count &lt; 8: <em>Brute-Force Permutation</em> tests all $N!$ tours to guarantee the global mathematical minimum.<br>
+      If order stop count &ge; 8: <em>Nearest-Neighbor Heuristic</em> provides polynomial-time greedy fallback routing.
+    </div>
+
+    <!-- Order Selector Card -->
+    <div class="card" style="padding: 1.25rem 1.5rem;">
+      <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 300px;">
+          <label for="order-select" class="form-label">Select Customer Order to Route:</label>
+          <select id="order-select" class="form-select" style="max-width: 100%;">
+            <option value="">Loading orders from /api/orders...</option>
+          </select>
+        </div>
+        <div>
+          <button id="btn-compute" class="btn btn-primary" onclick="computeRoute()">Compute Picking Route</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Route Results Grid -->
+    <div id="results-container" style="display: none;">
+      
+      <!-- Metrics Bar -->
+      <div class="stats-grid">
+        <div class="stat-card highlight">
+          <div class="stat-label">Total Round-Trip Distance</div>
+          <div class="stat-value" id="res-distance" style="color: #2563eb;">-- m</div>
+          <div class="stat-desc">From Packing &rarr; Shelves &rarr; Packing</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Unique Pick Stops</div>
+          <div class="stat-value" id="res-stops">0</div>
+          <div class="stat-desc">Excluding starting origin</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Order Items</div>
+          <div class="stat-value" id="res-items">0</div>
+          <div class="stat-desc">Products to pick on this tour</div>
+        </div>
+        <div class="stat-card success">
+          <div class="stat-label">Algorithm Executed</div>
+          <div class="stat-value" style="font-size: 1.15rem; margin-top: 0.75rem;" id="res-algo">--</div>
+          <div class="stat-desc" id="res-algo-desc">TSP Solver</div>
+        </div>
+      </div>
+
+      <!-- Route Visual Canvas + Step Sequence -->
+      <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 1.5rem; align-items: start;">
+        
+        <!-- Floorplan Route Canvas -->
+        <div class="card" style="padding: 1rem;">
+          <div class="card-title">
+            <span>Visual Pick Path on Warehouse Floorplan</span>
+            <span class="badge badge-success">Optimized Route</span>
+          </div>
+          <div class="canvas-wrapper">
+            <canvas id="route-canvas" width="820" height="520" style="background: #ffffff;"></canvas>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.75rem;">
+            Red lines highlight the active picking route traversing shortest-path corridors calculated via Dijkstra's algorithm.
+          </p>
+        </div>
+
+        <!-- Ordered Steps List -->
+        <div class="card">
+          <div class="card-title">Step-by-Step Pick Sequence</div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Leg</th>
+                  <th>Movement</th>
+                  <th>Distance</th>
+                </tr>
+              </thead>
+              <tbody id="legs-table-body"></tbody>
+            </table>
+          </div>
+
+          <div style="margin-top: 1.25rem;">
+            <div class="card-title" style="font-size: 0.95rem; margin-bottom: 0.5rem;">Order Line Items</div>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Qty</th>
+                    <th>Shelf</th>
+                  </tr>
+                </thead>
+                <tbody id="order-items-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let graphData = { nodes: [], edges: [] };
+    let currentRoute = null;
+
+    async function initializePage() {
+      // 1. Load Warehouse Graph for canvas
+      try {
+        const gRes = await fetch('/api/warehouse/graph');
+        graphData = await gRes.json();
+      } catch (err) {
+        console.error("Failed to load graph:", err);
+      }
+
+      // 2. Load Orders for dropdown
+      try {
+        const oRes = await fetch('/api/orders');
+        const orders = await oRes.json();
+
+        const select = document.getElementById('order-select');
+        select.innerHTML = '';
+
+        orders.forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = o.id;
+          const isTsp = o.items.length < 8;
+          const note = isTsp ? '(Brute-Force TSP)' : '(Nearest-Neighbor TSP)';
+          opt.textContent = `Order #${o.id}: ${o.customer_name} — ${o.items.length} items ${note}`;
+          select.appendChild(opt);
+        });
+
+        // Compute route for the first order by default
+        if (orders.length > 0) {
+          computeRoute();
+        }
+      } catch (err) {
+        console.error("Failed to load orders:", err);
+      }
+    }
+
+    async function computeRoute() {
+      const orderId = document.getElementById('order-select').value;
+      if (!orderId) return;
+
+      const btn = document.getElementById('btn-compute');
+      btn.textContent = "Computing...";
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`/api/orders/${orderId}/route`, { method: 'POST' });
+        currentRoute = await res.json();
+
+        document.getElementById('results-container').style.display = 'block';
+
+        // Update Stat Cards
+        document.getElementById('res-distance').textContent = currentRoute.total_distance + ' m';
+        document.getElementById('res-stops').textContent = currentRoute.stop_count;
+        document.getElementById('res-items').textContent = currentRoute.items ? currentRoute.items.length : 0;
+        document.getElementById('res-algo').textContent = currentRoute.algorithm;
+        document.getElementById('res-algo-desc').textContent = currentRoute.stop_count < 8 ? "Exact Tour Optimization" : "Polynomial Fallback";
+
+        // Render Legs Table
+        const legsBody = document.getElementById('legs-table-body');
+        legsBody.innerHTML = '';
+
+        let cumDist = 0;
+        currentRoute.legs.forEach((leg, idx) => {
+          cumDist += leg.distance;
+          const fromLabel = leg.from_shelf === 1 ? 'Packing Area' : `Shelf ${leg.from_shelf}`;
+          const toLabel = leg.to_shelf === 1 ? 'Packing Area' : `Shelf ${leg.to_shelf}`;
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>#${idx + 1}</strong></td>
+            <td>${fromLabel} &rarr; <strong>${toLabel}</strong></td>
+            <td>${leg.distance} m</td>
+          `;
+          legsBody.appendChild(tr);
+        });
+
+        // Render Items Table
+        const itemsBody = document.getElementById('order-items-body');
+        itemsBody.innerHTML = '';
+        if (currentRoute.items) {
+          currentRoute.items.forEach(it => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${it.name}</td>
+              <td>${it.quantity}</td>
+              <td><span class="badge badge-primary">Shelf ${it.shelf_id}</span></td>
+            `;
+            itemsBody.appendChild(tr);
+          });
+        }
+
+        // Render Canvas
+        drawRouteCanvas();
+
+      } catch (err) {
+        console.error("Failed to compute route:", err);
+      } finally {
+        btn.textContent = "Compute Picking Route";
+        btn.disabled = false;
+      }
+    }
+
+    function drawRouteCanvas() {
+      const canvas = document.getElementById('route-canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const nodeMap = {};
+      graphData.nodes.forEach(n => { nodeMap[n.id] = n; });
+
+      // 1. Draw Background Graph Edges
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#e2e8f0';
+      graphData.edges.forEach(e => {
+        const u = nodeMap[e.from_shelf_id];
+        const v = nodeMap[e.to_shelf_id];
+        if (u && v) {
+          ctx.beginPath();
+          ctx.moveTo(u.x, u.y);
+          ctx.lineTo(v.x, v.y);
+          ctx.stroke();
+        }
+      });
+
+      // 2. Draw Highlighted Route Path (Corridors traversed)
+      if (currentRoute && currentRoute.full_path && currentRoute.full_path.length > 1) {
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#dc2626'; // Bright red active route
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+
+        ctx.beginPath();
+        for (let i = 0; i < currentRoute.full_path.length - 1; i++) {
+          const u = nodeMap[currentRoute.full_path[i]];
+          const v = nodeMap[currentRoute.full_path[i + 1]];
+          if (u && v) {
+            ctx.moveTo(u.x, u.y);
+            ctx.lineTo(v.x, v.y);
+          }
+        }
+        ctx.stroke();
+      }
+
+      // 3. Draw Nodes
+      const routeStopsSet = new Set(currentRoute ? currentRoute.stops : []);
+
+      graphData.nodes.forEach(n => {
+        const isPacking = n.id === 1;
+        const isStop = routeStopsSet.has(n.id) && !isPacking;
+
+        ctx.beginPath();
+        if (isPacking) {
+          ctx.arc(n.x, n.y, 22, 0, 2 * Math.PI);
+          ctx.fillStyle = '#16a34a';
+          ctx.fill();
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = '#ffffff';
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText("PACK", n.x, n.y);
+        } else {
+          const w = 44;
+          const h = 26;
+          const x = n.x - w / 2;
+          const y = n.y - h / 2;
+
+          ctx.fillStyle = isStop ? '#dc2626' : '#94a3b8';
+          ctx.strokeStyle = isStop ? '#fca5a5' : '#cbd5e1';
+          ctx.lineWidth = isStop ? 3 : 1;
+
+          ctx.roundRect(x, y, w, h, 5);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`S-${n.id}`, n.x, n.y - 1);
+
+          // Stop sequence badge if visited
+          if (isStop && currentRoute) {
+            const stopIndex = currentRoute.stops.indexOf(n.id);
+            if (stopIndex > 0) {
+              ctx.beginPath();
+              ctx.arc(n.x + 20, n.y - 12, 9, 0, 2 * Math.PI);
+              ctx.fillStyle = '#f59e0b';
+              ctx.fill();
+              ctx.fillStyle = '#000000';
+              ctx.font = 'bold 9px sans-serif';
+              ctx.fillText(stopIndex, n.x + 20, n.y - 12);
+            }
+          }
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', initializePage);
+  </script>
+</body>
+</html>
