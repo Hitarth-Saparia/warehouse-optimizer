@@ -223,7 +223,7 @@ def seed_database():
     # Storage shelves are 2 to 25 (Shelf 1 is packing)
     products_data = []
     available_shelves = list(range(2, 26))
-    random.seed(42) # Deterministic for reproducible viva demos
+    random.seed(42) # Deterministic for reproducible execution
 
     shelf_load_counter = {s: 0 for s in available_shelves}
 
@@ -291,7 +291,7 @@ def seed_database():
         if order_id <= 9:
             num_items = random.randint(3, 6) # < 8 items
         else:
-            num_items = random.randint(8, 10) # >= 8 items for nearest-neighbor demo
+            num_items = random.randint(8, 10) # >= 8 items for nearest-neighbor heuristic
 
         chosen_prods = random.sample(prod_ids, num_items)
         for p_id in chosen_prods:
