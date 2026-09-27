@@ -13,7 +13,7 @@ class Product:
         self.name = name
         self.category = category
         self.assigned_shelf_id = assigned_shelf_id
-        self.pick_frequency = pick_frequency
+        self.pick_frequency = float(pick_frequency or 0)
 
     def to_dict(self):
         return {

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Multi-Worker Fleet Balancing. Multiple Traveling Salesperson Problem (mTSP) solver to balance warehouse pick loads and minimize shift makespan.">
+  <title>Fleet Balancing | Warehouse Optimizer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Common Navigation Bar -->
+  <nav class="navbar">
+    <a href="index.html" class="nav-brand">
+      <div class="nav-logo-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+      </div>
+      <div class="nav-brand-title">
+        <span class="main-text">Warehouse Optimizer</span>
+        <span class="sub-text">Intelligent Slotting & TSP Routing</span>
+      </div>
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Dashboard</a></li>
+      <li><a href="products.html">Products</a></li>
+      <li><a href="layout.html">Layout Optimizer</a></li>
+      <li><a href="graph.html">Warehouse Graph</a></li>
+      <li><a href="order-picking.html">Order Picking</a></li>
+      <li><a href="waves.html">Wave Picking</a></li>
+      <li><a href="fleet.html" class="active">Fleet Balancing</a></li>
+    </ul>
+    <div class="nav-status">
+      <span class="status-dot"></span>
+      <span>API Connected</span>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Multi-Worker Fleet Workload Balancing</h1>
+        <p class="page-subtitle">Multiple Traveling Salesperson Problem (mTSP) solver to minimize shift completion makespan</p>
+      </div>
+      <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <label for="workers-input" style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted);">Active Pickers:</label>
+        <select id="workers-input" class="form-select" style="width: 140px; padding: 0.45rem 0.65rem;" onchange="loadFleet()">
+          <option value="2">2 Pickers</option>
+          <option value="3" selected>3 Pickers</option>
+          <option value="4">4 Pickers</option>
+          <option value="5">5 Pickers</option>
+        </select>
+        <button id="btn-balance" class="btn btn-primary" onclick="loadFleet()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          Rebalance Fleet
+        </button>
+      </div>
+    </div>
+
+    <div class="concept-tag">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+      <div>
+        <strong>Multiple Traveling Salesperson Problem (mTSP):</strong> Partitions orders across active pickers to minimize the <em>makespan</em> $\min \max_w \text{Distance}(w)$. Enforces workload equity (Gini Coefficient &lt; 0.05) and groups companion aisle orders to prevent corridor congestion.
+      </div>
+    </div>
+
+    <!-- Fleet Metrics Bar -->
+    <div class="stats-grid">
+      <div class="stat-card highlight">
+        <div class="stat-label">Shift Makespan Time</div>
+        <div class="stat-value" id="fleet-makespan-time" style="color: #2563eb;">-- min</div>
+        <div class="stat-desc" id="fleet-makespan-dist">Longest worker tour</div>
+      </div>
+      <div class="stat-card success">
+        <div class="stat-label">Workload Equity (Gini)</div>
+        <div class="stat-value" id="fleet-gini" style="color: #10b981;">0.000</div>
+        <div class="stat-desc" id="fleet-balance-tag">Near-Perfect Balance (G &lt; 0.05)</div>
+      </div>
+      <div class="stat-card violet">
+        <div class="stat-label">Total Fleet Distance</div>
+        <div class="stat-value" id="fleet-total-dist">-- m</div>
+        <div class="stat-desc" id="fleet-avg-dist">Across all active pickers</div>
+      </div>
+      <div class="stat-card warning">
+        <div class="stat-label">Orders Allocated</div>
+        <div class="stat-value" id="fleet-total-orders">--</div>
+        <div class="stat-desc">Distributed to workers</div>
+      </div>
+    </div>
+
+    <!-- Worker Cards Grid -->
+    <div id="workers-cards-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem;">
+      <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 3rem;">
+        Loading fleet workload allocation...
+      </div>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <div class="container" style="margin: 0 auto;">
+      Warehouse Layout & Order Picking Optimizer &bull; High-Performance Graph Routing Engine
+    </div>
+  </footer>
+
+  <script>
+    async function loadFleet() {
+      const workers = document.getElementById('workers-input').value || 3;
+      const btn = document.getElementById('btn-balance');
+      btn.style.opacity = '0.7';
+
+      try {
+        const res = await fetch(`/api/fleet/assign?workers=${workers}`);
+        const data = await res.json();
+
+        const m = data.metrics || {};
+        const workersList = data.workers || [];
+
+        // Update Top Metrics
+        document.getElementById('fleet-makespan-time').textContent = (m.makespan_time_minutes || 0) + ' min';
+        document.getElementById('fleet-makespan-dist').textContent = `Max tour: ${m.makespan_distance || 0} meters`;
+        document.getElementById('fleet-gini').textContent = m.gini_coefficient || '0.000';
+        document.getElementById('fleet-balance-tag').textContent = m.is_balanced ? '✓ Perfectly Balanced Shift' : 'Uneven Distribution';
+        document.getElementById('fleet-total-dist').textContent = (m.total_fleet_distance || 0) + ' m';
+        document.getElementById('fleet-avg-dist').textContent = `Avg ${m.avg_distance_per_worker || 0}m / picker`;
+        document.getElementById('fleet-total-orders').textContent = m.total_orders || 0;
+
+        // Render Individual Worker Cards
+        const container = document.getElementById('workers-cards-container');
+        container.innerHTML = '';
+
+        const maxDist = Math.max(...workersList.map(w => w.total_distance), 1);
+
+        workersList.forEach(w => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.style.marginBottom = '0';
+
+          const pct = Math.round((w.total_distance / maxDist) * 100);
+
+          let ordersHtml = '';
+          (w.assigned_orders || []).forEach(o => {
+            ordersHtml += `
+              <tr>
+                <td><strong>#${o.order_id}</strong></td>
+                <td style="font-weight: 500; font-size: 0.85rem;">${o.customer_name}</td>
+                <td><span class="badge" style="background:#eff6ff; color:#1d4ed8; font-size:0.7rem;">${o.primary_aisle}</span></td>
+                <td style="text-align: right; font-weight: 700;">${o.distance}m</td>
+              </tr>
+            `;
+          });
+
+          card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+              <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <div style="width: 34px; height: 34px; border-radius: 8px; background: #eff6ff; display: flex; align-items: center; justify-content: center; color: #2563eb; font-weight: 800;">
+                  W${w.worker_id}
+                </div>
+                <div>
+                  <h3 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0;">${w.worker_name}</h3>
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">Stationed at Packing Hub</span>
+                </div>
+              </div>
+              <span class="badge badge-success">${w.assigned_orders.length} Orders</span>
+            </div>
+
+            <!-- Workload Meter -->
+            <div style="margin-bottom: 1.25rem;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.35rem; color: var(--text-muted);">
+                <span>Relative Shift Load</span>
+                <span><strong>${w.total_distance}m</strong> (${w.est_time_minutes} min)</span>
+              </div>
+              <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); border-radius: 4px;"></div>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; margin-bottom: 1.25rem; text-align: center;">
+              <div>
+                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Distance</div>
+                <div style="font-weight: 800; color: #0f172a;">${w.total_distance}m</div>
+              </div>
+              <div>
+                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Units</div>
+                <div style="font-weight: 800; color: #2563eb;">${w.total_units}</div>
+              </div>
+              <div>
+                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Stops</div>
+                <div style="font-weight: 800; color: #10b981;">${w.total_stops}</div>
+              </div>
+            </div>
+
+            <div class="card-title" style="font-size: 0.9rem; margin-bottom: 0.5rem;">Assigned Pick Tour Tasks</div>
+            <div class="table-responsive" style="max-height: 200px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Order</th>
+                    <th>Customer</th>
+                    <th>Zone</th>
+                    <th style="text-align: right;">Distance</th>
+                  </tr>
+                </thead>
+                <tbody>${ordersHtml}</tbody>
+              </table>
+            </div>
+          `;
+
+          container.appendChild(card);
+        });
+
+      } catch (err) {
+        console.error("Failed to load fleet allocation:", err);
+      } finally {
+        btn.style.opacity = '1';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadFleet);
+  </script>
+</body>
+</html>

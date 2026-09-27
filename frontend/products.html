@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Warehouse Product Catalog. Item master with shelf assignments, categories, and Pareto pick velocity.">
   <title>Products Catalog | Warehouse Optimizer</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -11,7 +12,17 @@
   <!-- Common Navigation Bar -->
   <nav class="navbar">
     <a href="index.html" class="nav-brand">
-      Warehouse Optimizer
+      <div class="nav-logo-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+      </div>
+      <div class="nav-brand-title">
+        <span class="main-text">Warehouse Optimizer</span>
+        <span class="sub-text">Intelligent Slotting & TSP Routing</span>
+      </div>
     </a>
     <ul class="nav-links">
       <li><a href="index.html">Dashboard</a></li>
@@ -19,36 +30,55 @@
       <li><a href="layout.html">Layout Optimizer</a></li>
       <li><a href="graph.html">Warehouse Graph</a></li>
       <li><a href="order-picking.html">Order Picking</a></li>
+      <li><a href="waves.html">Wave Picking</a></li>
+      <li><a href="fleet.html">Fleet Balancing</a></li>
     </ul>
+    <div class="nav-status">
+      <span class="status-dot"></span>
+      <span>API Connected</span>
+    </div>
   </nav>
 
   <div class="container">
     <div class="page-header">
       <div>
         <h1 class="page-title">Warehouse Product Catalog</h1>
-        <p class="page-subtitle">Inventory items, categories, assigned shelf locations, and pick frequencies</p>
+        <p class="page-subtitle">Inventory master, categories, assigned shelf locations, and pick frequencies</p>
       </div>
       <div>
-        <a href="layout.html" class="btn btn-primary">Optimize Layout &rarr;</a>
+        <a href="layout.html" class="btn btn-primary">
+          Optimize Layout
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </a>
       </div>
     </div>
 
     <div class="concept-tag">
-      <strong>DBMS & Catalog Concept:</strong> Products are mapped to storage shelves in MySQL (`products.assigned_shelf_id`). The pick frequency is computed via `SUM(sales.units_sold)` across 6 months of historical transactions.
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+      </svg>
+      <div>
+        <strong>DBMS & Catalog Concept:</strong> Products are mapped to storage shelves in MySQL (<code>products.assigned_shelf_id</code>). The pick frequency is dynamically computed via <code>SUM(sales.units_sold)</code> across historical transactions to drive greedy slotting.
+      </div>
     </div>
 
     <!-- Filter and Search Controls -->
-    <div class="card" style="padding: 1rem 1.5rem; margin-bottom: 1.5rem;">
-      <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; justify-content: space-between;">
-        <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
-          <div>
-            <label for="search-input" class="form-label" style="margin-bottom: 0.25rem;">Search Product:</label>
-            <input type="text" id="search-input" class="form-input" placeholder="Search by name..." oninput="applyFilters()">
+    <div class="card" style="padding: 1.25rem 1.5rem; margin-bottom: 1.75rem;">
+      <div style="display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;">
+        <div style="display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: flex-end; flex: 1;">
+          <div style="flex: 1; min-width: 220px; max-width: 400px;">
+            <label for="search-input" class="form-label">Search Catalog Item:</label>
+            <input type="text" id="search-input" class="form-input" placeholder="Search by product name..." oninput="applyFilters()">
           </div>
-          <div>
-            <label for="category-filter" class="form-label" style="margin-bottom: 0.25rem;">Category:</label>
+          <div style="min-width: 200px;">
+            <label for="category-filter" class="form-label">Filter Category:</label>
             <select id="category-filter" class="form-select" onchange="applyFilters()">
-              <option value="ALL">All Categories</option>
+              <option value="ALL">All Categories (60 items)</option>
               <option value="Electronics">Electronics</option>
               <option value="Fasteners">Fasteners</option>
               <option value="Heavy">Heavy (Special Handling)</option>
@@ -58,7 +88,7 @@
             </select>
           </div>
         </div>
-        <div style="font-size: 0.9rem; color: var(--text-muted);" id="product-count-label">
+        <div style="font-size: 0.875rem; font-weight: 600; color: var(--text-muted); background: #f8fafc; padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--border);" id="product-count-label">
           Showing 0 products
         </div>
       </div>
@@ -66,21 +96,28 @@
 
     <!-- Products Table -->
     <div class="card">
+      <div class="card-title">
+        <span>Product Inventory & Pick Velocity</span>
+        <span class="badge badge-primary">Catalog Master</span>
+      </div>
+
       <div class="table-responsive">
         <table>
           <thead>
             <tr>
-              <th style="width: 80px;">ID</th>
+              <th style="width: 70px;">ID</th>
               <th>Product Name</th>
               <th>Category</th>
               <th>Assigned Shelf</th>
-              <th>Pick Frequency (Sales Velocity)</th>
+              <th style="min-width: 220px;">Pick Velocity (Units Sold)</th>
               <th>Priority Tier</th>
             </tr>
           </thead>
           <tbody id="products-table-body">
             <tr>
-              <td colspan="6" style="text-align: center; color: var(--text-muted);">Loading products from /api/products...</td>
+              <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                Loading catalog products from /api/products...
+              </td>
             </tr>
           </tbody>
         </table>
@@ -88,13 +125,24 @@
     </div>
   </div>
 
+  <footer class="app-footer">
+    <div class="container" style="margin: 0 auto;">
+      Warehouse Layout & Order Picking Optimizer &bull; High-Performance Graph Routing Engine
+    </div>
+  </footer>
+
   <script>
     let allProducts = [];
+    let maxUnits = 1;
 
     async function loadProducts() {
       try {
         const res = await fetch('/api/products');
         allProducts = await res.json();
+        
+        // Find max units sold for relative meter sizing
+        maxUnits = Math.max(...allProducts.map(p => p.pick_frequency || 0), 1);
+        
         renderProducts(allProducts);
       } catch (err) {
         console.error("Failed to load products:", err);
@@ -105,49 +153,67 @@
       const tbody = document.getElementById('products-table-body');
       tbody.innerHTML = '';
 
-      document.getElementById('product-count-label').textContent = `Showing ${items.length} of ${allProducts.length} products`;
+      document.getElementById('product-count-label').textContent = `Showing ${items.length} of ${allProducts.length} items`;
 
       if (items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No matching products found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">No matching products found.</td></tr>';
         return;
       }
 
       items.forEach(p => {
         const tr = document.createElement('tr');
 
+        // Dynamic category badges
         let catBadge = 'badge-primary';
         if (p.category === 'Fragile') catBadge = 'badge-warning';
         if (p.category === 'Heavy') catBadge = 'badge-danger';
-        if (p.category === 'Fasteners') catBadge = 'badge-success';
+        if (p.category === 'Tools') catBadge = 'badge-violet';
+        if (p.category === 'Electronics') catBadge = 'badge-cyan';
+        if (p.category === 'Safety') catBadge = 'badge-success';
 
-        // Calculate velocity tier
-        let tier = '<span class="badge">Medium</span>';
-        if (p.pick_frequency >= 2000) {
-          tier = '<span class="badge badge-success">High Velocity</span>';
-        } else if (p.pick_frequency < 1000) {
-          tier = '<span class="badge badge-warning">Low Velocity</span>';
+        // Velocity bar ratio
+        const freq = p.pick_frequency || 0;
+        const pct = Math.min(100, Math.round((freq / maxUnits) * 100));
+        let meterClass = 'low';
+        let tierBadge = '<span class="badge" style="background: #f1f5f9; color: #64748b;">Tier C (Low)</span>';
+
+        if (pct >= 65) {
+          meterClass = 'high';
+          tierBadge = '<span class="badge badge-success">★ Tier A (High)</span>';
+        } else if (pct >= 35) {
+          meterClass = 'medium';
+          tierBadge = '<span class="badge badge-primary">Tier B (Medium)</span>';
         }
+
+        const shelfLabel = p.shelf_id ? `Shelf ${p.shelf_id}` : '<span style="color:#ef4444;">Unassigned</span>';
 
         tr.innerHTML = `
           <td><strong>#${p.id}</strong></td>
-          <td><strong>${p.name}</strong></td>
+          <td style="font-weight: 600; color: #0f172a;">${p.name}</td>
           <td><span class="badge ${catBadge}">${p.category}</span></td>
-          <td>${p.assigned_shelf_id ? `Shelf ${p.assigned_shelf_id}` : '<span style="color: #94a3b8;">Unassigned</span>'}</td>
-          <td><strong>${p.pick_frequency.toLocaleString()} units</strong></td>
-          <td>${tier}</td>
+          <td><span class="badge" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-weight: 700;">${shelfLabel}</span></td>
+          <td>
+            <div class="velocity-meter">
+              <div class="velocity-bar">
+                <div class="velocity-fill ${meterClass}" style="width: ${pct}%;"></div>
+              </div>
+              <span style="font-weight: 700; font-size: 0.85rem; min-width: 60px;">${freq} units</span>
+            </div>
+          </td>
+          <td>${tierBadge}</td>
         `;
         tbody.appendChild(tr);
       });
     }
 
     function applyFilters() {
-      const search = document.getElementById('search-input').value.toLowerCase();
-      const category = document.getElementById('category-filter').value;
+      const search = document.getElementById('search-input').value.toLowerCase().trim();
+      const cat = document.getElementById('category-filter').value;
 
       const filtered = allProducts.filter(p => {
-        const matchesSearch = p.name.toLowerCase().includes(search);
-        const matchesCategory = (category === 'ALL') || (p.category === category);
-        return matchesSearch && matchesCategory;
+        const matchesSearch = !search || p.name.toLowerCase().includes(search);
+        const matchesCat = (cat === 'ALL') || (p.category === cat);
+        return matchesSearch && matchesCat;
       });
 
       renderProducts(filtered);

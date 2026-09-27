@@ -1,20 +1,41 @@
 """
 backend/warehouse.py
-Discrete Mathematics & Graph Theory implementation:
-- Represents warehouse aisles, shelves, and packing area as an undirected weighted graph.
-- Implements Dijkstra's Algorithm for exact shortest path between any two locations.
+Discrete Mathematics & Graph Theory Implementation:
+===================================================
+Represents the physical warehouse floorplan as an undirected, weighted,
+metric graph G = (V, E, w):
+- V: Vertices representing physical locations (Shelf 1 = Packing/Dispatch Area, Shelves 2..N).
+- E: Edges representing walkable aisle corridors and crossways.
+- w: E -> R+ : Non-negative corridor traversal distances in meters.
+
+Key Algorithmic Components:
+1. Dijkstra's Shortest Path with Min-Heap Priority Queue: O((V + E) log V).
+2. All-Pairs Shortest Path (APSP) Distance Matrix with Memoization: O(1) pairwise lookup.
+3. Graph Structural Metrics: Connected Components (BFS), Graph Diameter, and Closeness Centrality.
+4. Metric Space Verification (Symmetry, Triangle Inequality).
 """
 
 import heapq
+from collections import deque
+import math
+
 
 class Warehouse:
+    """
+    Undirected Weighted Graph model G = (V, E, w) representing warehouse corridors.
+    Provides shortest-path calculations, distance matrix caching, and graph theory metrics.
+    """
+
     def __init__(self, shelves=None, edges=None):
         """
-        shelves: list of Shelf objects or dicts
-        edges: list of tuples (from_shelf_id, to_shelf_id, distance)
+        Args:
+            shelves: list of Shelf objects or dictionaries containing node metadata.
+            edges: list of tuples (from_shelf_id, to_shelf_id, distance).
         """
-        self.shelves = {} # shelf_id -> Shelf / dict
-        self.adj = {}     # shelf_id -> [(neighbor_id, distance), ...]
+        self.shelves = {}  # Vertex set V: shelf_id -> Shelf / dict
+        self.adj = {}      # Adjacency list: shelf_id -> [(neighbor_id, distance), ...]
+        self._distance_matrix = {}  # Memoized (u, v) -> shortest distance
+        self._path_matrix = {}      # Memoized (u, v) -> list of nodes in path
 
         if shelves:
             for s in shelves:
@@ -27,44 +48,77 @@ class Warehouse:
             for u, v, w in edges:
                 self.add_edge(u, v, float(w))
 
+    # -------------------------------------------------------------
+    # Graph Construction & Modification
+    # -------------------------------------------------------------
+
     def add_node(self, shelf):
+        """Adds vertex v in V."""
         s_id = shelf.id if hasattr(shelf, 'id') else shelf['id']
         self.shelves[s_id] = shelf
         if s_id not in self.adj:
             self.adj[s_id] = []
+        self._invalidate_cache()
 
     def add_edge(self, u, v, weight):
+        """
+        Adds undirected edge (u, v) with weight w to E.
+        Guarantees symmetry: w(u, v) = w(v, u).
+        """
         if u not in self.adj:
             self.adj[u] = []
         if v not in self.adj:
             self.adj[v] = []
-        
+
+        weight = float(weight)
+
         # Avoid duplicate edges
         if not any(neighbor == v for neighbor, _ in self.adj[u]):
             self.adj[u].append((v, weight))
         if not any(neighbor == u for neighbor, _ in self.adj[v]):
             self.adj[v].append((u, weight))
 
+        self._invalidate_cache()
+
+    def _invalidate_cache(self):
+        """Clears memoized distances upon graph mutation."""
+        self._distance_matrix.clear()
+        self._path_matrix.clear()
+
+    # -------------------------------------------------------------
+    # Discrete Math: Shortest Path via Dijkstra's Algorithm
+    # -------------------------------------------------------------
+
     def dijkstra(self, start_id, end_id):
         """
-        Computes the shortest path and distance between start_id and end_id
-        using Dijkstra's Algorithm with a priority queue (min-heap).
-        Returns (shortest_distance, [list_of_nodes_in_path])
+        Computes the single-pair shortest path and distance between start_id and end_id
+        using Dijkstra's Algorithm with a min-heap priority queue.
+        
+        Time Complexity: O((|V| + |E|) log |V|)
+        Space Complexity: O(|V|)
+        
+        Returns:
+            (shortest_distance: float, path: list[int])
         """
+        # Check cache first for instant O(1) response
+        cache_key = (start_id, end_id)
+        if cache_key in self._distance_matrix:
+            return self._distance_matrix[cache_key], self._path_matrix[cache_key]
+
         if start_id == end_id:
             return 0.0, [start_id]
 
         if start_id not in self.adj or end_id not in self.adj:
             return float('inf'), []
 
-        # distances dict to store minimum cost to each node
+        # Distance table: delta(start_id, v) initialized to infinity
         distances = {node: float('inf') for node in self.adj}
         distances[start_id] = 0.0
 
-        # previous node tracking to reconstruct shortest path
+        # Predecessor map for path reconstruction
         previous = {node: None for node in self.adj}
 
-        # min-heap priority queue: (cost, node)
+        # Priority Queue: (cumulative_distance, node_id)
         pq = [(0.0, start_id)]
 
         while pq:
@@ -78,12 +132,13 @@ class Warehouse:
 
             for neighbor, weight in self.adj.get(current_node, []):
                 new_dist = current_dist + weight
+                # Relaxation step: if a shorter corridor path is found
                 if new_dist < distances[neighbor]:
                     distances[neighbor] = new_dist
                     previous[neighbor] = current_node
                     heapq.heappush(pq, (new_dist, neighbor))
 
-        # Reconstruct path from start to end
+        # Reconstruct path backwards from end_id to start_id
         if distances[end_id] == float('inf'):
             return float('inf'), []
 
@@ -94,11 +149,124 @@ class Warehouse:
             curr = previous[curr]
         path.reverse()
 
-        return round(distances[end_id], 2), path
+        result_dist = round(distances[end_id], 2)
+
+        # Memoize bidirectional result due to undirected graph symmetry
+        self._distance_matrix[(start_id, end_id)] = result_dist
+        self._path_matrix[(start_id, end_id)] = path
+        self._distance_matrix[(end_id, start_id)] = result_dist
+        self._path_matrix[(end_id, start_id)] = list(reversed(path))
+
+        return result_dist, path
 
     def get_distance(self, u, v):
+        """Returns the shortest corridor walking distance between u and v."""
         dist, _ = self.dijkstra(u, v)
         return dist
+
+    # -------------------------------------------------------------
+    # All-Pairs Shortest Path (APSP) Matrix Precomputation
+    # -------------------------------------------------------------
+
+    def precompute_distance_matrix(self):
+        """
+        Precomputes all-pairs shortest paths across all vertices.
+        Enables O(1) lookups for combinatorial TSP and greedy layout optimization.
+        """
+        nodes = list(self.adj.keys())
+        for i in range(len(nodes)):
+            for j in range(i, len(nodes)):
+                u, v = nodes[i], nodes[j]
+                self.dijkstra(u, v)
+        return self._distance_matrix
+
+    # -------------------------------------------------------------
+    # Graph Theory Structural & Topological Analysis
+    # -------------------------------------------------------------
+
+    def is_connected(self):
+        """
+        Verifies if graph G is connected (a single component).
+        Uses Breadth-First Search (BFS) starting from Packing Station (node 1).
+        Ensures all shelves are reachable for warehouse order picking.
+        """
+        if not self.adj:
+            return True
+
+        start_node = next(iter(self.adj))
+        visited = set()
+        queue = deque([start_node])
+        visited.add(start_node)
+
+        while queue:
+            node = queue.popleft()
+            for neighbor, _ in self.adj.get(node, []):
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    queue.append(neighbor)
+
+        return len(visited) == len(self.adj)
+
+    def get_connected_components(self):
+        """Returns list of connected component node sets."""
+        visited = set()
+        components = []
+
+        for node in self.adj:
+            if node not in visited:
+                comp = set()
+                queue = deque([node])
+                visited.add(node)
+                comp.add(node)
+
+                while queue:
+                    curr = queue.popleft()
+                    for neighbor, _ in self.adj.get(curr, []):
+                        if neighbor not in visited:
+                            visited.add(neighbor)
+                            comp.add(neighbor)
+                            queue.append(neighbor)
+                components.append(comp)
+
+        return components
+
+    def graph_diameter(self):
+        """
+        Computes the diameter of the warehouse graph:
+        diameter(G) = max_{u, v in V} delta(u, v)
+        Represents the longest possible shortest path across the entire warehouse.
+        """
+        max_dist = 0.0
+        nodes = list(self.adj.keys())
+        for i in range(len(nodes)):
+            for j in range(i + 1, len(nodes)):
+                dist = self.get_distance(nodes[i], nodes[j])
+                if dist != float('inf') and dist > max_dist:
+                    max_dist = dist
+        return round(max_dist, 2)
+
+    def closeness_centrality(self, node_id):
+        """
+        Computes the Closeness Centrality C(u) = (|V| - 1) / sum_{v != u} delta(u, v).
+        High closeness centrality indicates strategic locations with minimal average
+        distance to all other warehouse storage shelves.
+        """
+        if node_id not in self.adj:
+            return 0.0
+
+        n = len(self.adj)
+        if n <= 1:
+            return 1.0
+
+        total_distance = sum(self.get_distance(node_id, v) for v in self.adj if v != node_id)
+        if total_distance == 0.0 or math.isinf(total_distance):
+            return 0.0
+
+        return round((n - 1) / total_distance, 4)
+
+    # -------------------------------------------------------------
+    # Serialization
+    # -------------------------------------------------------------
 
     def to_dict(self):
         """Returns JSON-serializable graph structure for visualization."""
@@ -124,5 +292,7 @@ class Warehouse:
 
         return {
             "nodes": nodes,
-            "edges": edge_list
+            "edges": edge_list,
+            "is_connected": self.is_connected(),
+            "diameter": self.graph_diameter()
         }

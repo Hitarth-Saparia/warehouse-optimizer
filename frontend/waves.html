@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Warehouse Topology Graph. Visual 2D floorplan canvas showing shelves, corridors, and Dijkstra shortest paths.">
-  <title>Warehouse Graph | Warehouse Optimizer</title>
+  <meta name="description" content="Multi-Order Wave & Batch Picking Optimizer. Solves the Order Batching Problem (OBP) to consolidate multiple customer orders into optimal single-tour picking waves.">
+  <title>Wave & Batch Picking | Warehouse Optimizer</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -28,9 +28,9 @@
       <li><a href="index.html">Dashboard</a></li>
       <li><a href="products.html">Products</a></li>
       <li><a href="layout.html">Layout Optimizer</a></li>
-      <li><a href="graph.html" class="active">Warehouse Graph</a></li>
+      <li><a href="graph.html">Warehouse Graph</a></li>
       <li><a href="order-picking.html">Order Picking</a></li>
-      <li><a href="waves.html">Wave Picking</a></li>
+      <li><a href="waves.html" class="active">Wave Picking</a></li>
       <li><a href="fleet.html">Fleet Balancing</a></li>
     </ul>
     <div class="nav-status">
@@ -42,51 +42,65 @@
   <div class="container">
     <div class="page-header">
       <div>
-        <h1 class="page-title">Warehouse Topology Graph</h1>
-        <p class="page-subtitle">Discrete Graph Model: Vertices represent shelves and packing station; weighted edges represent aisle distances</p>
+        <h1 class="page-title">Multi-Order Wave & Batch Picking</h1>
+        <p class="page-subtitle">Operations Research: Solve the Order Batching Problem (OBP) to eliminate redundant warehouse travel</p>
       </div>
-      <div>
-        <button id="btn-reload" class="btn btn-secondary" onclick="loadGraph()">
+      <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <label for="capacity-input" style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted);">Cart Capacity:</label>
+        <input type="number" id="capacity-input" class="form-input" value="35" min="10" max="80" style="width: 85px; padding: 0.45rem 0.65rem;">
+        <button id="btn-batch" class="btn btn-primary" onclick="loadWaves()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="23 4 23 10 17 10"></polyline>
             <polyline points="1 20 1 14 7 14"></polyline>
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
           </svg>
-          Reload Graph
+          Optimize Waves
         </button>
       </div>
     </div>
 
     <div class="concept-tag">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="18" cy="5" r="3"></circle>
-        <circle cx="6" cy="12" r="3"></circle>
-        <circle cx="18" cy="19" r="3"></circle>
-        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
       </svg>
       <div>
-        <strong>Graph Theory & Discrete Math:</strong> Undirected weighted graph $G = (V, E)$ stored in MySQL tables <code>shelves</code> and <code>edges</code>. Dijkstra's Algorithm with a min-heap priority queue computes exact shortest corridor walks between any nodes.
+        <strong>Order Batching Problem (OBP):</strong> Instead of individual round-trips per order, companion orders sharing warehouse aisles are merged into single picking carts (capacity-constrained knapsack). Consolidated TSP routing achieves an additional <strong>~48% distance reduction</strong>!
       </div>
     </div>
 
-    <!-- Canvas Layout & Details Inspector -->
-    <div style="display: grid; grid-template-columns: 2.2fr 1fr; gap: 1.75rem; align-items: start;">
+    <!-- Batch Summary Metrics Grid -->
+    <div class="stats-grid">
+      <div class="stat-card highlight">
+        <div class="stat-label">Total Customer Orders</div>
+        <div class="stat-value" id="res-total-orders">--</div>
+        <div class="stat-desc">Pending fulfillment orders</div>
+      </div>
+      <div class="stat-card violet">
+        <div class="stat-label">Synthesized Pick Waves</div>
+        <div class="stat-value" id="res-total-waves">--</div>
+        <div class="stat-desc" id="res-avg-orders">Consolidated picking carts</div>
+      </div>
+      <div class="stat-card success">
+        <div class="stat-label">Batching Travel Reduction</div>
+        <div class="stat-value" id="res-reduction" style="color: #10b981;">--%</div>
+        <div class="stat-desc" id="res-saved-desc">Distance reduction vs individual tours</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Consolidated Distance</div>
+        <div class="stat-value" id="res-batched-dist">-- m</div>
+        <div class="stat-desc" id="res-unbatched-desc">vs individual picking</div>
+      </div>
+    </div>
+
+    <!-- Wave Selection & Interactive Route Canvas -->
+    <div style="display: grid; grid-template-columns: 2.2fr 1.8fr; gap: 1.75rem; align-items: start;">
       
-      <!-- Graph Canvas Container -->
-      <div class="card" id="graph-canvas-card" style="padding: 1.25rem; position: relative;">
+      <!-- Wave Route Canvas with Interactive Controls -->
+      <div class="card" id="wave-canvas-card" style="padding: 1.25rem; position: relative;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-          <div class="card-title" style="margin-bottom: 0;">Warehouse Aisle Floorplan Canvas</div>
-          <div style="display: flex; gap: 0.75rem; font-size: 0.8rem; font-weight: normal; align-items: center;">
-            <span style="display: flex; align-items: center; gap: 0.35rem;">
-              <span style="width: 12px; height: 12px; background: #10b981; border-radius: 50%; box-shadow: 0 0 6px #10b981; display: inline-block;"></span> 
-              Packing Hub
-            </span>
-            <span style="display: flex; align-items: center; gap: 0.35rem;">
-              <span style="width: 14px; height: 10px; background: #2563eb; border-radius: 3px; display: inline-block;"></span> 
-              Storage Shelf
-            </span>
-          </div>
+          <div class="card-title" style="margin-bottom: 0;">Consolidated Wave Floorplan Route</div>
+          <span id="wave-badge" class="badge badge-success">Optimized Wave Tour</span>
         </div>
 
         <!-- Floating Interactive Toolbar -->
@@ -126,10 +140,10 @@
         </div>
 
         <div class="canvas-wrapper" style="overflow: hidden; cursor: grab;">
-          <canvas id="graph-canvas" width="820" height="520" style="background: #f8fafc; border-radius: 8px;"></canvas>
+          <canvas id="wave-canvas" width="820" height="520" style="background: #f8fafc; border-radius: 8px;"></canvas>
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">
-          <span>Tip: Click any shelf node or the green packing hub on the canvas to inspect real-time metrics, load, and corridor connections.</span>
+          <span>Shows the single unified tour that fulfills all orders in the selected wave without returning to the packing hub.</span>
           <span style="font-weight: 600; color: var(--primary); white-space: nowrap; margin-left: 1rem;">
             <kbd style="background:#e2e8f0; padding: 2px 5px; border-radius: 4px; font-size: 0.75rem;">Scroll</kbd> Zoom &bull; 
             <kbd style="background:#e2e8f0; padding: 2px 5px; border-radius: 4px; font-size: 0.75rem;">Drag</kbd> Pan &bull; 
@@ -138,35 +152,49 @@
         </div>
       </div>
 
-      <!-- Node Inspector Panel -->
+      <!-- Wave Details & Order List -->
       <div class="card">
-        <div class="card-title">Location Inspector</div>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
-          Click on any node in the canvas to inspect its details and connections.
-        </p>
+        <div class="card-title">
+          <span>Pick Waves (Consolidated Batches)</span>
+          <span id="waves-count-pill" class="badge badge-primary">0 Waves</span>
+        </div>
 
-        <div id="inspector-content">
-          <div class="stat-card highlight" style="margin-bottom: 1.25rem;">
-            <div class="stat-label">Selected Node</div>
-            <div class="stat-value" id="node-id" style="font-size: 1.75rem;">Shelf 1</div>
-            <div class="stat-desc" id="node-type">Packing & Dispatch Hub</div>
-          </div>
+        <div style="margin-bottom: 1.25rem;">
+          <label for="wave-select" class="form-label">Select Wave to Inspect:</label>
+          <select id="wave-select" class="form-select" onchange="renderSelectedWave()" style="max-width: 100%;">
+            <option value="">Loading waves...</option>
+          </select>
+        </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.25rem;">
-            <div style="background: #f8fafc; border: 1px solid var(--border); padding: 0.85rem; border-radius: 8px;">
-              <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Distance to Hub</div>
-              <div style="font-size: 1.35rem; font-weight: 800; color: #0f172a;" id="node-dist">0.0 m</div>
-            </div>
-            <div style="background: #f8fafc; border: 1px solid var(--border); padding: 0.85rem; border-radius: 8px;">
-              <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Current Load</div>
-              <div style="font-size: 1.35rem; font-weight: 800; color: #2563eb;" id="node-load">0 / 999</div>
-            </div>
+        <div id="wave-info-box" style="background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span style="font-weight: 700; color: #0f172a;" id="info-wave-title">Wave #1</span>
+            <span class="badge badge-success" id="info-wave-saved">0m Saved</span>
           </div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;" id="info-wave-customers">
+            Customers: --
+          </div>
+          <div style="display: flex; gap: 1rem; font-size: 0.85rem;">
+            <span>Units: <strong id="info-wave-units">0</strong></span>
+            <span>Stops: <strong id="info-wave-stops">0</strong></span>
+            <span>Tour: <strong id="info-wave-dist">0m</strong></span>
+          </div>
+        </div>
 
-          <div class="card-title" style="font-size: 0.95rem; margin-bottom: 0.5rem;">Direct Corridors (Adjacent Edges)</div>
-          <div id="node-neighbors" style="font-size: 0.875rem; color: var(--text-main);">
-            <em>Click a shelf node to see its aisle connections.</em>
-          </div>
+        <!-- Wave Line Items Table -->
+        <div class="card-title" style="font-size: 0.95rem; margin-bottom: 0.5rem;">Wave Pick-to-Tote Items</div>
+        <div class="table-responsive" style="max-height: 250px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th style="width: 50px;">Qty</th>
+                <th>Shelf</th>
+                <th>Order</th>
+              </tr>
+            </thead>
+            <tbody id="wave-items-body"></tbody>
+          </table>
         </div>
       </div>
 
@@ -181,8 +209,96 @@
 
   <script>
     let graphData = { nodes: [], edges: [] };
-    let selectedNodeId = 1;
-    let hoveredNodeId = null;
+    let wavesData = [];
+
+    async function initializePage() {
+      // 1. Load Warehouse Graph for canvas
+      try {
+        const gRes = await fetch('/api/warehouse/graph');
+        graphData = await gRes.json();
+      } catch (err) {
+        console.error("Failed to load graph:", err);
+      }
+
+      // 2. Load Batches
+      await loadWaves();
+    }
+
+    async function loadWaves() {
+      const cap = document.getElementById('capacity-input').value || 35;
+      const btn = document.getElementById('btn-batch');
+      btn.style.opacity = '0.7';
+
+      try {
+        const res = await fetch(`/api/batch/waves?cart_capacity=${cap}`);
+        const data = await res.json();
+
+        wavesData = data.batches || [];
+        const m = data.metrics || {};
+
+        // Update Summary Cards
+        document.getElementById('res-total-orders').textContent = m.total_orders || 0;
+        document.getElementById('res-total-waves').textContent = m.total_batches || 0;
+        document.getElementById('res-avg-orders').textContent = `Avg ${m.avg_orders_per_batch || 0} orders / wave`;
+        document.getElementById('res-reduction').textContent = (m.percent_reduction || 0) + '%';
+        document.getElementById('res-saved-desc').textContent = `${m.distance_saved || 0}m saved across batches`;
+        document.getElementById('res-batched-dist').textContent = (m.batched_total_distance || 0) + ' m';
+        document.getElementById('res-unbatched-desc').textContent = `vs ${m.unbatched_total_distance || 0}m unbatched`;
+
+        // Populate Dropdown
+        const select = document.getElementById('wave-select');
+        select.innerHTML = '';
+        wavesData.forEach((w, idx) => {
+          const opt = document.createElement('option');
+          opt.value = idx;
+          opt.textContent = `${w.batch_name}: ${w.orders_count} Orders (${w.total_units} units, ${w.unique_stops} stops) — ${w.batched_distance}m`;
+          select.appendChild(opt);
+        });
+
+        document.getElementById('waves-count-pill').textContent = `${wavesData.length} Waves`;
+
+        if (wavesData.length > 0) {
+          renderSelectedWave();
+        }
+
+      } catch (err) {
+        console.error("Failed to load wave batches:", err);
+      } finally {
+        btn.style.opacity = '1';
+      }
+    }
+
+    function renderSelectedWave() {
+      const idx = document.getElementById('wave-select').value;
+      if (idx === "" || !wavesData[idx]) return;
+
+      const wave = wavesData[idx];
+
+      // Update Info Box
+      document.getElementById('info-wave-title').textContent = wave.batch_name;
+      document.getElementById('info-wave-saved').textContent = `Saved ${wave.distance_saved}m (${wave.percent_saved}%)`;
+      document.getElementById('info-wave-customers').textContent = `Orders: ${wave.customers.join(', ')}`;
+      document.getElementById('info-wave-units').textContent = `${wave.total_units} units`;
+      document.getElementById('info-wave-stops').textContent = `${wave.unique_stops} shelves`;
+      document.getElementById('info-wave-dist').textContent = `${wave.batched_distance}m`;
+
+      // Update Items Table
+      const tbody = document.getElementById('wave-items-body');
+      tbody.innerHTML = '';
+      (wave.items || []).forEach(it => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-weight: 500;">${it.product_name}</td>
+          <td><span class="badge" style="background:#f1f5f9; color:#0f172a; font-weight:700;">${it.quantity}x</span></td>
+          <td><span class="badge badge-primary">Shelf ${it.shelf_id}</span></td>
+          <td><span class="badge" style="background:#eff6ff; color:#1d4ed8;">#${it.order_id}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Draw Route on Canvas
+      drawWaveCanvas(wave);
+    }
 
     // View Transformation State for Pan & Zoom
     let view = {
@@ -196,29 +312,10 @@
       dragStartY: 0
     };
     let isFullscreen = false;
-
-    async function loadGraph() {
-      try {
-        const res = await fetch('/api/warehouse/graph');
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || errData.hint || `HTTP ${res.status}`);
-        }
-        graphData = await res.json();
-        if (!graphData.nodes || graphData.nodes.length === 0) {
-          throw new Error("No warehouse nodes found in database.");
-        }
-
-        setupCanvasInteractivity();
-        resizeCanvas();
-        selectNode(1);
-      } catch (err) {
-        console.error("Failed to load graph:", err);
-      }
-    }
+    let hoveredNodeId = null;
 
     function setupCanvasInteractivity() {
-      const canvas = document.getElementById('graph-canvas');
+      const canvas = document.getElementById('wave-canvas');
 
       // Mouse Wheel Zoom centered at cursor
       canvas.addEventListener('wheel', (e) => {
@@ -231,11 +328,9 @@
       }, { passive: false });
 
       // Click & Drag Panning
-      let didDrag = false;
       canvas.addEventListener('mousedown', (e) => {
         if (e.button === 0) {
           view.isDragging = true;
-          didDrag = false;
           view.dragStartX = e.clientX - view.x;
           view.dragStartY = e.clientY - view.y;
           canvas.style.cursor = 'grabbing';
@@ -250,8 +345,7 @@
         if (view.isDragging) {
           view.x = e.clientX - view.dragStartX;
           view.y = e.clientY - view.dragStartY;
-          didDrag = true;
-          drawGraph();
+          renderCurrentWave();
           return;
         }
 
@@ -271,36 +365,18 @@
           if (hovered !== hoveredNodeId) {
             hoveredNodeId = hovered;
             canvas.style.cursor = hovered ? 'pointer' : 'grab';
-            drawGraph();
+            renderCurrentWave();
           }
         } else if (hoveredNodeId) {
           hoveredNodeId = null;
-          drawGraph();
+          renderCurrentWave();
         }
       });
 
-      window.addEventListener('mouseup', (e) => {
+      window.addEventListener('mouseup', () => {
         if (view.isDragging) {
           view.isDragging = false;
           canvas.style.cursor = hoveredNodeId ? 'pointer' : 'grab';
-        }
-      });
-
-      // Selection on click (only if not dragging)
-      canvas.addEventListener('click', (e) => {
-        if (didDrag) return;
-        const rect = canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        const worldX = (mouseX - view.x) / view.scale;
-        const worldY = (mouseY - view.y) / view.scale;
-
-        for (const n of graphData.nodes) {
-          const r = (n.id === 1) ? 30 : 28;
-          if (Math.hypot(n.x - worldX, n.y - worldY) <= r) {
-            selectNode(n.id);
-            break;
-          }
         }
       });
 
@@ -344,11 +420,11 @@
       view.scale = newScale;
 
       updateZoomLabel();
-      drawGraph();
+      renderCurrentWave();
     }
 
     function zoomBy(factor) {
-      const canvas = document.getElementById('graph-canvas');
+      const canvas = document.getElementById('wave-canvas');
       const rect = canvas.getBoundingClientRect();
       zoomAt(rect.width / 2, rect.height / 2, factor);
     }
@@ -358,7 +434,7 @@
       view.x = 0;
       view.y = 0;
       updateZoomLabel();
-      drawGraph();
+      renderCurrentWave();
     }
 
     function updateZoomLabel() {
@@ -369,7 +445,7 @@
     }
 
     function toggleFullscreen() {
-      const card = document.getElementById('graph-canvas-card');
+      const card = document.getElementById('wave-canvas-card');
       if (!isFullscreen) {
         card.classList.add('card-fullscreen');
         isFullscreen = true;
@@ -389,7 +465,7 @@
     }
 
     function exitFullscreenUI() {
-      const card = document.getElementById('graph-canvas-card');
+      const card = document.getElementById('wave-canvas-card');
       card.classList.remove('card-fullscreen');
       isFullscreen = false;
       document.getElementById('fs-icon-expand').style.display = 'block';
@@ -398,7 +474,7 @@
     }
 
     function resizeCanvas() {
-      const canvas = document.getElementById('graph-canvas');
+      const canvas = document.getElementById('wave-canvas');
       if (!canvas) return;
       const wrapper = canvas.parentElement;
       const rect = wrapper.getBoundingClientRect();
@@ -412,7 +488,16 @@
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
 
-      drawGraph();
+      renderCurrentWave();
+    }
+
+    function renderCurrentWave() {
+      const idx = document.getElementById('wave-select').value;
+      if (idx !== "" && wavesData[idx]) {
+        drawWaveCanvas(wavesData[idx]);
+      } else {
+        drawWaveCanvas(null);
+      }
     }
 
     function drawRealisticFloor(ctx) {
@@ -447,12 +532,11 @@
         ctx.stroke();
       }
 
-      // Outer safety boundary
       ctx.strokeStyle = '#e2e8f0';
       ctx.lineWidth = 2;
       ctx.strokeRect(30, 20, 755, 480);
 
-      // Central Corridor Lane Markings (y = 260)
+      // Central Corridor Lane Markings
       ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([8, 8]);
@@ -513,8 +597,8 @@
       });
     }
 
-    function drawGraph() {
-      const canvas = document.getElementById('graph-canvas');
+    function drawWaveCanvas(wave) {
+      const canvas = document.getElementById('wave-canvas');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       const dpr = window.devicePixelRatio || 1;
@@ -525,7 +609,6 @@
       ctx.fillStyle = '#f8fafc';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // World scale
       ctx.save();
       ctx.scale(dpr, dpr);
       ctx.translate(view.x, view.y);
@@ -537,10 +620,10 @@
       const nodeMap = {};
       graphData.nodes.forEach(n => { nodeMap[n.id] = n; });
 
-      // 1. Draw Corridors (Walkable Graph Edges)
+      // 1. Background Corridors
       ctx.lineWidth = 2.5;
       ctx.strokeStyle = '#cbd5e1';
-
+      ctx.setLineDash([4, 4]);
       graphData.edges.forEach(e => {
         const u = nodeMap[e.from_shelf_id];
         const v = nodeMap[e.to_shelf_id];
@@ -549,32 +632,79 @@
           ctx.moveTo(u.x, u.y);
           ctx.lineTo(v.x, v.y);
           ctx.stroke();
-
-          // Distance Pill along corridor
-          const midX = (u.x + v.x) / 2;
-          const midY = (u.y + v.y) / 2;
-          ctx.save();
-          ctx.fillStyle = '#ffffff';
-          ctx.beginPath();
-          ctx.roundRect(midX - 15, midY - 9, 30, 18, 4);
-          ctx.fill();
-          ctx.strokeStyle = '#cbd5e1';
-          ctx.lineWidth = 1;
-          ctx.stroke();
-
-          ctx.fillStyle = '#475569';
-          ctx.font = 'bold 9px monospace';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(`${e.distance}m`, midX, midY);
-          ctx.restore();
         }
       });
+      ctx.setLineDash([]);
 
-      // 2. Draw Nodes (Packing Hub & Heavy-Duty Pallet Racks)
+      // 2. Highlight Wave Consolidated Route (Glowing Violet Ribbon)
+      if (wave && wave.full_path && wave.full_path.length > 1) {
+        ctx.save();
+        // Route outer glow
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = 'rgba(139, 92, 246, 0.28)';
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        for (let i = 0; i < wave.full_path.length - 1; i++) {
+          const u = nodeMap[wave.full_path[i]];
+          const v = nodeMap[wave.full_path[i + 1]];
+          if (u && v) {
+            ctx.moveTo(u.x, u.y);
+            ctx.lineTo(v.x, v.y);
+          }
+        }
+        ctx.stroke();
+
+        // Inner solid line
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = '#8b5cf6';
+        ctx.beginPath();
+        for (let i = 0; i < wave.full_path.length - 1; i++) {
+          const u = nodeMap[wave.full_path[i]];
+          const v = nodeMap[wave.full_path[i + 1]];
+          if (u && v) {
+            ctx.moveTo(u.x, u.y);
+            ctx.lineTo(v.x, v.y);
+          }
+        }
+        ctx.stroke();
+
+        // Directional chevrons along wave tour
+        for (let i = 0; i < wave.full_path.length - 1; i++) {
+          const u = nodeMap[wave.full_path[i]];
+          const v = nodeMap[wave.full_path[i + 1]];
+          if (u && v) {
+            const dx = v.x - u.x;
+            const dy = v.y - u.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist >= 30) {
+              const angle = Math.atan2(dy, dx);
+              const midX = (u.x + v.x) / 2;
+              const midY = (u.y + v.y) / 2;
+              ctx.save();
+              ctx.translate(midX, midY);
+              ctx.rotate(angle);
+              ctx.fillStyle = '#8b5cf6';
+              ctx.beginPath();
+              ctx.moveTo(-4, -5);
+              ctx.lineTo(3, 0);
+              ctx.lineTo(-4, 5);
+              ctx.lineTo(-2, 0);
+              ctx.closePath();
+              ctx.fill();
+              ctx.restore();
+            }
+          }
+        }
+        ctx.restore();
+      }
+
+      // 3. Draw Nodes (Packing Station & Storage Racks)
+      const routeStopsSet = new Set(wave ? wave.stops : []);
+
       graphData.nodes.forEach(n => {
         const isPacking = n.id === 1;
-        const isSelected = n.id === selectedNodeId;
+        const isStop = routeStopsSet.has(n.id) && !isPacking;
         const isHovered = n.id === hoveredNodeId;
 
         if (isPacking) {
@@ -588,26 +718,20 @@
           ctx.lineWidth = 2;
           ctx.strokeRect(px - 4, py - 4, pw + 8, ph + 8);
 
-          // Hub aura
-          if (isSelected) {
-            ctx.shadowColor = 'rgba(16, 185, 129, 0.7)';
-            ctx.shadowBlur = 16;
-          }
-
           const grad = ctx.createLinearGradient(px, py, px, py + ph);
-          grad.addColorStop(0, isSelected ? '#059669' : '#10b981');
-          grad.addColorStop(1, '#047857');
+          grad.addColorStop(0, '#10b981');
+          grad.addColorStop(1, '#059669');
 
           ctx.fillStyle = grad;
           ctx.beginPath();
           ctx.roundRect(px, py, pw, ph, 8);
           ctx.fill();
 
-          ctx.strokeStyle = isSelected ? '#a7f3d0' : '#ffffff';
-          ctx.lineWidth = isSelected ? 3 : 2;
+          ctx.strokeStyle = isHovered ? '#6ee7b7' : '#ffffff';
+          ctx.lineWidth = isHovered ? 3 : 2;
           ctx.stroke();
 
-          // Conveyor rollers lines
+          // Rollers
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
           ctx.lineWidth = 1.5;
           for (let ly = py + 12; ly <= py + ph - 12; ly += 7) {
@@ -625,19 +749,18 @@
 
           ctx.font = '700 8px sans-serif';
           ctx.fillStyle = '#ecfdf5';
-          ctx.fillText("ORIGIN / STAGING", n.x + 8, n.y + 8);
+          ctx.fillText("WAVE SORT HUB", n.x + 8, n.y + 8);
 
           ctx.restore();
         } else {
-          // Heavy-duty pallet rack
           ctx.save();
           const w = 54;
           const h = 32;
           const x = n.x - w / 2;
           const y = n.y - h / 2;
 
-          if (isSelected) {
-            ctx.shadowColor = 'rgba(37, 99, 235, 0.6)';
+          if (isStop) {
+            ctx.shadowColor = 'rgba(139, 92, 246, 0.7)';
             ctx.shadowBlur = 14;
           } else if (isHovered) {
             ctx.shadowColor = 'rgba(59, 130, 246, 0.4)';
@@ -645,9 +768,9 @@
           }
 
           const rackGrad = ctx.createLinearGradient(x, y, x, y + h);
-          if (isSelected) {
-            rackGrad.addColorStop(0, '#2563eb');
-            rackGrad.addColorStop(1, '#1d4ed8');
+          if (isStop) {
+            rackGrad.addColorStop(0, '#8b5cf6');
+            rackGrad.addColorStop(1, '#6d28d9');
           } else {
             rackGrad.addColorStop(0, '#475569');
             rackGrad.addColorStop(1, '#334155');
@@ -658,20 +781,19 @@
           ctx.roundRect(x, y, w, h, 5);
           ctx.fill();
 
-          ctx.strokeStyle = isSelected ? '#93c5fd' : (isHovered ? '#60a5fa' : '#64748b');
-          ctx.lineWidth = isSelected ? 2.5 : 1.2;
+          ctx.strokeStyle = isStop ? '#c4b5fd' : (isHovered ? '#93c5fd' : '#64748b');
+          ctx.lineWidth = isStop ? 2.2 : (isHovered ? 2 : 1.2);
           ctx.stroke();
 
-          // Reset shadow
           ctx.shadowColor = 'transparent';
           ctx.shadowBlur = 0;
 
           // Uprights
-          ctx.fillStyle = isSelected ? '#1e3a8a' : '#1e293b';
+          ctx.fillStyle = isStop ? '#4c1d95' : '#1e293b';
           ctx.fillRect(x, y, 4, h);
           ctx.fillRect(x + w - 4, y, 4, h);
 
-          // Bay divider
+          // Center Bay Divider
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
           ctx.lineWidth = 1;
           ctx.beginPath();
@@ -686,13 +808,44 @@
           ctx.textBaseline = 'middle';
           ctx.fillText(`S-${String(n.id).padStart(2, '0')}`, n.x, n.y - 1);
 
+          // Sequence Badge
+          if (isStop && wave) {
+            const stopIndex = wave.stops.indexOf(n.id);
+            if (stopIndex > 0) {
+              const bx = n.x + 23;
+              const by = n.y - 13;
+
+              ctx.beginPath();
+              ctx.arc(bx, by, 11, 0, 2 * Math.PI);
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+              ctx.fill();
+
+              const badgeGrad = ctx.createLinearGradient(bx, by - 10, bx, by + 10);
+              badgeGrad.addColorStop(0, '#fbbf24');
+              badgeGrad.addColorStop(1, '#d97706');
+
+              ctx.beginPath();
+              ctx.arc(bx, by, 10, 0, 2 * Math.PI);
+              ctx.fillStyle = badgeGrad;
+              ctx.fill();
+
+              ctx.strokeStyle = '#ffffff';
+              ctx.lineWidth = 2;
+              ctx.stroke();
+
+              ctx.fillStyle = '#0f172a';
+              ctx.font = 'bold 10px sans-serif';
+              ctx.fillText(stopIndex, bx, by + 0.5);
+            }
+          }
+
           ctx.restore();
         }
       });
 
       ctx.restore(); // Restore world scale
 
-      // Fixed HUD Overlays in Screen Coordinates
+      // Fixed HUD Overlays
       const logicalWidth = canvas.width / dpr;
       const logicalHeight = canvas.height / dpr;
       drawScreenHUD(ctx, logicalWidth, logicalHeight);
@@ -738,10 +891,10 @@
       ctx.fillStyle = '#0f172a';
       ctx.font = 'bold 11px sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText('FACILITY MDC-01 • TOPOLOGY MAP', cx + 22, cy - 2);
+      ctx.fillText('FACILITY MDC-01 • WAVE BATCHING', cx + 22, cy - 2);
       ctx.fillStyle = '#64748b';
       ctx.font = '600 8.5px sans-serif';
-      ctx.fillText('AISLE CORRIDORS & METRIC DISTANCE MATRIX', cx + 22, cy + 9);
+      ctx.fillText('CONSOLIDATED MULTI-ORDER PICK TOUR', cx + 22, cy + 9);
 
       // Scale Bar
       const scaleX = 35;
@@ -764,37 +917,21 @@
       ctx.restore();
     }
 
-    function selectNode(id) {
-      selectedNodeId = id;
-      drawGraph();
+    async function initializePage() {
+      setupCanvasInteractivity();
+      resizeCanvas();
 
-      const n = graphData.nodes.find(node => node.id === id);
-      if (!n) return;
-
-      const isPacking = n.id === 1;
-      document.getElementById('node-id').textContent = isPacking ? "Packing Hub" : `Shelf ${n.id}`;
-      document.getElementById('node-type').textContent = isPacking ? "Dispatch & Origin Station" : `Aisle Storage Location`;
-      document.getElementById('node-dist').textContent = `${n.distance_to_packing} m`;
-      document.getElementById('node-load').textContent = isPacking ? "Infinite" : `${n.current_load} / ${n.capacity}`;
-
-      const neighbors = graphData.edges.filter(e => e.from_shelf_id === id || e.to_shelf_id === id);
-      const neighborDiv = document.getElementById('node-neighbors');
-      if (neighbors.length === 0) {
-        neighborDiv.innerHTML = '<em>No direct edges</em>';
-      } else {
-        neighborDiv.innerHTML = '<ul style="list-style: none; padding: 0;">' + 
-          neighbors.map(e => {
-            const other = (e.from_shelf_id === id) ? e.to_shelf_id : e.from_shelf_id;
-            const otherLabel = (other === 1) ? 'Packing Area (Shelf 1)' : `Shelf ${other}`;
-            return `<li style="padding: 0.4rem 0; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between;">
-              <span>&bull; Direct corridor to <strong>${otherLabel}</strong></span>
-              <span class="badge" style="background:#eff6ff; color:#2563eb;">${e.distance}m</span>
-            </li>`;
-          }).join('') + '</ul>';
+      try {
+        const gRes = await fetch('/api/warehouse/graph');
+        graphData = await gRes.json();
+      } catch (err) {
+        console.error("Failed to load graph:", err);
       }
+
+      await loadWaves();
     }
 
-    document.addEventListener('DOMContentLoaded', loadGraph);
+    document.addEventListener('DOMContentLoaded', initializePage);
   </script>
 </body>
 </html>

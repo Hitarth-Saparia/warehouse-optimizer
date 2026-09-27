@@ -15,6 +15,8 @@ from backend.warehouse import Warehouse
 from backend.layout_optimizer import LayoutOptimizer
 from backend.route_optimizer import RouteOptimizer
 from backend.comparison import calculate_comparison_statistics
+from backend.batch_optimizer import BatchOptimizer
+from backend.fleet_allocator import FleetAllocator
 
 # Base directories
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -232,6 +234,113 @@ def compute_order_route(order_id):
     finally:
         conn.close()
 
+@app.route("/api/orders/create", methods=["POST"])
+def create_order():
+    """
+    Creates a new custom customer order with specified items and quantities.
+    Saves to MySQL and immediately returns optimal picking route.
+    """
+    data = request.get_json() or {}
+    customer_name = data.get("customer_name", "").strip()
+    items = data.get("items", [])
+
+    if not customer_name:
+        return jsonify({"error": "customer_name is required"}), 400
+    if not items or not isinstance(items, list):
+        return jsonify({"error": "items list is required and cannot be empty"}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO orders (customer_name, status) VALUES (%s, %s)", (customer_name, "Pending"))
+        order_id = cursor.lastrowid
+
+        for it in items:
+            p_id = it.get("product_id")
+            qty = max(1, int(it.get("quantity", 1)))
+            cursor.execute("INSERT INTO order_items (order_id, product_id, quantity) VALUES (%s, %s, %s)", (order_id, p_id, qty))
+
+        conn.commit()
+
+        cursor.execute("""
+            SELECT p.id as product_id, p.name, p.category, p.assigned_shelf_id as shelf_id, oi.quantity
+            FROM order_items oi
+            JOIN products p ON oi.product_id = p.id
+            WHERE oi.order_id = %s
+        """, (order_id,))
+        order_items = cursor.fetchall()
+
+        warehouse = fetch_warehouse(conn)
+        shelf_ids = [row["shelf_id"] for row in order_items if row["shelf_id"] is not None]
+        router = RouteOptimizer(warehouse)
+        route_result = router.solve_order_route(order_id, shelf_ids)
+        route_result["customer_name"] = customer_name
+        route_result["items"] = order_items
+
+        return jsonify({
+            "status": "success",
+            "message": f"Order #{order_id} created successfully.",
+            "order_id": order_id,
+            "route": route_result
+        }), 201
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route("/api/orders/simulate", methods=["POST"])
+def simulate_order():
+    """
+    Simulates a live incoming enterprise customer order with randomized items.
+    Saves to MySQL and immediately returns optimal picking route.
+    """
+    import random
+    company_prefixes = ["Apex", "Titan", "Quantum", "Nexus", "Vanguard", "Cyber", "Precision", "Global", "Nova", "Aero"]
+    company_types = ["Robotics", "Systems", "Automation", "Fab", "Logistics", "Instruments", "Aerospace", "Manufacturing"]
+    customer_name = f"{random.choice(company_prefixes)} {random.choice(company_types)} #{random.randint(100, 999)}"
+
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id FROM products")
+        all_product_ids = [row["id"] for row in cursor.fetchall()]
+
+        num_items = random.randint(3, 8)
+        selected_prods = random.sample(all_product_ids, min(num_items, len(all_product_ids)))
+
+        cursor.execute("INSERT INTO orders (customer_name, status) VALUES (%s, %s)", (customer_name, "Pending"))
+        order_id = cursor.lastrowid
+
+        for p_id in selected_prods:
+            qty = random.randint(1, 4)
+            cursor.execute("INSERT INTO order_items (order_id, product_id, quantity) VALUES (%s, %s, %s)", (order_id, p_id, qty))
+
+        conn.commit()
+
+        cursor.execute("""
+            SELECT p.id as product_id, p.name, p.category, p.assigned_shelf_id as shelf_id, oi.quantity
+            FROM order_items oi
+            JOIN products p ON oi.product_id = p.id
+            WHERE oi.order_id = %s
+        """, (order_id,))
+        order_items = cursor.fetchall()
+
+        warehouse = fetch_warehouse(conn)
+        shelf_ids = [row["shelf_id"] for row in order_items if row["shelf_id"] is not None]
+        router = RouteOptimizer(warehouse)
+        route_result = router.solve_order_route(order_id, shelf_ids)
+        route_result["customer_name"] = customer_name
+        route_result["items"] = order_items
+
+        return jsonify({
+            "status": "success",
+            "message": f"Simulated Order #{order_id} generated for {customer_name}.",
+            "order_id": order_id,
+            "route": route_result
+        }), 201
+    finally:
+        cursor.close()
+        conn.close()
+
 @app.route("/api/statistics", methods=["GET"])
 def get_statistics():
     """
@@ -249,6 +358,59 @@ def get_statistics():
         stats["total_shelves"] = len(shelves)
         stats["total_orders"] = len(orders)
         return jsonify(stats)
+    finally:
+        conn.close()
+
+@app.route("/api/batch/waves", methods=["GET", "POST"])
+def get_batch_waves():
+    """
+    Solves the Order Batching Problem (OBP). Groups all pending customer orders
+    into wave picking batches to minimize aggregate walking distance.
+    Supports optional cart_capacity parameter.
+    """
+    cart_capacity = int(request.args.get("cart_capacity", 35))
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        orders = fetch_all_orders(conn)
+        products = fetch_all_products(conn)
+        shelf_mapping = {p.id: p.assigned_shelf_id for p in products}
+
+        batcher = BatchOptimizer(warehouse, max_cart_capacity=cart_capacity)
+        batches, metrics = batcher.optimize_batches(orders, shelf_mapping)
+
+        return jsonify({
+            "batches": batches,
+            "metrics": metrics,
+            "cart_capacity": cart_capacity
+        })
+    finally:
+        conn.close()
+
+@app.route("/api/fleet/assign", methods=["GET", "POST"])
+def assign_fleet_workload():
+    """
+    Solves mTSP / CVRP fleet workload balancing.
+    Distributes pending orders evenly across M warehouse pickers.
+    """
+    workers_count = int(request.args.get("workers", 3))
+    default_names = ["Picker Alpha", "Picker Bravo", "Picker Charlie", "Picker Delta", "Picker Echo"]
+    names = default_names[:max(1, min(workers_count, len(default_names)))]
+
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        orders = fetch_all_orders(conn)
+        products = fetch_all_products(conn)
+        shelf_mapping = {p.id: p.assigned_shelf_id for p in products}
+
+        allocator = FleetAllocator(warehouse, worker_names=names)
+        worker_plans, metrics = allocator.allocate(orders, shelf_mapping)
+
+        return jsonify({
+            "workers": worker_plans,
+            "metrics": metrics
+        })
     finally:
         conn.close()
 

@@ -35,5 +35,6 @@ undo_*
 *.swp
 *.swo
 
-# Logs
+# Logs & Test caches
 *.log
+.pytest_cache/

@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Order Picking Route Optimizer. Traveling Salesperson Problem (TSP) solver with interactive floorplan route visualization and simulated picker tour.">
   <title>Order Picking Route Optimizer | Warehouse Optimizer</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -11,7 +12,17 @@
   <!-- Common Navigation Bar -->
   <nav class="navbar">
     <a href="index.html" class="nav-brand">
-      Warehouse Optimizer
+      <div class="nav-logo-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+      </div>
+      <div class="nav-brand-title">
+        <span class="main-text">Warehouse Optimizer</span>
+        <span class="sub-text">Intelligent Slotting & TSP Routing</span>
+      </div>
     </a>
     <ul class="nav-links">
       <li><a href="index.html">Dashboard</a></li>
@@ -19,7 +30,13 @@
       <li><a href="layout.html">Layout Optimizer</a></li>
       <li><a href="graph.html">Warehouse Graph</a></li>
       <li><a href="order-picking.html" class="active">Order Picking</a></li>
+      <li><a href="waves.html">Wave Picking</a></li>
+      <li><a href="fleet.html">Fleet Balancing</a></li>
     </ul>
+    <div class="nav-status">
+      <span class="status-dot"></span>
+      <span>API Connected</span>
+    </div>
   </nav>
 
   <div class="container">
@@ -31,25 +48,59 @@
     </div>
 
     <div class="concept-tag">
-      <strong>TSP Algorithm Strategy:</strong>
-      If order stop count &lt; 8: <em>Brute-Force Permutation</em> tests all $N!$ tours to guarantee the global mathematical minimum.<br>
-      If order stop count &ge; 8: <em>Nearest-Neighbor Heuristic</em> provides polynomial-time greedy fallback routing.
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+        <line x1="8" y1="2" x2="8" y2="18"></line>
+        <line x1="16" y1="6" x2="16" y2="22"></line>
+      </svg>
+      <div>
+        <strong>TSP Algorithm Strategy:</strong>
+        If order stop count &lt; 8: <em>Brute-Force Permutations</em> tests all $N!$ tours to guarantee the global mathematical minimum.<br>
+        If order stop count &ge; 8: <em>Nearest-Neighbor Heuristic</em> provides polynomial-time greedy fallback routing.
+      </div>
     </div>
 
     <!-- Order Selector Card -->
     <div class="card" style="padding: 1.25rem 1.5rem;">
       <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 300px;">
+        <div style="flex: 1; min-width: 320px;">
           <label for="order-select" class="form-label">Select Customer Order to Route:</label>
           <select id="order-select" class="form-select" style="max-width: 100%;">
-            <option value="">Loading orders from /api/orders...</option>
+            <option value="">Loading customer orders...</option>
           </select>
         </div>
-        <div>
-          <button id="btn-compute" class="btn btn-primary" onclick="computeRoute()">Compute Picking Route</button>
+        <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
+          <button id="btn-compute" class="btn btn-primary" onclick="computeRoute()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            Compute Route
+          </button>
+          <button id="btn-animate" class="btn btn-secondary" onclick="toggleAnimation()">
+            <svg id="play-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <span id="animate-btn-text">Animate Picker</span>
+          </button>
+          <button id="btn-simulate" class="btn btn-secondary" onclick="simulateLiveOrder()" style="border-color: #f59e0b; color: #b45309; font-weight: 700;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+            ⚡ Simulate Live Order
+          </button>
+          <button id="btn-custom" class="btn btn-secondary" onclick="openCustomOrderModal()" style="border-color: #2563eb; color: #1d4ed8; font-weight: 700;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            + Custom Order
+          </button>
         </div>
       </div>
     </div>
+
+    <!-- Live Order Notification Toast -->
+    <div id="live-order-alert" class="alert alert-info" style="display: none; margin-top: 1rem;"></div>
 
     <!-- Route Results Grid -->
     <div id="results-container" style="display: none;">
@@ -59,66 +110,112 @@
         <div class="stat-card highlight">
           <div class="stat-label">Total Round-Trip Distance</div>
           <div class="stat-value" id="res-distance" style="color: #2563eb;">-- m</div>
-          <div class="stat-desc">From Packing &rarr; Shelves &rarr; Packing</div>
+          <div class="stat-desc">Packing &rarr; Shelves &rarr; Packing</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card violet">
           <div class="stat-label">Unique Pick Stops</div>
           <div class="stat-value" id="res-stops">0</div>
-          <div class="stat-desc">Excluding starting origin</div>
+          <div class="stat-desc">Shelves to visit on tour</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Total Order Items</div>
+        <div class="stat-card warning">
+          <div class="stat-label">Order Line Items</div>
           <div class="stat-value" id="res-items">0</div>
-          <div class="stat-desc">Products to pick on this tour</div>
+          <div class="stat-desc">Units requested by customer</div>
         </div>
         <div class="stat-card success">
           <div class="stat-label">Algorithm Executed</div>
           <div class="stat-value" style="font-size: 1.15rem; margin-top: 0.75rem;" id="res-algo">--</div>
-          <div class="stat-desc" id="res-algo-desc">TSP Solver</div>
+          <div class="stat-desc" id="res-algo-desc">TSP Solver Engine</div>
         </div>
       </div>
 
       <!-- Route Visual Canvas + Step Sequence -->
-      <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 1.5rem; align-items: start;">
+      <div style="display: grid; grid-template-columns: 2.3fr 1.7fr; gap: 1.75rem; align-items: start;">
         
-        <!-- Floorplan Route Canvas -->
-        <div class="card" style="padding: 1rem;">
-          <div class="card-title">
-            <span>Visual Pick Path on Warehouse Floorplan</span>
-            <span class="badge badge-success">Optimized Route</span>
+        <!-- Floorplan Route Canvas with Interactive Controls -->
+        <div class="card" id="route-canvas-card" style="padding: 1.25rem; position: relative;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <div class="card-title" style="margin-bottom: 0;">
+              <span>Visual Pick Path on Warehouse Floorplan</span>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <span id="route-badge" class="badge badge-success">Optimized Route</span>
+            </div>
           </div>
-          <div class="canvas-wrapper">
-            <canvas id="route-canvas" width="820" height="520" style="background: #ffffff;"></canvas>
+
+          <!-- Floating Interactive Pan / Zoom / Fullscreen Toolbar -->
+          <div class="canvas-controls-bar">
+            <button class="canvas-ctrl-btn" id="btn-zoom-in" title="Zoom In (+)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                <line x1="11" y1="8" x2="11" y2="14"></line>
+                <line x1="8" y1="11" x2="14" y2="11"></line>
+              </svg>
+            </button>
+            <span class="canvas-zoom-label" id="zoom-level-text">100%</span>
+            <button class="canvas-ctrl-btn" id="btn-zoom-out" title="Zoom Out (-)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                <line x1="8" y1="11" x2="14" y2="11"></line>
+              </svg>
+            </button>
+            <button class="canvas-ctrl-btn" id="btn-zoom-reset" title="Reset View (1:1)" style="font-size: 0.72rem; min-width: 32px;">1:1</button>
+            <div style="width: 1px; height: 16px; background: rgba(255,255,255,0.25); margin: 0 2px;"></div>
+            <button class="canvas-ctrl-btn" id="btn-fullscreen-toggle" title="Toggle Fullscreen (F)">
+              <svg id="fs-icon-expand" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <polyline points="9 21 3 21 3 15"></polyline>
+                <line x1="21" y1="3" x2="14" y2="10"></line>
+                <line x1="3" y1="21" x2="10" y2="14"></line>
+              </svg>
+              <svg id="fs-icon-compress" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                <polyline points="4 14 10 14 10 20"></polyline>
+                <polyline points="20 10 14 10 14 4"></polyline>
+                <line x1="14" y1="10" x2="21" y2="3"></line>
+                <line x1="3" y1="21" x2="10" y2="14"></line>
+              </svg>
+            </button>
           </div>
-          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.75rem;">
-            Red lines highlight the active picking route traversing shortest-path corridors calculated via Dijkstra's algorithm.
-          </p>
+
+          <div class="canvas-wrapper" style="overflow: hidden; cursor: grab;">
+            <canvas id="route-canvas" width="820" height="520" style="background: #f8fafc; border-radius: 8px;"></canvas>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">
+            <span>Red glowing corridors highlight the shortest round-trip path computed with Dijkstra corridor calculations and TSP optimization.</span>
+            <span style="font-weight: 600; color: var(--primary); white-space: nowrap; margin-left: 1rem;">
+              <kbd style="background:#e2e8f0; padding: 2px 5px; border-radius: 4px; font-size: 0.75rem;">Scroll</kbd> Zoom &bull; 
+              <kbd style="background:#e2e8f0; padding: 2px 5px; border-radius: 4px; font-size: 0.75rem;">Drag</kbd> Pan &bull; 
+              <kbd style="background:#e2e8f0; padding: 2px 5px; border-radius: 4px; font-size: 0.75rem;">F</kbd> Fullscreen
+            </span>
+          </div>
         </div>
 
         <!-- Ordered Steps List -->
         <div class="card">
           <div class="card-title">Step-by-Step Pick Sequence</div>
-          <div class="table-responsive">
+          <div class="table-responsive" style="max-height: 250px;">
             <table>
               <thead>
                 <tr>
-                  <th>Leg</th>
-                  <th>Movement</th>
-                  <th>Distance</th>
+                  <th style="width: 60px;">Leg</th>
+                  <th>Corridor Movement</th>
+                  <th style="text-align: right;">Distance</th>
                 </tr>
               </thead>
               <tbody id="legs-table-body"></tbody>
             </table>
           </div>
 
-          <div style="margin-top: 1.25rem;">
-            <div class="card-title" style="font-size: 0.95rem; margin-bottom: 0.5rem;">Order Line Items</div>
-            <div class="table-responsive">
+          <div style="margin-top: 1.5rem;">
+            <div class="card-title" style="font-size: 1rem; margin-bottom: 0.75rem;">Customer Order Line Items</div>
+            <div class="table-responsive" style="max-height: 200px;">
               <table>
                 <thead>
                   <tr>
                     <th>Product</th>
-                    <th>Qty</th>
+                    <th style="width: 60px;">Qty</th>
                     <th>Shelf</th>
                   </tr>
                 </thead>
@@ -132,9 +229,34 @@
     </div>
   </div>
 
+  <footer class="app-footer">
+    <div class="container" style="margin: 0 auto;">
+      Warehouse Layout & Order Picking Optimizer &bull; High-Performance Graph Routing Engine
+    </div>
+  </footer>
+
   <script>
     let graphData = { nodes: [], edges: [] };
     let currentRoute = null;
+    let animRunning = false;
+    let animProgress = 0;
+    let animReqId = null;
+
+    // View Transformation State for Pan & Zoom
+    let view = {
+      scale: 1.0,
+      minScale: 0.5,
+      maxScale: 3.5,
+      x: 0,
+      y: 0,
+      isDragging: false,
+      dragStartX: 0,
+      dragStartY: 0
+    };
+    let isFullscreen = false;
+    let hoveredNode = null;
+    let shelfProductsMap = {};
+    let pulseAngle = 0;
 
     async function initializePage() {
       // 1. Load Warehouse Graph for canvas
@@ -145,7 +267,20 @@
         console.error("Failed to load graph:", err);
       }
 
-      // 2. Load Orders for dropdown
+      // 2. Load Products Catalog for shelf hover tooltips
+      try {
+        const pRes = await fetch('/api/products');
+        const prods = await pRes.json();
+        shelfProductsMap = {};
+        prods.forEach(p => {
+          if (!shelfProductsMap[p.shelf_id]) shelfProductsMap[p.shelf_id] = [];
+          shelfProductsMap[p.shelf_id].push(p);
+        });
+      } catch (err) {
+        console.warn("Could not load products for shelf tooltips:", err);
+      }
+
+      // 3. Load Orders for dropdown
       try {
         const oRes = await fetch('/api/orders');
         const orders = await oRes.json();
@@ -157,10 +292,14 @@
           const opt = document.createElement('option');
           opt.value = o.id;
           const isTsp = o.items.length < 8;
-          const note = isTsp ? '(Brute-Force TSP)' : '(Nearest-Neighbor TSP)';
-          opt.textContent = `Order #${o.id}: ${o.customer_name} — ${o.items.length} items ${note}`;
+          const tag = isTsp ? 'Exact TSP (<8 stops)' : 'Greedy TSP (≥8 stops)';
+          opt.textContent = `Order #${o.id}: ${o.customer_name} — ${o.items.length} items [${tag}]`;
           select.appendChild(opt);
         });
+
+        // Setup Canvas Listeners and Initial Render
+        setupCanvasInteractivity();
+        resizeCanvas();
 
         // Compute route for the first order by default
         if (orders.length > 0) {
@@ -171,12 +310,204 @@
       }
     }
 
+    // -------------------------------------------------------------
+    // Canvas Interactivity: Pan, Zoom, and Fullscreen
+    // -------------------------------------------------------------
+    function setupCanvasInteractivity() {
+      const canvas = document.getElementById('route-canvas');
+
+      // Mouse Wheel Zoom centered at cursor
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const zoomFactor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+        zoomAt(mouseX, mouseY, zoomFactor);
+      }, { passive: false });
+
+      // Click & Drag Panning
+      canvas.addEventListener('mousedown', (e) => {
+        if (e.button === 0) {
+          view.isDragging = true;
+          view.dragStartX = e.clientX - view.x;
+          view.dragStartY = e.clientY - view.y;
+          canvas.style.cursor = 'grabbing';
+        }
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        if (view.isDragging) {
+          view.x = e.clientX - view.dragStartX;
+          view.y = e.clientY - view.dragStartY;
+          drawRouteCanvas();
+          return;
+        }
+
+        // Hover detection over nodes
+        if (mouseX >= 0 && mouseX <= rect.width && mouseY >= 0 && mouseY <= rect.height) {
+          const worldX = (mouseX - view.x) / view.scale;
+          const worldY = (mouseY - view.y) / view.scale;
+
+          let found = null;
+          for (const n of graphData.nodes) {
+            const isPacking = n.id === 1;
+            const r = isPacking ? 30 : 28;
+            const dx = worldX - n.x;
+            const dy = worldY - n.y;
+            if (dx * dx + dy * dy <= r * r) {
+              found = n;
+              break;
+            }
+          }
+
+          if (found !== hoveredNode) {
+            hoveredNode = found;
+            canvas.style.cursor = found ? 'pointer' : 'grab';
+            drawRouteCanvas();
+          }
+        } else if (hoveredNode) {
+          hoveredNode = null;
+          drawRouteCanvas();
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (view.isDragging) {
+          view.isDragging = false;
+          canvas.style.cursor = hoveredNode ? 'pointer' : 'grab';
+        }
+      });
+
+      // Double-click to reset view
+      canvas.addEventListener('dblclick', () => {
+        resetView();
+      });
+
+      // Toolbar Buttons
+      document.getElementById('btn-zoom-in').addEventListener('click', () => zoomBy(1.2));
+      document.getElementById('btn-zoom-out').addEventListener('click', () => zoomBy(1 / 1.2));
+      document.getElementById('btn-zoom-reset').addEventListener('click', resetView);
+      document.getElementById('btn-fullscreen-toggle').addEventListener('click', toggleFullscreen);
+
+      // Keyboard Shortcuts: 'F' for fullscreen, 'Esc' to exit
+      document.addEventListener('keydown', (e) => {
+        if ((e.key === 'f' || e.key === 'F') && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+          toggleFullscreen();
+        } else if (e.key === 'Escape' && isFullscreen) {
+          toggleFullscreen();
+        }
+      });
+
+      // Browser Fullscreen Event Listener
+      document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement && isFullscreen) {
+          exitFullscreenUI();
+        }
+      });
+
+      window.addEventListener('resize', () => {
+        resizeCanvas();
+      });
+    }
+
+    function zoomAt(cx, cy, factor) {
+      const newScale = Math.min(view.maxScale, Math.max(view.minScale, view.scale * factor));
+      if (newScale === view.scale) return;
+
+      view.x = cx - (cx - view.x) * (newScale / view.scale);
+      view.y = cy - (cy - view.y) * (newScale / view.scale);
+      view.scale = newScale;
+
+      updateZoomLabel();
+      drawRouteCanvas();
+    }
+
+    function zoomBy(factor) {
+      const canvas = document.getElementById('route-canvas');
+      const rect = canvas.getBoundingClientRect();
+      zoomAt(rect.width / 2, rect.height / 2, factor);
+    }
+
+    function resetView() {
+      view.scale = 1.0;
+      view.x = 0;
+      view.y = 0;
+      updateZoomLabel();
+      drawRouteCanvas();
+    }
+
+    function updateZoomLabel() {
+      const label = document.getElementById('zoom-level-text');
+      if (label) {
+        label.textContent = `${Math.round(view.scale * 100)}%`;
+      }
+    }
+
+    function toggleFullscreen() {
+      const card = document.getElementById('route-canvas-card');
+      if (!isFullscreen) {
+        card.classList.add('card-fullscreen');
+        isFullscreen = true;
+        document.getElementById('fs-icon-expand').style.display = 'none';
+        document.getElementById('fs-icon-compress').style.display = 'block';
+
+        if (card.requestFullscreen) {
+          card.requestFullscreen().catch(() => {});
+        }
+      } else {
+        exitFullscreenUI();
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+      setTimeout(resizeCanvas, 60);
+    }
+
+    function exitFullscreenUI() {
+      const card = document.getElementById('route-canvas-card');
+      card.classList.remove('card-fullscreen');
+      isFullscreen = false;
+      document.getElementById('fs-icon-expand').style.display = 'block';
+      document.getElementById('fs-icon-compress').style.display = 'none';
+      setTimeout(resizeCanvas, 60);
+    }
+
+    function resizeCanvas() {
+      const canvas = document.getElementById('route-canvas');
+      if (!canvas) return;
+      const wrapper = canvas.parentElement;
+      const rect = wrapper.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+
+      const w = Math.floor(rect.width > 0 ? rect.width : 820);
+      const h = isFullscreen ? Math.floor(window.innerHeight - 90) : 520;
+
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+
+      drawRouteCanvas();
+    }
+
     async function computeRoute() {
+      stopAnimation();
       const orderId = document.getElementById('order-select').value;
       if (!orderId) return;
 
       const btn = document.getElementById('btn-compute');
-      btn.textContent = "Computing...";
+      btn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
+          <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+          <path d="M12 2a10 10 0 0 1 10 10"></path>
+        </svg>
+        Computing...
+      `;
       btn.disabled = true;
 
       try {
@@ -190,22 +521,20 @@
         document.getElementById('res-stops').textContent = currentRoute.stop_count;
         document.getElementById('res-items').textContent = currentRoute.items ? currentRoute.items.length : 0;
         document.getElementById('res-algo').textContent = currentRoute.algorithm;
-        document.getElementById('res-algo-desc').textContent = currentRoute.stop_count < 8 ? "Exact Tour Optimization" : "Polynomial Fallback";
+        document.getElementById('res-algo-desc').textContent = currentRoute.stop_count < 8 ? "Exact Tour Optimization (O(N!))" : "Polynomial Fallback (O(N²))";
 
         // Render Legs Table
         const legsBody = document.getElementById('legs-table-body');
         legsBody.innerHTML = '';
 
-        let cumDist = 0;
         currentRoute.legs.forEach((leg, idx) => {
-          cumDist += leg.distance;
           const fromLabel = leg.from_shelf === 1 ? 'Packing Area' : `Shelf ${leg.from_shelf}`;
           const toLabel = leg.to_shelf === 1 ? 'Packing Area' : `Shelf ${leg.to_shelf}`;
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td><strong>#${idx + 1}</strong></td>
             <td>${fromLabel} &rarr; <strong>${toLabel}</strong></td>
-            <td>${leg.distance} m</td>
+            <td style="text-align: right; font-weight: 700;">${leg.distance} m</td>
           `;
           legsBody.appendChild(tr);
         });
@@ -217,8 +546,8 @@
           currentRoute.items.forEach(it => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-              <td>${it.name}</td>
-              <td>${it.quantity}</td>
+              <td style="font-weight: 500;">${it.name}</td>
+              <td><span class="badge" style="background:#f1f5f9; color:#0f172a; font-weight: 700;">${it.quantity}x</span></td>
               <td><span class="badge badge-primary">Shelf ${it.shelf_id}</span></td>
             `;
             itemsBody.appendChild(tr);
@@ -231,22 +560,55 @@
       } catch (err) {
         console.error("Failed to compute route:", err);
       } finally {
-        btn.textContent = "Compute Picking Route";
+        btn.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          Compute Route
+        `;
         btn.disabled = false;
       }
     }
 
-    function drawRouteCanvas() {
+    // -------------------------------------------------------------
+    // Ultra-Realistic Industrial Warehouse Floorplan Rendering
+    // -------------------------------------------------------------
+    function drawRouteCanvas(workerPos = null) {
       const canvas = document.getElementById('route-canvas');
+      if (!canvas) return;
       const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+
+      const logicalWidth = canvas.width / dpr;
+      const logicalHeight = canvas.height / dpr;
+
+      ctx.save();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 1. Draw High-DPI Background Concrete Floor
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Setup World Transformation (Pan & Zoom)
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.translate(view.x, view.y);
+      ctx.scale(view.scale, view.scale);
+
+      // A. Polished Industrial Concrete Floor Joints & Grid
+      drawRealisticFloor(ctx);
+
+      // B. Overhead Aisle Structural Signboards
+      drawAisleSignboards(ctx);
 
       const nodeMap = {};
       graphData.nodes.forEach(n => { nodeMap[n.id] = n; });
 
-      // 1. Draw Background Graph Edges
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = '#e2e8f0';
+      // C. Base Walkway Corridor Tracks
+      ctx.save();
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.setLineDash([4, 4]);
       graphData.edges.forEach(e => {
         const u = nodeMap[e.from_shelf_id];
         const v = nodeMap[e.to_shelf_id];
@@ -257,14 +619,17 @@
           ctx.stroke();
         }
       });
+      ctx.restore();
 
-      // 2. Draw Highlighted Route Path (Corridors traversed)
+      // D. Highlighted Active Pick Path with Glow & Flow Direction Chevrons
       if (currentRoute && currentRoute.full_path && currentRoute.full_path.length > 1) {
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = '#dc2626'; // Bright red active route
+        ctx.save();
+
+        // 1. Outer Glowing Conduit Aura
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.22)';
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
-
         ctx.beginPath();
         for (let i = 0; i < currentRoute.full_path.length - 1; i++) {
           const u = nodeMap[currentRoute.full_path[i]];
@@ -275,67 +640,762 @@
           }
         }
         ctx.stroke();
+
+        // 2. Core High-Contrast Route Line
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = '#ef4444';
+        ctx.beginPath();
+        for (let i = 0; i < currentRoute.full_path.length - 1; i++) {
+          const u = nodeMap[currentRoute.full_path[i]];
+          const v = nodeMap[currentRoute.full_path[i + 1]];
+          if (u && v) {
+            ctx.moveTo(u.x, u.y);
+            ctx.lineTo(v.x, v.y);
+          }
+        }
+        ctx.stroke();
+
+        // 3. Directional Movement Chevron Arrows along each leg
+        for (let i = 0; i < currentRoute.full_path.length - 1; i++) {
+          const u = nodeMap[currentRoute.full_path[i]];
+          const v = nodeMap[currentRoute.full_path[i + 1]];
+          if (u && v) {
+            drawDirectionChevron(ctx, u, v);
+          }
+        }
+        ctx.restore();
       }
 
-      // 3. Draw Nodes
+      // E. Draw Nodes (Packing Hub & Heavy-Duty Pallet Racking Units)
       const routeStopsSet = new Set(currentRoute ? currentRoute.stops : []);
 
       graphData.nodes.forEach(n => {
         const isPacking = n.id === 1;
         const isStop = routeStopsSet.has(n.id) && !isPacking;
+        const isHovered = hoveredNode && hoveredNode.id === n.id;
 
-        ctx.beginPath();
         if (isPacking) {
-          ctx.arc(n.x, n.y, 22, 0, 2 * Math.PI);
-          ctx.fillStyle = '#16a34a';
-          ctx.fill();
-          ctx.lineWidth = 3;
-          ctx.strokeStyle = '#ffffff';
-          ctx.stroke();
-
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 11px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText("PACK", n.x, n.y);
+          drawPackingStation(ctx, n, isHovered);
         } else {
-          const w = 44;
-          const h = 26;
-          const x = n.x - w / 2;
-          const y = n.y - h / 2;
-
-          ctx.fillStyle = isStop ? '#dc2626' : '#94a3b8';
-          ctx.strokeStyle = isStop ? '#fca5a5' : '#cbd5e1';
-          ctx.lineWidth = isStop ? 3 : 1;
-
-          ctx.roundRect(x, y, w, h, 5);
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 10px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(`S-${n.id}`, n.x, n.y - 1);
-
-          // Stop sequence badge if visited
-          if (isStop && currentRoute) {
-            const stopIndex = currentRoute.stops.indexOf(n.id);
-            if (stopIndex > 0) {
-              ctx.beginPath();
-              ctx.arc(n.x + 20, n.y - 12, 9, 0, 2 * Math.PI);
-              ctx.fillStyle = '#f59e0b';
-              ctx.fill();
-              ctx.fillStyle = '#000000';
-              ctx.font = 'bold 9px sans-serif';
-              ctx.fillText(stopIndex, n.x + 20, n.y - 12);
-            }
-          }
+          drawPalletRack(ctx, n, isStop, isHovered);
         }
       });
+
+      // F. Animated Picker Trolley/Worker Avatar
+      if (workerPos) {
+        drawWorkerAvatar(ctx, workerPos);
+      }
+
+      ctx.restore(); // Restore world pan & zoom scale
+
+      // G. Screen-Space HUD & Metadata Overlays (Fixed to canvas viewport)
+      drawScreenHUD(ctx, logicalWidth, logicalHeight);
+
+      // H. Shelf Inspection Hover Tooltip (if hovering over a node)
+      if (hoveredNode) {
+        drawShelfHoverTooltip(ctx, hoveredNode, logicalWidth, logicalHeight);
+      }
+
+      ctx.restore(); // Restore base DPR
+    }
+
+    // --- Sub-renderer: Polished Industrial Warehouse Floor ---
+    function drawRealisticFloor(ctx) {
+      ctx.save();
+
+      // Expansion joint tile grid (20px fine grid)
+      ctx.strokeStyle = '#f1f5f9';
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= 860; x += 25) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, 560);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= 560; y += 25) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(860, y);
+        ctx.stroke();
+      }
+
+      // Major structural slab joints (100px)
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1.5;
+      for (let x = 0; x <= 860; x += 100) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, 560);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= 560; y += 100) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(860, y);
+        ctx.stroke();
+      }
+
+      // Facility Safety Boundary Markings (Outer perimeter zone)
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(30, 20, 755, 480);
+
+      // Central Corridor Pedestrian Lane Markings (y = 260)
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([8, 8]);
+      ctx.beginPath();
+      ctx.moveTo(135, 246);
+      ctx.lineTo(760, 246);
+      ctx.moveTo(135, 274);
+      ctx.lineTo(760, 274);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.restore();
+    }
+
+    // --- Sub-renderer: Overhead Aisle Signboards ---
+    function drawAisleSignboards(ctx) {
+      const aisles = [
+        { label: 'AISLE 01', range: 'BAYS 02-07', x: 220 },
+        { label: 'AISLE 02', range: 'BAYS 08-13', x: 380 },
+        { label: 'AISLE 03', range: 'BAYS 14-19', x: 540 },
+        { label: 'AISLE 04', range: 'BAYS 20-25', x: 700 }
+      ];
+
+      aisles.forEach(a => {
+        ctx.save();
+        const w = 82;
+        const h = 24;
+        const x = a.x - w / 2;
+        const y = 34;
+
+        // Signboard Mounting Rafter Cables
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x + 10, 20);
+        ctx.lineTo(x + 10, y);
+        ctx.moveTo(x + w - 10, 20);
+        ctx.lineTo(x + w - 10, y);
+        ctx.stroke();
+
+        // Signboard Body
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, 4);
+        ctx.fill();
+
+        // Safety Yellow Accent Top Stripe
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, 3, [4, 4, 0, 0]);
+        ctx.fill();
+
+        // Aisle Text
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 9.5px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(a.label, a.x, y + 10);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '600 7px sans-serif';
+        ctx.fillText(a.range, a.x, y + 18);
+
+        ctx.restore();
+      });
+    }
+
+    // --- Sub-renderer: Directional Movement Chevron Arrow ---
+    function drawDirectionChevron(ctx, u, v) {
+      const dx = v.x - u.x;
+      const dy = v.y - u.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 30) return;
+
+      const angle = Math.atan2(dy, dx);
+      const midX = (u.x + v.x) / 2;
+      const midY = (u.y + v.y) / 2;
+
+      ctx.save();
+      ctx.translate(midX, midY);
+      ctx.rotate(angle);
+
+      // Aerodynamic Chevron Pointer
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.moveTo(-4, -5);
+      ctx.lineTo(3, 0);
+      ctx.lineTo(-4, 5);
+      ctx.lineTo(-2, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // --- Sub-renderer: Packing & Dispatch Hub (Shelf 1) ---
+    function drawPackingStation(ctx, n, isHovered) {
+      ctx.save();
+
+      // Hazard Warning Staging Perimeter
+      const pw = 74;
+      const ph = 54;
+      const px = n.x - pw / 2;
+      const py = n.y - ph / 2;
+
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(px - 4, py - 4, pw + 8, ph + 8);
+
+      // Concentric Dispatch Pulse Radar Ring
+      pulseAngle = (pulseAngle + 0.05) % (Math.PI * 2);
+      const pulseSize = 34 + Math.sin(pulseAngle) * 4;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, pulseSize, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.1)';
+      ctx.fill();
+
+      // Main Packing Dock Station Body
+      const grad = ctx.createLinearGradient(px, py, px, py + ph);
+      grad.addColorStop(0, '#10b981');
+      grad.addColorStop(1, '#059669');
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(px, py, pw, ph, 8);
+      ctx.fill();
+
+      ctx.strokeStyle = isHovered ? '#6ee7b7' : '#ffffff';
+      ctx.lineWidth = isHovered ? 3 : 2;
+      ctx.stroke();
+
+      // Conveyor Rollers Graphic Lines
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.lineWidth = 1.5;
+      for (let ly = py + 12; ly <= py + ph - 12; ly += 7) {
+        ctx.beginPath();
+        ctx.moveTo(px + 8, ly);
+        ctx.lineTo(px + 20, ly);
+        ctx.stroke();
+      }
+
+      // Station Typography
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText("PACK DOCK", n.x + 8, n.y - 6);
+
+      ctx.font = '700 8px sans-serif';
+      ctx.fillStyle = '#ecfdf5';
+      ctx.fillText("ORIGIN / STAGING", n.x + 8, n.y + 8);
+
+      ctx.restore();
+    }
+
+    // --- Sub-renderer: Heavy-Duty Industrial Pallet Racking ---
+    function drawPalletRack(ctx, n, isStop, isHovered) {
+      ctx.save();
+
+      const w = 54;
+      const h = 32;
+      const x = n.x - w / 2;
+      const y = n.y - h / 2;
+
+      // Ambient Floor Glow for Pick Targets
+      if (isStop) {
+        ctx.shadowColor = 'rgba(239, 68, 68, 0.7)';
+        ctx.shadowBlur = 14;
+      } else if (isHovered) {
+        ctx.shadowColor = 'rgba(59, 130, 246, 0.5)';
+        ctx.shadowBlur = 10;
+      }
+
+      // Heavy Duty Steel Rack Body
+      const rackGrad = ctx.createLinearGradient(x, y, x, y + h);
+      if (isStop) {
+        rackGrad.addColorStop(0, '#ef4444');
+        rackGrad.addColorStop(1, '#dc2626');
+      } else {
+        rackGrad.addColorStop(0, '#475569');
+        rackGrad.addColorStop(1, '#334155');
+      }
+
+      ctx.fillStyle = rackGrad;
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, 5);
+      ctx.fill();
+
+      // Rack Outline
+      ctx.strokeStyle = isStop ? '#fca5a5' : (isHovered ? '#93c5fd' : '#64748b');
+      ctx.lineWidth = isStop ? 2.2 : (isHovered ? 2 : 1.2);
+      ctx.stroke();
+
+      // Reset Shadow for interior details
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+
+      // Structural Upright Steel Posts (Left and Right Columns)
+      ctx.fillStyle = isStop ? '#991b1b' : '#1e293b';
+      ctx.fillRect(x, y, 4, h);
+      ctx.fillRect(x + w - 4, y, 4, h);
+
+      // Center Bay Divider (Separates Bay A and Bay B pallet slots)
+      ctx.strokeStyle = isStop ? 'rgba(254, 202, 202, 0.4)' : 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(n.x, y + 3);
+      ctx.lineTo(n.x, y + h - 3);
+      ctx.stroke();
+
+      // Shelf Location Code Label
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`S-${String(n.id).padStart(2, '0')}`, n.x, n.y - 1);
+
+      // Stop Visit Sequence Badge (3D Amber Medal)
+      if (isStop && currentRoute) {
+        const stopIndex = currentRoute.stops.indexOf(n.id);
+        if (stopIndex > 0) {
+          const bx = n.x + 23;
+          const by = n.y - 13;
+
+          // Drop shadow
+          ctx.beginPath();
+          ctx.arc(bx, by, 11, 0, 2 * Math.PI);
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+          ctx.fill();
+
+          // Amber badge body
+          const badgeGrad = ctx.createLinearGradient(bx, by - 10, bx, by + 10);
+          badgeGrad.addColorStop(0, '#fbbf24');
+          badgeGrad.addColorStop(1, '#d97706');
+
+          ctx.beginPath();
+          ctx.arc(bx, by, 10, 0, 2 * Math.PI);
+          ctx.fillStyle = badgeGrad;
+          ctx.fill();
+
+          // White rim
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Sequence Order Number
+          ctx.fillStyle = '#0f172a';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.fillText(stopIndex, bx, by + 0.5);
+        }
+      }
+
+      ctx.restore();
+    }
+
+    // --- Sub-renderer: Autonomous Mobile Picker (Cart/Worker) ---
+    function drawWorkerAvatar(ctx, workerPos) {
+      ctx.save();
+
+      // Ground Trailing Aura
+      ctx.beginPath();
+      ctx.arc(workerPos.x, workerPos.y, 14, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.25)';
+      ctx.fill();
+
+      // Mobile Vehicle/Worker Chassis
+      ctx.beginPath();
+      ctx.arc(workerPos.x, workerPos.y, 9, 0, 2 * Math.PI);
+      ctx.fillStyle = '#f59e0b';
+      ctx.shadowColor = 'rgba(245, 158, 11, 0.9)';
+      ctx.shadowBlur = 15;
+      ctx.fill();
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      // Center Beacon Light
+      ctx.beginPath();
+      ctx.arc(workerPos.x, workerPos.y, 3.5, 0, 2 * Math.PI);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // --- Sub-renderer: Fixed Viewport HUD Overlays ---
+    function drawScreenHUD(ctx, width, height) {
+      ctx.save();
+
+      // 1. Facility Header & North Compass (Top-Left)
+      const cx = 35;
+      const cy = 35;
+
+      // Compass Circle
+      ctx.beginPath();
+      ctx.arc(cx, cy, 14, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // North Arrow
+      ctx.fillStyle = '#3b82f6';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 10);
+      ctx.lineTo(cx - 4, cy + 3);
+      ctx.lineTo(cx, cy);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 10);
+      ctx.lineTo(cx + 4, cy + 3);
+      ctx.lineTo(cx, cy);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 7px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('N', cx, cy - 11);
+
+      // Facility Label
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('FACILITY MDC-01 • SECTOR A', cx + 22, cy - 2);
+      ctx.fillStyle = '#64748b';
+      ctx.font = '600 8.5px sans-serif';
+      ctx.fillText('HIGH-PERFORMANCE GRAPH ROUTING FLOORPLAN', cx + 22, cy + 9);
+
+      // 2. Metric Scale Bar (Bottom-Left)
+      const scaleX = 35;
+      const scaleY = height - 25;
+      const scaleMetersWidth = 50 * view.scale; // 50px represents 10 meters at 1.0x
+
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(scaleX, scaleY - 4);
+      ctx.lineTo(scaleX, scaleY);
+      ctx.lineTo(scaleX + scaleMetersWidth, scaleY);
+      ctx.lineTo(scaleX + scaleMetersWidth, scaleY - 4);
+      ctx.stroke();
+
+      ctx.fillStyle = '#475569';
+      ctx.font = 'bold 9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('10 METERS', scaleX + scaleMetersWidth / 2, scaleY - 5);
+
+      ctx.restore();
+    }
+
+    // --- Sub-renderer: Dynamic Shelf Hover Card Tooltip ---
+    function drawShelfHoverTooltip(ctx, node, width, height) {
+      ctx.save();
+
+      // Transform world node coordinate to screen coordinate
+      const screenX = node.x * view.scale + view.x;
+      const screenY = node.y * view.scale + view.y;
+
+      const isPacking = node.id === 1;
+      const products = shelfProductsMap[node.id] || [];
+      const isStop = currentRoute && currentRoute.stops && currentRoute.stops.includes(node.id) && !isPacking;
+      const stopOrder = isStop ? currentRoute.stops.indexOf(node.id) : null;
+
+      // Card Dimensions
+      const tw = 210;
+      const th = isPacking ? 70 : (products.length > 0 ? 95 : 75);
+
+      // Position smart placement so tooltip stays on screen
+      let tx = screenX + 25;
+      let ty = screenY - th / 2;
+      if (tx + tw > width - 15) tx = screenX - tw - 25;
+      if (ty < 15) ty = 15;
+      if (ty + th > height - 15) ty = height - th - 15;
+
+      // Glassmorphic Card Background
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+      ctx.beginPath();
+      ctx.roundRect(tx, ty, tw, th, 8);
+      ctx.fill();
+
+      ctx.strokeStyle = isStop ? '#ef4444' : '#3b82f6';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Header
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+
+      if (isPacking) {
+        ctx.fillText('PACKING & DISPATCH DOCK', tx + 12, ty + 10);
+        ctx.fillStyle = '#10b981';
+        ctx.font = '600 9.5px sans-serif';
+        ctx.fillText('Origin / Tour Termination Point', tx + 12, ty + 26);
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '9px sans-serif';
+        ctx.fillText('Automated Dispatch Station 01', tx + 12, ty + 42);
+      } else {
+        ctx.fillText(`SHELF RACK: S-${String(node.id).padStart(2, '0')}`, tx + 12, ty + 10);
+
+        if (isStop) {
+          ctx.fillStyle = '#f59e0b';
+          ctx.font = 'bold 9.5px sans-serif';
+          ctx.fillText(`★ Pick Stop #${stopOrder} in Optimized Route`, tx + 12, ty + 26);
+        } else {
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = '600 9.5px sans-serif';
+          ctx.fillText(`Corridor Dist to Pack: ${node.distance_to_packing}m`, tx + 12, ty + 26);
+        }
+
+        // Inventory preview
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '9px sans-serif';
+        if (products.length > 0) {
+          const p = products[0];
+          ctx.fillText(`📦 ${p.name.substring(0, 24)}...`, tx + 12, ty + 44);
+          ctx.fillText(`Stock: ${p.stock_quantity} units | ABC Class: ${p.abc_category}`, tx + 12, ty + 58);
+          ctx.fillStyle = '#64748b';
+          ctx.fillText(`Bay Slot: Level 2 / Pallet A`, tx + 12, ty + 72);
+        } else {
+          ctx.fillText(`Capacity: ${node.capacity} items | Load: ${node.current_load}`, tx + 12, ty + 44);
+        }
+      }
+
+      ctx.restore();
+    }
+
+    function toggleAnimation() {
+      if (animRunning) {
+        stopAnimation();
+      } else {
+        startAnimation();
+      }
+    }
+
+    function startAnimation() {
+      if (!currentRoute || !currentRoute.full_path || currentRoute.full_path.length < 2) return;
+      animRunning = true;
+      animProgress = 0;
+      document.getElementById('animate-btn-text').textContent = "Stop Animation";
+      document.getElementById('play-icon').innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
+      runAnimLoop();
+    }
+
+    function stopAnimation() {
+      animRunning = false;
+      if (animReqId) cancelAnimationFrame(animReqId);
+      document.getElementById('animate-btn-text').textContent = "Animate Picker";
+      document.getElementById('play-icon').innerHTML = '<polygon points="5 3 19 12 5 21 5 3"></polygon>';
+      drawRouteCanvas(null);
+    }
+
+    function runAnimLoop() {
+      if (!animRunning) return;
+
+      const nodeMap = {};
+      graphData.nodes.forEach(n => { nodeMap[n.id] = n; });
+      const path = currentRoute.full_path;
+
+      animProgress += 0.015;
+      if (animProgress >= path.length - 1) {
+        animProgress = 0; // Loop animation
+      }
+
+      const segIndex = Math.floor(animProgress);
+      const segT = animProgress - segIndex;
+      const u = nodeMap[path[segIndex]];
+      const v = nodeMap[path[segIndex + 1]];
+
+      if (u && v) {
+        const workerX = u.x + (v.x - u.x) * segT;
+        const workerY = u.y + (v.y - u.y) * segT;
+        drawRouteCanvas({ x: workerX, y: workerY });
+      }
+
+      animReqId = requestAnimationFrame(runAnimLoop);
+    }
+
+    // Live Order Simulation Handler
+    async function simulateLiveOrder() {
+      const btn = document.getElementById('btn-simulate');
+      const alertBox = document.getElementById('live-order-alert');
+      btn.disabled = true;
+      btn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
+          <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+          <path d="M12 2a10 10 0 0 1 10 10"></path>
+        </svg>
+        Simulating...
+      `;
+
+      try {
+        const res = await fetch('/api/orders/simulate', { method: 'POST' });
+        const data = await res.json();
+
+        // Add to dropdown
+        const select = document.getElementById('order-select');
+        const opt = document.createElement('option');
+        opt.value = data.order_id;
+        const isTsp = data.route.stop_count < 8;
+        const tag = isTsp ? 'Exact TSP (<8 stops)' : 'Greedy TSP (≥8 stops)';
+        opt.textContent = `Order #${data.order_id}: ${data.route.customer_name} — ${data.route.items.length} items [${tag}] (NEW)`;
+        select.insertBefore(opt, select.firstChild);
+        select.value = data.order_id;
+
+        // Show toast
+        alertBox.className = 'alert alert-success';
+        alertBox.style.display = 'flex';
+        alertBox.innerHTML = `
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <div>
+            <strong>Incoming Order Simulated!</strong> ${data.message} Route computed in ${data.route.total_distance}m (${data.route.algorithm}).
+          </div>
+        `;
+
+        await computeRoute();
+        startAnimation();
+
+      } catch (err) {
+        console.error("Failed to simulate order:", err);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          ⚡ Simulate Live Order
+        `;
+      }
+    }
+
+    // Custom Order Modal Handlers
+    let modalCatalog = [];
+    async function openCustomOrderModal() {
+      const modal = document.getElementById('custom-order-modal');
+      modal.style.display = 'flex';
+
+      if (modalCatalog.length === 0) {
+        try {
+          const res = await fetch('/api/products');
+          modalCatalog = await res.json();
+          const list = document.getElementById('modal-products-list');
+          list.innerHTML = '';
+          modalCatalog.forEach(p => {
+            const div = document.createElement('div');
+            div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid #f1f5f9; font-size: 0.85rem;';
+            div.innerHTML = `
+              <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; flex: 1;">
+                <input type="checkbox" value="${p.id}" class="modal-prod-check">
+                <span><strong>#${p.id}</strong> ${p.name} <span class="badge" style="font-size:0.7rem;">Shelf ${p.shelf_id}</span></span>
+              </label>
+              <input type="number" min="1" max="10" value="1" class="form-input modal-prod-qty" style="width: 55px; padding: 0.2rem 0.4rem; font-size: 0.8rem;" disabled>
+            `;
+            const check = div.querySelector('.modal-prod-check');
+            const qty = div.querySelector('.modal-prod-qty');
+            check.addEventListener('change', () => { qty.disabled = !check.checked; });
+            list.appendChild(div);
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+
+    function closeCustomOrderModal() {
+      document.getElementById('custom-order-modal').style.display = 'none';
+    }
+
+    async function submitCustomOrder() {
+      const name = document.getElementById('cust-name-input').value.trim();
+      if (!name) {
+        alert("Please enter a customer company name.");
+        return;
+      }
+
+      const checks = document.querySelectorAll('.modal-prod-check:checked');
+      if (checks.length === 0) {
+        alert("Please select at least 1 product item.");
+        return;
+      }
+
+      const items = [];
+      checks.forEach(chk => {
+        const pId = parseInt(chk.value);
+        const row = chk.closest('div');
+        const qty = parseInt(row.querySelector('.modal-prod-qty').value) || 1;
+        items.push({ product_id: pId, quantity: qty });
+      });
+
+      try {
+        const res = await fetch('/api/orders/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customer_name: name, items: items })
+        });
+        const data = await res.json();
+
+        closeCustomOrderModal();
+
+        // Add to dropdown
+        const select = document.getElementById('order-select');
+        const opt = document.createElement('option');
+        opt.value = data.order_id;
+        const isTsp = data.route.stop_count < 8;
+        const tag = isTsp ? 'Exact TSP (<8 stops)' : 'Greedy TSP (≥8 stops)';
+        opt.textContent = `Order #${data.order_id}: ${data.route.customer_name} — ${data.route.items.length} items [${tag}] (CUSTOM)`;
+        select.insertBefore(opt, select.firstChild);
+        select.value = data.order_id;
+
+        await computeRoute();
+        startAnimation();
+
+      } catch (err) {
+        console.error("Failed to create custom order:", err);
+      }
     }
 
     document.addEventListener('DOMContentLoaded', initializePage);
   </script>
+
+  <!-- Custom Order Creation Modal -->
+  <div id="custom-order-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 200; align-items: center; justify-content: center;">
+    <div style="background: #ffffff; border-radius: 12px; width: 92%; max-width: 540px; padding: 1.75rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); max-height: 90vh; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <h2 style="font-size: 1.25rem; font-weight: 800; color: #0f172a;">Create Custom Customer Order</h2>
+        <button onclick="closeCustomOrderModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
+      </div>
+      
+      <div class="form-group">
+        <label for="cust-name-input" class="form-label">Customer Company Name:</label>
+        <input type="text" id="cust-name-input" class="form-input" placeholder="e.g. Apex Industrial Automation" style="max-width: 100%;">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Select Items & Quantities:</label>
+        <div id="modal-products-list" style="max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem;">
+          Loading products...
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+        <button class="btn btn-secondary" onclick="closeCustomOrderModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitCustomOrder()">Save & Compute Route</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
