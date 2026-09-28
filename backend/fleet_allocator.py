@@ -161,3 +161,82 @@ class FleetAllocator:
         }
 
         return worker_plans, metrics
+
+    def allocate_waves(self, waves, walking_speed_m_per_sec=1.1):
+        """
+        Distributes consolidated wave batches across the worker fleet using min-heap makespan balancing.
+
+        Args:
+            waves: list of wave batch dicts from BatchOptimizer.
+            walking_speed_m_per_sec: average picker walking speed (default: 1.1 m/s).
+
+        Returns:
+            worker_plans: list of worker assignment dicts with assigned waves.
+            metrics: fleet-level workload equity and makespan metrics.
+        """
+        if not waves:
+            return [], {
+                "total_waves": 0,
+                "fleet_size": len(self.workers),
+                "makespan_distance": 0.0,
+                "makespan_time_minutes": 0.0,
+                "total_fleet_distance": 0.0,
+                "gini_coefficient": 0.0,
+                "is_balanced": True
+            }
+
+        sorted_waves = sorted(waves, key=lambda w: w.get("batched_distance", w.get("tour_distance", 0.0)), reverse=True)
+        worker_heap = [(0.0, i) for i in range(len(self.workers))]
+        heapq.heapify(worker_heap)
+
+        worker_plans = [{
+            "worker_id": w.id,
+            "worker_name": w.name,
+            "assigned_waves": [],
+            "total_distance": 0.0,
+            "total_units": 0,
+            "total_stops": 0,
+            "total_orders": 0,
+            "est_time_minutes": 0.0
+        } for w in self.workers]
+
+        for wave in sorted_waves:
+            current_dist, w_idx = heapq.heappop(worker_heap)
+            worker_plans[w_idx]["assigned_waves"].append(wave)
+            wave_dist = float(wave.get("batched_distance", wave.get("tour_distance", 0.0)))
+            new_dist = round(current_dist + wave_dist, 2)
+            worker_plans[w_idx]["total_distance"] = new_dist
+            worker_plans[w_idx]["total_units"] += int(wave.get("total_units", 0))
+            worker_plans[w_idx]["total_stops"] += int(wave.get("unique_stops", wave.get("stop_count", 0)))
+            worker_plans[w_idx]["total_orders"] += int(wave.get("orders_count", len(wave.get("order_ids", []))))
+            heapq.heappush(worker_heap, (new_dist, w_idx))
+
+        for plan in worker_plans:
+            walk_seconds = plan["total_distance"] / walking_speed_m_per_sec
+            pick_seconds = plan["total_units"] * 15.0
+            total_seconds = walk_seconds + pick_seconds
+            plan["est_time_minutes"] = round(total_seconds / 60.0, 1)
+
+        worker_distances = [p["total_distance"] for p in worker_plans]
+        total_fleet_dist = round(sum(worker_distances), 2)
+        makespan_dist = round(max(worker_distances), 2) if worker_distances else 0.0
+        makespan_time = max(p["est_time_minutes"] for p in worker_plans) if worker_plans else 0.0
+
+        m = len(worker_distances)
+        gini = 0.0
+        if m > 1 and total_fleet_dist > 0:
+            diff_sum = sum(abs(a - b) for a in worker_distances for b in worker_distances)
+            gini = round(diff_sum / (2.0 * m * total_fleet_dist), 3)
+
+        metrics = {
+            "total_waves": len(sorted_waves),
+            "fleet_size": m,
+            "makespan_distance": makespan_dist,
+            "makespan_time_minutes": makespan_time,
+            "total_fleet_distance": total_fleet_dist,
+            "avg_distance_per_worker": round(total_fleet_dist / m, 2) if m > 0 else 0.0,
+            "gini_coefficient": gini,
+            "is_balanced": gini < 0.20
+        }
+
+        return worker_plans, metrics

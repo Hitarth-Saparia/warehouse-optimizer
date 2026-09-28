@@ -30,6 +30,7 @@ CREATE TABLE products (
     name VARCHAR(150) NOT NULL,
     category VARCHAR(80) NOT NULL,
     assigned_shelf_id INT NULL,
+    stock_quantity INT NOT NULL DEFAULT 50,
     CONSTRAINT fk_prod_shelf FOREIGN KEY (assigned_shelf_id) 
         REFERENCES shelves(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;

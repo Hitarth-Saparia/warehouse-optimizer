@@ -34,6 +34,8 @@ class Warehouse:
         """
         self.shelves = {}  # Vertex set V: shelf_id -> Shelf / dict
         self.adj = {}      # Adjacency list: shelf_id -> [(neighbor_id, distance), ...]
+        self.blocked_edges = set()       # set of (min(u, v), max(u, v)) for impassable corridors
+        self.corridor_penalties = {}     # (min(u, v), max(u, v)) -> float penalty for congested corridors
         self._distance_matrix = {}  # Memoized (u, v) -> shortest distance
         self._path_matrix = {}      # Memoized (u, v) -> list of nodes in path
 
@@ -51,6 +53,40 @@ class Warehouse:
     # -------------------------------------------------------------
     # Graph Construction & Modification
     # -------------------------------------------------------------
+
+    def block_corridor(self, u, v):
+        """Marks corridor (u, v) as completely impassable."""
+        edge_key = (min(int(u), int(v)), max(int(u), int(v)))
+        self.blocked_edges.add(edge_key)
+        self._invalidate_cache()
+
+    def unblock_corridor(self, u, v):
+        """Restores normal corridor traffic."""
+        edge_key = (min(int(u), int(v)), max(int(u), int(v)))
+        self.blocked_edges.discard(edge_key)
+        self.corridor_penalties.pop(edge_key, None)
+        self._invalidate_cache()
+
+    def set_corridor_penalty(self, u, v, penalty):
+        """Applies traffic/congestion penalty distance to corridor."""
+        edge_key = (min(int(u), int(v)), max(int(u), int(v)))
+        if penalty is None or float(penalty) <= 0:
+            self.corridor_penalties.pop(edge_key, None)
+        else:
+            self.corridor_penalties[edge_key] = float(penalty)
+        self._invalidate_cache()
+
+    def get_blocked_corridors(self):
+        """Returns list of currently blocked or penalized corridors."""
+        return [
+            {
+                "from_shelf": u,
+                "to_shelf": v,
+                "is_blocked": True,
+                "penalty": self.corridor_penalties.get((u, v))
+            }
+            for u, v in sorted(list(self.blocked_edges))
+        ]
 
     def add_node(self, shelf):
         """Adds vertex v in V."""
@@ -131,7 +167,12 @@ class Warehouse:
                 continue
 
             for neighbor, weight in self.adj.get(current_node, []):
-                new_dist = current_dist + weight
+                edge_key = (min(int(current_node), int(neighbor)), max(int(current_node), int(neighbor)))
+                if edge_key in self.blocked_edges:
+                    continue  # Impassable / blocked corridor
+
+                effective_weight = weight + self.corridor_penalties.get(edge_key, 0.0)
+                new_dist = current_dist + effective_weight
                 # Relaxation step: if a shorter corridor path is found
                 if new_dist < distances[neighbor]:
                     distances[neighbor] = new_dist

@@ -176,16 +176,11 @@ class LayoutOptimizer:
             )
 
         # Reset and refresh current_load aggregations on shelves
-        cursor.execute("UPDATE shelves SET current_load = 0")
         cursor.execute("""
-            UPDATE shelves s
-            JOIN (
-                SELECT assigned_shelf_id, COUNT(*) as cnt 
-                FROM products 
-                WHERE assigned_shelf_id IS NOT NULL 
-                GROUP BY assigned_shelf_id
-            ) p ON s.id = p.assigned_shelf_id
-            SET s.current_load = p.cnt
+            UPDATE shelves
+            SET current_load = (
+                SELECT COUNT(*) FROM products WHERE products.assigned_shelf_id = shelves.id
+            )
         """)
 
         conn.commit()

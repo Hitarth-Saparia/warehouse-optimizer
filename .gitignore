@@ -38,3 +38,8 @@ undo_*
 # Logs & Test caches
 *.log
 .pytest_cache/
+
+# Local SQLite databases
+*.sqlite
+*.sqlite3
+*.db

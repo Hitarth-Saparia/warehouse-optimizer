@@ -25,37 +25,40 @@ FRONTEND_DIR = os.path.abspath(os.path.join(BACKEND_DIR, "..", "frontend"))
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="")
 CORS(app)
 
-env_file = os.path.abspath(os.path.join(BACKEND_DIR, "..", ".env"))
-if os.path.isfile(env_file):
-    with open(env_file) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                k = k.strip()
-                v = v.strip().strip("\"'")
-                if k not in os.environ:
-                    os.environ[k] = v
+from backend.db import get_db, get_active_db_type, DB_CONFIG
 
-DB_CONFIG = {
-    "host": os.environ.get("DB_HOST", "127.0.0.1"),
-    "port": int(os.environ.get("DB_PORT", 3306)),
-    "user": os.environ.get("DB_USER", "root"),
-    "password": os.environ.get("DB_PASS", ""),
-    "database": os.environ.get("DB_NAME", "wareopt"),
-    "cursorclass": pymysql.cursors.DictCursor,
-    "autocommit": True
-}
+def parse_int_arg(param_name, default, min_val=None, max_val=None):
+    """Safely extracts and validates an integer query parameter."""
+    raw = request.args.get(param_name)
+    if raw is None:
+        return default
+    try:
+        val = int(raw)
+        if min_val is not None and val < min_val:
+            return default
+        if max_val is not None and val > max_val:
+            return max_val
+        return val
+    except (ValueError, TypeError):
+        return default
 
-def get_db():
-    return pymysql.connect(**DB_CONFIG)
+@app.route("/api/system/status", methods=["GET"])
+def get_system_status():
+    """Returns database backend status and engine metrics."""
+    engine = get_active_db_type()
+    return jsonify({
+        "status": "healthy",
+        "database_engine": engine,
+        "host": DB_CONFIG["host"] if engine == "mysql" else "local_sqlite",
+        "database": DB_CONFIG["database"] if engine == "mysql" else "wareopt.sqlite"
+    })
 
 @app.errorhandler(pymysql.MySQLError)
 def handle_mysql_error(err):
     return jsonify({
         "status": "error",
         "error": str(err),
-        "hint": "MySQL error: Ensure MySQL is running on 127.0.0.1:3306 and run './run.sh --seed' to initialize database."
+        "hint": "Database operation failed. The system supports automatic SQLite fallback."
     }), 500
 
 
@@ -70,14 +73,18 @@ def fetch_all_products(conn):
     with conn.cursor() as cur:
         cur.execute("""
             SELECT p.id, p.name, p.category, p.assigned_shelf_id,
+                   COALESCE(p.stock_quantity, 50) AS stock_quantity,
                    COALESCE(SUM(s.units_sold), 0) AS pick_frequency
             FROM products p
             LEFT JOIN sales s ON p.id = s.product_id
-            GROUP BY p.id, p.name, p.category, p.assigned_shelf_id
+            GROUP BY p.id, p.name, p.category, p.assigned_shelf_id, p.stock_quantity
             ORDER BY pick_frequency DESC
         """)
         rows = cur.fetchall()
         return [Product(**row) for row in rows]
+
+BLOCKED_CORRIDORS = set()  # set of (min(u, v), max(u, v))
+CORRIDOR_PENALTIES = {}    # (min(u, v), max(u, v)) -> float
 
 def fetch_warehouse(conn):
     shelves = fetch_all_shelves(conn)
@@ -85,7 +92,12 @@ def fetch_warehouse(conn):
         cur.execute("SELECT from_shelf_id, to_shelf_id, distance FROM edges")
         edge_rows = cur.fetchall()
         edges = [(r["from_shelf_id"], r["to_shelf_id"], r["distance"]) for r in edge_rows]
-    return Warehouse(shelves=shelves, edges=edges)
+    w = Warehouse(shelves=shelves, edges=edges)
+    for u, v in BLOCKED_CORRIDORS:
+        w.block_corridor(u, v)
+    for (u, v), p in CORRIDOR_PENALTIES.items():
+        w.set_corridor_penalty(u, v, p)
+    return w
 
 def fetch_all_orders(conn):
     with conn.cursor() as cur:
@@ -162,7 +174,98 @@ def get_warehouse_graph():
     conn = get_db()
     try:
         warehouse = fetch_warehouse(conn)
-        return jsonify(warehouse.to_dict())
+        graph_dict = warehouse.to_dict()
+        graph_dict["blocked_corridors"] = warehouse.get_blocked_corridors()
+        return jsonify(graph_dict)
+    finally:
+        conn.close()
+
+@app.route("/api/warehouse/corridor/block", methods=["POST"])
+def block_warehouse_corridor():
+    """
+    Dynamically blocks a corridor (e.g. for spill/maintenance) or applies traffic penalty.
+    Body: {"from_shelf": 2, "to_shelf": 3, "penalty": 40.0 (optional)}
+    """
+    data = request.get_json() or {}
+    u = data.get("from_shelf")
+    v = data.get("to_shelf")
+    penalty = data.get("penalty")
+
+    if u is None or v is None:
+        return jsonify({"error": "'from_shelf' and 'to_shelf' IDs are required."}), 400
+
+    try:
+        u, v = int(u), int(v)
+    except (ValueError, TypeError):
+        return jsonify({"error": "'from_shelf' and 'to_shelf' must be integers."}), 400
+
+    if penalty is not None:
+        try:
+            penalty = float(penalty)
+        except (ValueError, TypeError):
+            return jsonify({"error": "'penalty' must be a valid number."}), 400
+
+    edge_key = (min(u, v), max(u, v))
+    BLOCKED_CORRIDORS.add(edge_key)
+    if penalty is not None:
+        CORRIDOR_PENALTIES[edge_key] = penalty
+
+    return jsonify({
+        "status": "success",
+        "message": f"Corridor between Shelf {u} and Shelf {v} has been blocked.",
+        "blocked_corridor": {"from_shelf": u, "to_shelf": v, "penalty": penalty},
+        "total_blocked": len(BLOCKED_CORRIDORS)
+    })
+
+@app.route("/api/warehouse/corridor/unblock", methods=["POST"])
+def unblock_warehouse_corridor():
+    """
+    Restores normal traffic on a previously blocked corridor.
+    Body: {"from_shelf": 2, "to_shelf": 3}
+    """
+    data = request.get_json() or {}
+    u = data.get("from_shelf")
+    v = data.get("to_shelf")
+
+    if u is None or v is None:
+        return jsonify({"error": "'from_shelf' and 'to_shelf' IDs are required."}), 400
+
+    try:
+        u, v = int(u), int(v)
+    except (ValueError, TypeError):
+        return jsonify({"error": "'from_shelf' and 'to_shelf' must be integers."}), 400
+
+    edge_key = (min(u, v), max(u, v))
+    BLOCKED_CORRIDORS.discard(edge_key)
+    CORRIDOR_PENALTIES.pop(edge_key, None)
+
+    return jsonify({
+        "status": "success",
+        "message": f"Corridor between Shelf {u} and Shelf {v} is now clear and walkable.",
+        "unblocked_corridor": {"from_shelf": u, "to_shelf": v},
+        "total_blocked": len(BLOCKED_CORRIDORS)
+    })
+
+@app.route("/api/warehouse/corridors/reset", methods=["POST"])
+def reset_blocked_corridors():
+    """Clears all dynamic corridor blocks and penalties."""
+    BLOCKED_CORRIDORS.clear()
+    CORRIDOR_PENALTIES.clear()
+    return jsonify({
+        "status": "success",
+        "message": "All warehouse corridors reset to open status."
+    })
+
+@app.route("/api/warehouse/corridors/blocked", methods=["GET"])
+def get_blocked_corridors_api():
+    """Returns all currently blocked or penalized corridors."""
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        return jsonify({
+            "blocked_corridors": warehouse.get_blocked_corridors(),
+            "count": len(BLOCKED_CORRIDORS)
+        })
     finally:
         conn.close()
 
@@ -189,10 +292,13 @@ def optimize_layout():
 @app.route("/api/layout/apply", methods=["POST"])
 def apply_layout():
     """
-    Applies the proposed assignments to the MySQL database.
+    Applies the proposed assignments to the database.
     """
     data = request.get_json() or {}
     assignments = data.get("assignments")
+    if assignments is not None and not isinstance(assignments, list):
+        return jsonify({"error": "'assignments' must be a list of shelf mappings."}), 400
+
     conn = get_db()
     try:
         if not assignments:
@@ -206,7 +312,7 @@ def apply_layout():
         optimizer.apply(conn, assignments)
         return jsonify({
             "status": "success",
-            "message": f"Successfully updated shelf assignments for {len(assignments)} products in MySQL."
+            "message": f"Successfully updated shelf assignments for {len(assignments)} products."
         })
     finally:
         conn.close()
@@ -238,7 +344,7 @@ def compute_order_route(order_id):
 def create_order():
     """
     Creates a new custom customer order with specified items and quantities.
-    Saves to MySQL and immediately returns optimal picking route.
+    Saves to database and immediately returns optimal picking route.
     """
     data = request.get_json() or {}
     customer_name = data.get("customer_name", "").strip()
@@ -256,8 +362,17 @@ def create_order():
         order_id = cursor.lastrowid
 
         for it in items:
+            if not isinstance(it, dict):
+                return jsonify({"error": "Each item must be an object with product_id and quantity."}), 400
             p_id = it.get("product_id")
-            qty = max(1, int(it.get("quantity", 1)))
+            if p_id is None:
+                return jsonify({"error": "product_id is required for each item."}), 400
+            try:
+                p_id = int(p_id)
+                qty = max(1, int(it.get("quantity", 1)))
+            except (ValueError, TypeError):
+                return jsonify({"error": "Invalid product_id or quantity in items list."}), 400
+
             cursor.execute("INSERT INTO order_items (order_id, product_id, quantity) VALUES (%s, %s, %s)", (order_id, p_id, qty))
 
         conn.commit()
@@ -341,6 +456,219 @@ def simulate_order():
         cursor.close()
         conn.close()
 
+VALID_ORDER_STATUSES = {"Pending", "Picking", "Completed", "Cancelled"}
+
+@app.route("/api/orders/<int:order_id>/status", methods=["PATCH", "PUT"])
+def update_order_status(order_id):
+    """
+    Updates the operational lifecycle status of an order.
+    Allowed statuses: 'Pending', 'Picking', 'Completed', 'Cancelled'.
+    """
+    data = request.get_json() or {}
+    raw_status = data.get("status", "").strip()
+    status_title = raw_status.title() if raw_status else ""
+    if status_title not in VALID_ORDER_STATUSES:
+        return jsonify({
+            "error": f"Invalid status '{raw_status}'. Allowed statuses: {sorted(list(VALID_ORDER_STATUSES))}"
+        }), 400
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, customer_name, status FROM orders WHERE id = %s", (order_id,))
+            order = cur.fetchone()
+            if not order:
+                return jsonify({"error": f"Order #{order_id} not found"}), 404
+
+            cur.execute("UPDATE orders SET status = %s WHERE id = %s", (status_title, order_id))
+            conn.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": f"Order #{order_id} status updated from '{order['status']}' to '{status_title}'.",
+            "order_id": order_id,
+            "previous_status": order["status"],
+            "new_status": status_title
+        })
+    finally:
+        conn.close()
+
+@app.route("/api/orders/<int:order_id>/complete", methods=["POST"])
+def complete_order(order_id):
+    """
+    Marks an order as Completed and decrements physical inventory stock for all picked items.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, customer_name, status FROM orders WHERE id = %s", (order_id,))
+            order = cur.fetchone()
+            if not order:
+                return jsonify({"error": f"Order #{order_id} not found"}), 404
+
+            # Fetch line items to decrement stock
+            cur.execute("SELECT product_id, quantity FROM order_items WHERE order_id = %s", (order_id,))
+            items = cur.fetchall()
+            for it in items:
+                cur.execute(
+                    "UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - %s) WHERE id = %s",
+                    (it["quantity"], it["product_id"])
+                )
+
+            cur.execute("UPDATE orders SET status = 'Completed' WHERE id = %s", (order_id,))
+            conn.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": f"Order #{order_id} marked as Completed. Inventory deducted for {len(items)} line items.",
+            "order_id": order_id,
+            "items_deducted": len(items),
+            "new_status": "Completed"
+        })
+    finally:
+        conn.close()
+
+@app.route("/api/inventory/status", methods=["GET"])
+def get_inventory_status():
+    """
+    Returns inventory health metrics including total stock, low-stock alerts,
+    out-of-stock items, and inventory counts grouped by category.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, name, category, stock_quantity, assigned_shelf_id
+                FROM products
+                ORDER BY stock_quantity ASC
+            """)
+            prods = cur.fetchall()
+
+            total_units = sum(p["stock_quantity"] for p in prods)
+            low_stock = [p for p in prods if p["stock_quantity"] <= 15]
+            out_of_stock = [p for p in prods if p["stock_quantity"] == 0]
+
+            cat_summary = {}
+            for p in prods:
+                c = p["category"]
+                cat_summary[c] = cat_summary.get(c, 0) + p["stock_quantity"]
+
+        return jsonify({
+            "total_products": len(prods),
+            "total_units_in_stock": total_units,
+            "low_stock_count": len(low_stock),
+            "low_stock_items": low_stock[:10],
+            "out_of_stock_count": len(out_of_stock),
+            "stock_by_category": cat_summary
+        })
+    finally:
+        conn.close()
+
+@app.route("/api/inventory/restock", methods=["POST"])
+def restock_inventory():
+    """
+    Replenishes product inventory stock.
+    Supports single product restock: {"product_id": 5, "quantity": 25}
+    Or bulk restock: {"restock_all_to": 50}
+    """
+    data = request.get_json() or {}
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            if "restock_all_to" in data:
+                try:
+                    val = int(data["restock_all_to"])
+                    if val <= 0:
+                        return jsonify({"error": "'restock_all_to' must be greater than 0."}), 400
+                except (ValueError, TypeError):
+                    return jsonify({"error": "'restock_all_to' must be a valid integer."}), 400
+
+                cur.execute("UPDATE products SET stock_quantity = %s", (val,))
+                conn.commit()
+                return jsonify({
+                    "status": "success",
+                    "message": f"All warehouse products restocked to {val} units."
+                })
+
+            p_id = data.get("product_id")
+            qty = data.get("quantity")
+            if p_id is None or qty is None:
+                return jsonify({"error": "Either 'product_id' and 'quantity', or 'restock_all_to' is required."}), 400
+
+            try:
+                p_id = int(p_id)
+                qty = int(qty)
+                if qty <= 0:
+                    return jsonify({"error": "'quantity' must be a positive integer greater than 0."}), 400
+            except (ValueError, TypeError):
+                return jsonify({"error": "'product_id' and 'quantity' must be valid integers."}), 400
+
+            cur.execute("UPDATE products SET stock_quantity = stock_quantity + %s WHERE id = %s", (qty, p_id))
+            cur.execute("SELECT id, name, stock_quantity FROM products WHERE id = %s", (p_id,))
+            prod = cur.fetchone()
+            if not prod:
+                return jsonify({"error": f"Product #{p_id} not found"}), 404
+            conn.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": f"Added {qty} units to '{prod['name']}'. New stock: {prod['stock_quantity']}.",
+            "product": prod
+        })
+    finally:
+        conn.close()
+
+@app.route("/api/orders/<int:order_id>", methods=["DELETE"])
+def delete_order(order_id):
+    """
+    Deletes an order and cascades line item removal.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, customer_name FROM orders WHERE id = %s", (order_id,))
+            order = cur.fetchone()
+            if not order:
+                return jsonify({"error": f"Order #{order_id} not found"}), 404
+
+            cur.execute("DELETE FROM order_items WHERE order_id = %s", (order_id,))
+            cur.execute("DELETE FROM orders WHERE id = %s", (order_id,))
+            conn.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": f"Order #{order_id} for '{order['customer_name']}' deleted successfully.",
+            "deleted_order_id": order_id
+        })
+    finally:
+        conn.close()
+
+@app.route("/api/orders/reset-simulated", methods=["POST", "DELETE"])
+def reset_simulated_orders():
+    """
+    Removes dynamically simulated customer orders (ID > 12),
+    preserving the initial 12 benchmark customer orders.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM orders WHERE id > 12")
+            rows = cur.fetchall()
+            simulated_ids = [r["id"] for r in rows]
+            if simulated_ids:
+                format_strings = ','.join(['%s'] * len(simulated_ids))
+                cur.execute(f"DELETE FROM order_items WHERE order_id IN ({format_strings})", tuple(simulated_ids))
+                cur.execute(f"DELETE FROM orders WHERE id IN ({format_strings})", tuple(simulated_ids))
+                conn.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": f"Purged {len(simulated_ids)} simulated orders. 12 benchmark orders preserved.",
+            "deleted_count": len(simulated_ids)
+        })
+    finally:
+        conn.close()
+
 @app.route("/api/statistics", methods=["GET"])
 def get_statistics():
     """
@@ -368,7 +696,7 @@ def get_batch_waves():
     into wave picking batches to minimize aggregate walking distance.
     Supports optional cart_capacity parameter.
     """
-    cart_capacity = int(request.args.get("cart_capacity", 35))
+    cart_capacity = parse_int_arg("cart_capacity", default=35, min_val=5, max_val=500)
     conn = get_db()
     try:
         warehouse = fetch_warehouse(conn)
@@ -393,7 +721,7 @@ def assign_fleet_workload():
     Solves mTSP / CVRP fleet workload balancing.
     Distributes pending orders evenly across M warehouse pickers.
     """
-    workers_count = int(request.args.get("workers", 3))
+    workers_count = parse_int_arg("workers", default=3, min_val=1, max_val=5)
     default_names = ["Picker Alpha", "Picker Bravo", "Picker Charlie", "Picker Delta", "Picker Echo"]
     names = default_names[:max(1, min(workers_count, len(default_names)))]
 
@@ -410,6 +738,43 @@ def assign_fleet_workload():
         return jsonify({
             "workers": worker_plans,
             "metrics": metrics
+        })
+    finally:
+        conn.close()
+
+@app.route("/api/fleet/assign-waves", methods=["GET", "POST"])
+def assign_fleet_waves():
+    """
+    Joint Operations Research Pipeline: Wave Batching + Fleet Allocation.
+    1. Consolidates pending customer orders into optimal wave batches subject to cart capacity.
+    2. Assigns waves across M pickers to minimize makespan and equalize shift workload.
+    """
+    workers_count = parse_int_arg("workers", default=3, min_val=1, max_val=5)
+    cart_capacity = parse_int_arg("cart_capacity", default=35, min_val=5, max_val=500)
+    default_names = ["Picker Alpha", "Picker Bravo", "Picker Charlie", "Picker Delta", "Picker Echo"]
+    names = default_names[:max(1, min(workers_count, len(default_names)))]
+
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        orders = fetch_all_orders(conn)
+        products = fetch_all_products(conn)
+        shelf_mapping = {p.id: p.assigned_shelf_id for p in products}
+
+        # Step 1: Solve Order Batching Problem (OBP)
+        batcher = BatchOptimizer(warehouse, max_cart_capacity=cart_capacity)
+        waves, wave_metrics = batcher.optimize_batches(orders, shelf_mapping)
+
+        # Step 2: Solve mTSP Wave Allocation
+        allocator = FleetAllocator(warehouse, worker_names=names)
+        worker_plans, fleet_metrics = allocator.allocate_waves(waves)
+
+        return jsonify({
+            "status": "success",
+            "workers": worker_plans,
+            "fleet_metrics": fleet_metrics,
+            "wave_metrics": wave_metrics,
+            "cart_capacity": cart_capacity
         })
     finally:
         conn.close()

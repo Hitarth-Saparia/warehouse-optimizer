@@ -6,6 +6,7 @@
   <meta name="description" content="Multi-Worker Fleet Balancing. Multiple Traveling Salesperson Problem (mTSP) solver to balance warehouse pick loads and minimize shift makespan.">
   <title>Fleet Balancing | Warehouse Optimizer</title>
   <link rel="stylesheet" href="style.css">
+  <script src="theme.js"></script>
 </head>
 <body>
 
@@ -33,9 +34,23 @@
       <li><a href="waves.html">Wave Picking</a></li>
       <li><a href="fleet.html" class="active">Fleet Balancing</a></li>
     </ul>
-    <div class="nav-status">
-      <span class="status-dot"></span>
-      <span>API Connected</span>
+    <div class="nav-right-actions">
+      <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle theme">
+        <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <svg class="moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
     </div>
   </nav>
 
@@ -155,7 +170,7 @@
               <tr>
                 <td><strong>#${o.order_id}</strong></td>
                 <td style="font-weight: 500; font-size: 0.85rem;">${o.customer_name}</td>
-                <td><span class="badge" style="background:#eff6ff; color:#1d4ed8; font-size:0.7rem;">${o.primary_aisle}</span></td>
+                <td><span class="badge badge-primary" style="font-size:0.7rem;">${o.primary_aisle}</span></td>
                 <td style="text-align: right; font-weight: 700;">${o.distance}m</td>
               </tr>
             `;
@@ -164,11 +179,11 @@
           card.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
               <div style="display: flex; align-items: center; gap: 0.6rem;">
-                <div style="width: 34px; height: 34px; border-radius: 8px; background: #eff6ff; display: flex; align-items: center; justify-content: center; color: #2563eb; font-weight: 800;">
+                <div style="width: 34px; height: 34px; border-radius: 8px; background: var(--primary-light); display: flex; align-items: center; justify-content: center; color: var(--primary); font-weight: 800;">
                   W${w.worker_id}
                 </div>
                 <div>
-                  <h3 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0;">${w.worker_name}</h3>
+                  <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin: 0;">${w.worker_name}</h3>
                   <span style="font-size: 0.75rem; color: var(--text-muted);">Stationed at Packing Hub</span>
                 </div>
               </div>
@@ -181,15 +196,15 @@
                 <span>Relative Shift Load</span>
                 <span><strong>${w.total_distance}m</strong> (${w.est_time_minutes} min)</span>
               </div>
-              <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;">
+              <div style="width: 100%; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;">
                 <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); border-radius: 4px;"></div>
               </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; margin-bottom: 1.25rem; text-align: center;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; margin-bottom: 1.25rem; text-align: center;">
               <div>
                 <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Distance</div>
-                <div style="font-weight: 800; color: #0f172a;">${w.total_distance}m</div>
+                <div style="font-weight: 800; color: var(--text-main);">${w.total_distance}m</div>
               </div>
               <div>
                 <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Units</div>

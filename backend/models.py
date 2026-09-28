@@ -8,12 +8,13 @@ Core Object-Oriented Domain Entities matching the database tables:
 """
 
 class Product:
-    def __init__(self, id, name, category, assigned_shelf_id=None, pick_frequency=0):
+    def __init__(self, id, name, category, assigned_shelf_id=None, pick_frequency=0, stock_quantity=50):
         self.id = id
         self.name = name
         self.category = category
         self.assigned_shelf_id = assigned_shelf_id
         self.pick_frequency = float(pick_frequency or 0)
+        self.stock_quantity = int(stock_quantity if stock_quantity is not None else 50)
 
     def to_dict(self):
         return {
@@ -21,7 +22,8 @@ class Product:
             "name": self.name,
             "category": self.category,
             "assigned_shelf_id": self.assigned_shelf_id,
-            "pick_frequency": self.pick_frequency
+            "pick_frequency": self.pick_frequency,
+            "stock_quantity": self.stock_quantity
         }
 
 class Shelf:
@@ -53,12 +55,16 @@ class Order:
         self.status = status
         self.items = items or [] # list of dicts: {"product_id": ..., "name": ..., "quantity": ..., "shelf_id": ...}
 
+    @property
+    def item_count(self):
+        return len(self.items)
+
     def to_dict(self):
         return {
             "id": self.id,
             "customer_name": self.customer_name,
             "status": self.status,
-            "item_count": len(self.items),
+            "item_count": self.item_count,
             "items": self.items
         }
 

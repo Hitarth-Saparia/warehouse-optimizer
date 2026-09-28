@@ -6,6 +6,7 @@
   <meta name="description" content="Order Picking Route Optimizer. Traveling Salesperson Problem (TSP) solver with interactive floorplan route visualization and simulated picker tour.">
   <title>Order Picking Route Optimizer | Warehouse Optimizer</title>
   <link rel="stylesheet" href="style.css">
+  <script src="theme.js"></script>
 </head>
 <body>
 
@@ -33,9 +34,23 @@
       <li><a href="waves.html">Wave Picking</a></li>
       <li><a href="fleet.html">Fleet Balancing</a></li>
     </ul>
-    <div class="nav-status">
-      <span class="status-dot"></span>
-      <span>API Connected</span>
+    <div class="nav-right-actions">
+      <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle theme">
+        <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <svg class="moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
     </div>
   </nav>
 
@@ -180,14 +195,14 @@
           </div>
 
           <div class="canvas-wrapper" style="overflow: hidden; cursor: grab;">
-            <canvas id="route-canvas" width="820" height="520" style="background: #f8fafc; border-radius: 8px;"></canvas>
+            <canvas id="route-canvas" width="820" height="520" style="background: var(--canvas-bg); border-radius: 8px;"></canvas>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">
             <span>Red glowing corridors highlight the shortest round-trip path computed with Dijkstra corridor calculations and TSP optimization.</span>
             <span style="font-weight: 600; color: var(--primary); white-space: nowrap; margin-left: 1rem;">
-              <kbd style="background:#e2e8f0; padding: 2px 5px; border-radius: 4px; font-size: 0.75rem;">Scroll</kbd> Zoom &bull; 
-              <kbd style="background:#e2e8f0; padding: 2px 5px; border-radius: 4px; font-size: 0.75rem;">Drag</kbd> Pan &bull; 
-              <kbd style="background:#e2e8f0; padding: 2px 5px; border-radius: 4px; font-size: 0.75rem;">F</kbd> Fullscreen
+              <kbd>Scroll</kbd> Zoom &bull; 
+              <kbd>Drag</kbd> Pan &bull; 
+              <kbd>F</kbd> Fullscreen
             </span>
           </div>
         </div>
@@ -586,7 +601,8 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // 1. Draw High-DPI Background Concrete Floor
-      ctx.fillStyle = '#f8fafc';
+      const dark = typeof isDarkMode === 'function' && isDarkMode();
+      ctx.fillStyle = dark ? '#0b0f19' : '#f8fafc';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Setup World Transformation (Pan & Zoom)
@@ -607,7 +623,7 @@
       // C. Base Walkway Corridor Tracks
       ctx.save();
       ctx.lineWidth = 2.5;
-      ctx.strokeStyle = '#cbd5e1';
+      ctx.strokeStyle = dark ? '#334155' : '#cbd5e1';
       ctx.setLineDash([4, 4]);
       graphData.edges.forEach(e => {
         const u = nodeMap[e.from_shelf_id];
@@ -701,10 +717,11 @@
 
     // --- Sub-renderer: Polished Industrial Warehouse Floor ---
     function drawRealisticFloor(ctx) {
+      const dark = typeof isDarkMode === 'function' && isDarkMode();
       ctx.save();
 
       // Expansion joint tile grid (20px fine grid)
-      ctx.strokeStyle = '#f1f5f9';
+      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.04)' : '#f1f5f9';
       ctx.lineWidth = 1;
       for (let x = 0; x <= 860; x += 25) {
         ctx.beginPath();
@@ -720,7 +737,7 @@
       }
 
       // Major structural slab joints (100px)
-      ctx.strokeStyle = '#e2e8f0';
+      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
       ctx.lineWidth = 1.5;
       for (let x = 0; x <= 860; x += 100) {
         ctx.beginPath();
@@ -736,7 +753,7 @@
       }
 
       // Facility Safety Boundary Markings (Outer perimeter zone)
-      ctx.strokeStyle = '#e2e8f0';
+      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.12)' : '#e2e8f0';
       ctx.lineWidth = 2;
       ctx.strokeRect(30, 20, 755, 480);
 
@@ -1068,11 +1085,12 @@
       ctx.fillText('N', cx, cy - 11);
 
       // Facility Label
-      ctx.fillStyle = '#0f172a';
+      const dark = typeof isDarkMode === 'function' && isDarkMode();
+      ctx.fillStyle = dark ? '#f8fafc' : '#0f172a';
       ctx.font = 'bold 11px sans-serif';
       ctx.textAlign = 'left';
       ctx.fillText('FACILITY MDC-01 • SECTOR A', cx + 22, cy - 2);
-      ctx.fillStyle = '#64748b';
+      ctx.fillStyle = dark ? '#94a3b8' : '#64748b';
       ctx.font = '600 8.5px sans-serif';
       ctx.fillText('HIGH-PERFORMANCE GRAPH ROUTING FLOORPLAN', cx + 22, cy + 9);
 
@@ -1081,7 +1099,7 @@
       const scaleY = height - 25;
       const scaleMetersWidth = 50 * view.scale; // 50px represents 10 meters at 1.0x
 
-      ctx.strokeStyle = '#475569';
+      ctx.strokeStyle = dark ? '#64748b' : '#475569';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(scaleX, scaleY - 4);
@@ -1090,7 +1108,7 @@
       ctx.lineTo(scaleX + scaleMetersWidth, scaleY - 4);
       ctx.stroke();
 
-      ctx.fillStyle = '#475569';
+      ctx.fillStyle = dark ? '#cbd5e1' : '#475569';
       ctx.font = 'bold 9px monospace';
       ctx.textAlign = 'center';
       ctx.fillText('10 METERS', scaleX + scaleMetersWidth / 2, scaleY - 5);
@@ -1368,14 +1386,22 @@
       }
     }
 
+    window.addEventListener('themechange', () => {
+      const canvas = document.getElementById('route-canvas');
+      if (canvas) {
+        canvas.style.background = isDarkMode() ? '#0b0f19' : '#f8fafc';
+        drawRouteCanvas();
+      }
+    });
+
     document.addEventListener('DOMContentLoaded', initializePage);
   </script>
 
   <!-- Custom Order Creation Modal -->
   <div id="custom-order-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 200; align-items: center; justify-content: center;">
-    <div style="background: #ffffff; border-radius: 12px; width: 92%; max-width: 540px; padding: 1.75rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); max-height: 90vh; overflow-y: auto;">
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; width: 92%; max-width: 540px; padding: 1.75rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4); max-height: 90vh; overflow-y: auto;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-        <h2 style="font-size: 1.25rem; font-weight: 800; color: #0f172a;">Create Custom Customer Order</h2>
+        <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main);">Create Custom Customer Order</h2>
         <button onclick="closeCustomOrderModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
       </div>
       
