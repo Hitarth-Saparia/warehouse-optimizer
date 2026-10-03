@@ -303,6 +303,26 @@ def seed_database():
         order_items_data
     )
 
+    print("Seeding initial administrative and operator user accounts...")
+    import sys
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+    from backend.security import hash_password
+
+    demo_users = [
+        ("admin@warehouse.io", "Alex Morgan", "password123", "manager"),
+        ("supervisor@warehouse.io", "Elena Ramos", "password123", "supervisor"),
+        ("fleet@warehouse.io", "David Chen", "password123", "fleet"),
+    ]
+    users_data = []
+    for email, name, plain_pwd, role in demo_users:
+        pwd_hash, salt = hash_password(plain_pwd)
+        users_data.append((email, name, pwd_hash, salt, role))
+
+    cursor.executemany(
+        "INSERT INTO users (email, name, password_hash, salt, role) VALUES (%s, %s, %s, %s, %s)",
+        users_data
+    )
+
     conn.commit()
     cursor.close()
     conn.close()

@@ -179,6 +179,29 @@ def init_sqlite_database():
             to_shelf_id INTEGER NOT NULL,
             distance REAL NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            salt TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'guest',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_login TIMESTAMP NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS auth_audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NULL,
+            email TEXT NOT NULL,
+            action TEXT NOT NULL,
+            ip_address TEXT NULL,
+            status TEXT NOT NULL,
+            details TEXT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+        );
     """)
 
     # Check if already seeded
@@ -306,6 +329,23 @@ def init_sqlite_database():
             order_items_data.append((order_id, p_id, random.randint(1, 4)))
 
     cur.executemany("INSERT INTO order_items (order_id, product_id, quantity) VALUES (?, ?, ?)", order_items_data)
+
+    # Seed Demo Users
+    from backend.security import hash_password
+    demo_users = [
+        ("admin@warehouse.io", "Alex Morgan", "password123", "manager"),
+        ("supervisor@warehouse.io", "Elena Ramos", "password123", "supervisor"),
+        ("fleet@warehouse.io", "David Chen", "password123", "fleet"),
+    ]
+    sqlite_users_data = []
+    for email, name, plain_pwd, role in demo_users:
+        pwd_hash, salt = hash_password(plain_pwd)
+        sqlite_users_data.append((email, name, pwd_hash, salt, role))
+
+    cur.executemany(
+        "INSERT INTO users (email, name, password_hash, salt, role) VALUES (?, ?, ?, ?, ?)",
+        sqlite_users_data
+    )
 
     conn.commit()
     conn.close()
