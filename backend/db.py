@@ -336,6 +336,7 @@ def init_sqlite_database():
         ("admin@warehouse.io", "Alex Morgan", "password123", "manager"),
         ("supervisor@warehouse.io", "Elena Ramos", "password123", "supervisor"),
         ("fleet@warehouse.io", "David Chen", "password123", "fleet"),
+        ("guest@warehouse.io", "Guest Analyst", "password123", "guest"),
     ]
     sqlite_users_data = []
     for email, name, plain_pwd, role in demo_users:

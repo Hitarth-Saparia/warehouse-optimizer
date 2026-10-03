@@ -341,15 +341,14 @@
     }
 
     /**
-     * Handle Form Submission
+     * Handle Form Submission (Connected to backend /api/auth/login)
      */
-    function handleLoginSubmit(event) {
+    async function handleLoginSubmit(event) {
       event.preventDefault();
       clearAlert();
 
       const email = document.getElementById('login-email').value.trim();
       const password = document.getElementById('login-password').value;
-      const remember = document.getElementById('remember-me').checked;
 
       // Basic client validation
       if (!email || !email.includes('@')) {
@@ -364,19 +363,6 @@
         return;
       }
 
-      // Find matching demo account or create dynamic persona
-      let userObj = Object.values(DEMO_ACCOUNTS).find(acc => acc.email.toLowerCase() === email.toLowerCase());
-      if (!userObj) {
-        const username = email.split('@')[0];
-        const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
-        userObj = {
-          email: email,
-          name: formattedName,
-          role: 'Logistics Operator',
-          initials: formattedName.substring(0, 2).toUpperCase()
-        };
-      }
-
       // UI Loading state
       const btn = document.getElementById('btn-submit');
       const btnSpinner = document.getElementById('btn-spinner');
@@ -388,40 +374,45 @@
       btnIcon.style.display = 'none';
       btnText.textContent = 'Verifying credentials...';
 
-      // Simulate verification delay (pure frontend mock until backend is connected)
-      setTimeout(() => {
-        setAuthUser({
-          ...userObj,
-          remember: remember,
-          loginTime: new Date().toISOString()
-        });
+      // Call backend API
+      const result = await loginUser(email, password);
 
-        showAlert('success', `Authentication successful! Redirecting ${userObj.name} to dashboard...`);
+      if (result.success) {
+        showAlert('success', `Authentication successful! Welcome back, ${result.user.name}. Redirecting...`);
         btnText.textContent = 'Authenticated!';
         btnSpinner.style.display = 'none';
 
         setTimeout(() => {
           window.location.href = 'index.html';
-        }, 800);
-      }, 650);
+        }, 700);
+      } else {
+        btn.disabled = false;
+        btnSpinner.style.display = 'none';
+        btnIcon.style.display = 'inline-block';
+        btnText.textContent = 'Sign In';
+
+        if (result.status === 429) {
+          showAlert('error', `Rate limit exceeded: Too many attempts. Try again in ${result.retryAfter || 60} seconds.`);
+        } else {
+          showAlert('error', result.error || 'Invalid email or password.');
+        }
+      }
     }
 
     /**
-     * Instant Guest SSO Login
+     * Instant Guest SSO Login (Uses guest@warehouse.io credentials against API)
      */
-    function handleSSOLogin() {
-      const guestUser = {
-        email: 'guest.analyst@warehouse.io',
-        name: 'Guest Analyst',
-        role: 'Warehouse Guest',
-        initials: 'GA',
-        loginTime: new Date().toISOString()
-      };
-      setAuthUser(guestUser);
-      showAlert('success', 'Authenticated via Instant Guest Access! Redirecting...');
-      setTimeout(() => {
-        window.location.href = 'index.html';
-      }, 700);
+    async function handleSSOLogin() {
+      clearAlert();
+      const result = await loginUser('guest@warehouse.io', 'password123');
+      if (result.success) {
+        showAlert('success', 'Authenticated via Instant Guest Access! Redirecting...');
+        setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 600);
+      } else {
+        showAlert('error', result.error || 'Guest login failed.');
+      }
     }
 
     /**

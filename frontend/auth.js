@@ -1,11 +1,12 @@
 /**
  * frontend/auth.js
  * Client-Side Authentication Controller & Navbar State Manager
- * Handles mock session persistence, profile presets, login/logout events,
- * and seamlessly synchronizes the user profile pill across all pages.
+ * Connects directly to backend REST endpoints (/api/auth/login, /api/auth/me, /api/auth/logout)
+ * Persists HMAC-SHA256 signed bearer tokens and synchronizes user state across all pages.
  */
 
-const AUTH_STORAGE_KEY = 'warehouse_auth_user';
+const AUTH_USER_KEY = 'warehouse_auth_user';
+const AUTH_TOKEN_KEY = 'warehouse_auth_token';
 
 // Pre-configured demo accounts for quick testing
 const DEMO_ACCOUNTS = {
@@ -33,11 +34,22 @@ const DEMO_ACCOUNTS = {
 };
 
 /**
- * Retrieve current logged in user from localStorage
+ * Retrieve current bearer token from localStorage
+ */
+function getAuthToken() {
+  try {
+    return localStorage.getItem(AUTH_TOKEN_KEY) || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Retrieve current user profile object from localStorage
  */
 function getAuthUser() {
   try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    const raw = localStorage.getItem(AUTH_USER_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch (e) {
     console.error('Error reading auth state:', e);
@@ -46,28 +58,137 @@ function getAuthUser() {
 }
 
 /**
- * Persist user session in localStorage
+ * Persist user session (token and user profile)
  */
-function setAuthUser(user) {
+function setAuthSession(token, user) {
   try {
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-    window.dispatchEvent(new CustomEvent('authchange', { detail: { user } }));
+    if (token) localStorage.setItem(AUTH_TOKEN_KEY, token);
+    if (user) localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+    window.dispatchEvent(new CustomEvent('authchange', { detail: { user, token } }));
   } catch (e) {
-    console.error('Error saving auth state:', e);
+    console.error('Error saving auth session:', e);
+  }
+}
+
+// Backward-compatible alias
+function setAuthUser(user) {
+  setAuthSession(null, user);
+}
+
+/**
+ * Clear session from localStorage
+ */
+function clearAuthSession() {
+  try {
+    localStorage.removeItem(AUTH_USER_KEY);
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    window.dispatchEvent(new CustomEvent('authchange', { detail: { user: null, token: null } }));
+  } catch (e) {
+    console.error('Error clearing auth session:', e);
   }
 }
 
 /**
- * Clear user session (Logout)
+ * Authenticate with the backend REST API
  */
-function logoutUser() {
-  localStorage.removeItem(AUTH_STORAGE_KEY);
-  window.dispatchEvent(new CustomEvent('authchange', { detail: { user: null } }));
-  // If on login page, re-render; otherwise reload or redirect
+async function loginUser(email, password) {
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.status === 'success') {
+      setAuthSession(data.token, data.user);
+      return { success: true, user: data.user, token: data.token };
+    } else {
+      return {
+        success: false,
+        error: data.error || 'Authentication failed.',
+        status: res.status,
+        retryAfter: data.retry_after
+      };
+    }
+  } catch (err) {
+    console.error('Network error during login:', err);
+    return {
+      success: false,
+      error: 'Unable to connect to the authentication server. Please ensure the backend is running.'
+    };
+  }
+}
+
+/**
+ * Sign out of current session and notify backend
+ */
+async function logoutUser() {
+  const token = getAuthToken();
+  if (token) {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+    } catch (e) {
+      console.warn('Could not contact logout API endpoint:', e);
+    }
+  }
+
+  clearAuthSession();
+
+  // If on login page, re-render; otherwise refresh auth components
   if (window.location.pathname.endsWith('login.html')) {
     window.location.reload();
   } else {
     renderNavAuth();
+  }
+}
+
+/**
+ * Authenticated Fetch Wrapper
+ * Automatically attaches Authorization header with Bearer token
+ */
+async function fetchWithAuth(url, options = {}) {
+  const token = getAuthToken();
+  const headers = new Headers(options.headers || {});
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  return fetch(url, { ...options, headers });
+}
+
+/**
+ * Verify active session with backend /api/auth/me
+ */
+async function verifySession() {
+  const token = getAuthToken();
+  if (!token) return;
+
+  try {
+    const res = await fetch('/api/auth/me', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (res.status === 401) {
+      // Token expired or invalid
+      console.warn('Session expired, clearing credentials.');
+      clearAuthSession();
+      renderNavAuth();
+    } else if (res.ok) {
+      const data = await res.json();
+      if (data.user) {
+        setAuthSession(token, data.user);
+      }
+    }
+  } catch (e) {
+    // Ignore network glitch during silent check
   }
 }
 
@@ -126,5 +247,8 @@ function renderNavAuth() {
 }
 
 // Auto-run on DOM load and listen for changes
-document.addEventListener('DOMContentLoaded', renderNavAuth);
+document.addEventListener('DOMContentLoaded', () => {
+  renderNavAuth();
+  verifySession();
+});
 window.addEventListener('authchange', renderNavAuth);
