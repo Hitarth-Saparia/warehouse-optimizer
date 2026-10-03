@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Sign in to Warehouse Optimizer - Intelligent Slotting, TSP Routing, and Order Picking Management Console.">
+  <title>Sign In | Warehouse Optimizer</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="theme.js"></script>
+  <script src="auth.js"></script>
+</head>
+<body>
+
+  <!-- Common Navigation Bar -->
+  <nav class="navbar">
+    <a href="index.html" class="nav-brand">
+      <div class="nav-logo-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+      </div>
+      <div class="nav-brand-title">
+        <span class="main-text">Warehouse Optimizer</span>
+        <span class="sub-text">Intelligent Slotting & TSP Routing</span>
+      </div>
+    </a>
+
+    <ul class="nav-links">
+      <li><a href="index.html">Dashboard</a></li>
+      <li><a href="products.html">Products</a></li>
+      <li><a href="layout.html">Layout Optimizer</a></li>
+      <li><a href="graph.html">Warehouse Graph</a></li>
+      <li><a href="order-picking.html">Order Picking</a></li>
+      <li><a href="waves.html">Wave Picking</a></li>
+      <li><a href="fleet.html">Fleet Balancing</a></li>
+    </ul>
+
+    <div class="nav-right-actions">
+      <a href="index.html" class="btn btn-secondary" style="padding: 0.45rem 0.85rem; font-size: 0.85rem; text-decoration: none;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        <span>Dashboard</span>
+      </a>
+      <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle theme">
+        <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <svg class="moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Login Main Content Area -->
+  <main class="auth-container">
+    <div class="auth-glow-bg"></div>
+
+    <div class="auth-card" id="auth-card">
+      
+      <!-- Already Logged In Banner (hidden by default) -->
+      <div id="already-logged-in-banner" style="display: none; text-align: center; margin-bottom: 1.5rem;">
+        <div class="auth-alert auth-alert-info visible" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem; padding: 1.25rem;">
+          <div style="font-weight: 700; font-size: 0.95rem;">You are currently signed in</div>
+          <div id="active-user-status" style="font-size: 0.85rem; color: var(--text-secondary);">Alex Morgan (Operations Manager)</div>
+          <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+            <a href="index.html" class="btn btn-primary" style="padding: 0.45rem 0.9rem; font-size: 0.85rem;">Go to Dashboard</a>
+            <button type="button" class="btn btn-secondary" onclick="handleSwitchAccount()" style="padding: 0.45rem 0.9rem; font-size: 0.85rem;">Switch Account</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="auth-header">
+        <div class="auth-icon-badge">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        </div>
+        <h1 class="auth-title">Welcome Back</h1>
+        <p class="auth-subtitle">Sign in to access real-time inventory slotting, TSP picking, and fleet controls</p>
+      </div>
+
+      <!-- Quick Fill Role Presets for Easy Demoing -->
+      <div class="demo-accounts">
+        <div class="demo-accounts-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          <span>Demo Profiles (1-Click Fill)</span>
+        </div>
+        <div class="demo-chips">
+          <button type="button" class="demo-chip active" id="chip-manager" onclick="selectDemoRole('manager')">
+            <span class="demo-chip-role">👔 Manager</span>
+            <span class="demo-chip-email">admin@warehouse.io</span>
+          </button>
+          <button type="button" class="demo-chip" id="chip-supervisor" onclick="selectDemoRole('supervisor')">
+            <span class="demo-chip-role">📦 Picker Lead</span>
+            <span class="demo-chip-email">supervisor@warehouse.io</span>
+          </button>
+          <button type="button" class="demo-chip" id="chip-fleet" onclick="selectDemoRole('fleet')">
+            <span class="demo-chip-role">🚛 Fleet Lead</span>
+            <span class="demo-chip-email">fleet@warehouse.io</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Status Alert Box -->
+      <div id="auth-alert" class="auth-alert" role="alert">
+        <svg id="alert-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span id="alert-message">Alert message</span>
+      </div>
+
+      <!-- Sign In Form -->
+      <form id="login-form" onsubmit="handleLoginSubmit(event)" novalidate>
+        
+        <!-- Email Input -->
+        <div class="form-group">
+          <label class="form-label" for="login-email">Email or Operator ID</label>
+          <div class="input-group">
+            <div class="input-icon-left">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
+            </div>
+            <input 
+              type="email" 
+              id="login-email" 
+              name="email" 
+              class="form-input has-left-icon" 
+              placeholder="e.g. operator@warehouse.io" 
+              value="admin@warehouse.io" 
+              required 
+              autocomplete="email"
+            >
+          </div>
+        </div>
+
+        <!-- Password Input -->
+        <div class="form-group">
+          <label class="form-label" for="login-password">Password</label>
+          <div class="input-group">
+            <div class="input-icon-left">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </div>
+            <input 
+              type="password" 
+              id="login-password" 
+              name="password" 
+              class="form-input has-left-icon has-right-icon" 
+              placeholder="Enter your password" 
+              value="password123" 
+              required 
+              autocomplete="current-password"
+            >
+            <button 
+              type="button" 
+              class="input-action-btn" 
+              id="toggle-password-btn" 
+              onclick="togglePasswordVisibility()" 
+              aria-label="Show password" 
+              title="Toggle password visibility"
+            >
+              <svg id="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </div>
+          <!-- Caps Lock Notification -->
+          <div class="caps-warning" id="caps-warning">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2l-7 7h4v9h6V9h4z"></path>
+            </svg>
+            <span>Caps Lock is ON</span>
+          </div>
+        </div>
+
+        <!-- Remember Me & Forgot Password -->
+        <div class="form-row-remember">
+          <label class="remember-label">
+            <input type="checkbox" id="remember-me" class="remember-checkbox" checked>
+            <span>Remember session</span>
+          </label>
+          <a href="#" class="forgot-link" onclick="handleForgotPassword(event)">Forgot Password?</a>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="btn btn-primary auth-submit-btn" id="btn-submit">
+          <span id="btn-spinner" class="spinner-sm" style="display: none;"></span>
+          <svg id="btn-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+            <polyline points="10 17 15 12 10 7"></polyline>
+            <line x1="15" y1="12" x2="3" y2="12"></line>
+          </svg>
+          <span id="btn-text">Sign In as Operations Manager</span>
+        </button>
+
+      </form>
+
+      <!-- SSO / Fast Guest Testing Divider -->
+      <div class="auth-divider">Or Quick Access</div>
+
+      <button type="button" class="btn-sso" onclick="handleSSOLogin()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+        <span>Instant Guest Demo Access</span>
+      </button>
+
+      <!-- Footer Info -->
+      <div class="auth-footer">
+        <div>Authorized Logistics Personnel Only</div>
+        <div style="margin-top: 0.35rem; font-size: 0.76rem; color: var(--text-light);">
+          End-to-End Encrypted Session • WMS Core v2.4
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Global Footer -->
+  <footer class="app-footer">
+    <div class="container">
+      Warehouse Layout & Order Picking Optimizer &copy; 2026. Designed for automated logistics and smart fulfillment centers.
+    </div>
+  </footer>
+
+  <script>
+    // Selected role state
+    let activeRoleKey = 'manager';
+
+    // Check if user is already logged in on load
+    document.addEventListener('DOMContentLoaded', () => {
+      const currentUser = getAuthUser();
+      if (currentUser) {
+        const banner = document.getElementById('already-logged-in-banner');
+        const status = document.getElementById('active-user-status');
+        if (banner && status) {
+          status.textContent = `${currentUser.name} (${currentUser.role}) • ${currentUser.email}`;
+          banner.style.display = 'block';
+        }
+      }
+
+      // Password input caps lock listener
+      const passwordInput = document.getElementById('login-password');
+      const capsWarning = document.getElementById('caps-warning');
+      if (passwordInput && capsWarning) {
+        ['keydown', 'keyup'].forEach(evt => {
+          passwordInput.addEventListener(evt, (e) => {
+            if (e.getModifierState && e.getModifierState('CapsLock')) {
+              capsWarning.classList.add('visible');
+            } else {
+              capsWarning.classList.remove('visible');
+            }
+          });
+        });
+      }
+    });
+
+    /**
+     * Role selection helper
+     */
+    function selectDemoRole(roleKey) {
+      activeRoleKey = roleKey;
+      const account = DEMO_ACCOUNTS[roleKey];
+      if (!account) return;
+
+      document.getElementById('login-email').value = account.email;
+      document.getElementById('login-password').value = account.password;
+      document.getElementById('btn-text').textContent = `Sign In as ${account.role}`;
+
+      // Update chips UI
+      document.querySelectorAll('.demo-chip').forEach(chip => chip.classList.remove('active'));
+      const activeChip = document.getElementById(`chip-${roleKey}`);
+      if (activeChip) activeChip.classList.add('active');
+
+      clearAlert();
+    }
+
+    /**
+     * Show / Hide Password
+     */
+    function togglePasswordVisibility() {
+      const pwd = document.getElementById('login-password');
+      const icon = document.getElementById('eye-icon');
+      const btn = document.getElementById('toggle-password-btn');
+
+      if (pwd.type === 'password') {
+        pwd.type = 'text';
+        btn.setAttribute('aria-label', 'Hide password');
+        icon.innerHTML = `
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+          <line x1="1" y1="1" x2="23" y2="23"></line>
+        `;
+      } else {
+        pwd.type = 'password';
+        btn.setAttribute('aria-label', 'Show password');
+        icon.innerHTML = `
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        `;
+      }
+    }
+
+    /**
+     * Alert UI Helper
+     */
+    function showAlert(type, message) {
+      const alert = document.getElementById('auth-alert');
+      const msg = document.getElementById('alert-message');
+      alert.className = `auth-alert auth-alert-${type} visible`;
+      msg.textContent = message;
+    }
+
+    function clearAlert() {
+      const alert = document.getElementById('auth-alert');
+      alert.className = 'auth-alert';
+    }
+
+    /**
+     * Handle Form Submission
+     */
+    function handleLoginSubmit(event) {
+      event.preventDefault();
+      clearAlert();
+
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+      const remember = document.getElementById('remember-me').checked;
+
+      // Basic client validation
+      if (!email || !email.includes('@')) {
+        showAlert('error', 'Please enter a valid email address or operator ID.');
+        document.getElementById('login-email').focus();
+        return;
+      }
+
+      if (!password || password.length < 6) {
+        showAlert('error', 'Password must be at least 6 characters.');
+        document.getElementById('login-password').focus();
+        return;
+      }
+
+      // Find matching demo account or create dynamic persona
+      let userObj = Object.values(DEMO_ACCOUNTS).find(acc => acc.email.toLowerCase() === email.toLowerCase());
+      if (!userObj) {
+        const username = email.split('@')[0];
+        const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
+        userObj = {
+          email: email,
+          name: formattedName,
+          role: 'Logistics Operator',
+          initials: formattedName.substring(0, 2).toUpperCase()
+        };
+      }
+
+      // UI Loading state
+      const btn = document.getElementById('btn-submit');
+      const btnSpinner = document.getElementById('btn-spinner');
+      const btnIcon = document.getElementById('btn-icon');
+      const btnText = document.getElementById('btn-text');
+
+      btn.disabled = true;
+      btnSpinner.style.display = 'inline-block';
+      btnIcon.style.display = 'none';
+      btnText.textContent = 'Verifying credentials...';
+
+      // Simulate verification delay (pure frontend mock until backend is connected)
+      setTimeout(() => {
+        setAuthUser({
+          ...userObj,
+          remember: remember,
+          loginTime: new Date().toISOString()
+        });
+
+        showAlert('success', `Authentication successful! Redirecting ${userObj.name} to dashboard...`);
+        btnText.textContent = 'Authenticated!';
+        btnSpinner.style.display = 'none';
+
+        setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 800);
+      }, 650);
+    }
+
+    /**
+     * Instant Guest SSO Login
+     */
+    function handleSSOLogin() {
+      const guestUser = {
+        email: 'guest.analyst@warehouse.io',
+        name: 'Guest Analyst',
+        role: 'Warehouse Guest',
+        initials: 'GA',
+        loginTime: new Date().toISOString()
+      };
+      setAuthUser(guestUser);
+      showAlert('success', 'Authenticated via Instant Guest Access! Redirecting...');
+      setTimeout(() => {
+        window.location.href = 'index.html';
+      }, 700);
+    }
+
+    /**
+     * Switch Account action
+     */
+    function handleSwitchAccount() {
+      logoutUser();
+      const banner = document.getElementById('already-logged-in-banner');
+      if (banner) banner.style.display = 'none';
+      showAlert('info', 'Signed out. Select a profile or enter new credentials.');
+    }
+
+    /**
+     * Forgot Password Mock Handler
+     */
+    function handleForgotPassword(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value.trim();
+      if (!email) {
+        showAlert('info', 'Please enter your email above and click "Forgot Password?" again.');
+        return;
+      }
+      showAlert('info', `Password recovery link dispatched to ${email} (Mock).`);
+    }
+  </script>
+</body>
+</html>
