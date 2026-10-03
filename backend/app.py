@@ -6,17 +6,25 @@ Serves static frontend HTML/CSS directly.
 """
 
 import os
+from functools import wraps
 import pymysql
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
-from backend.models import Product, Shelf, Order
+from backend.models import Product, Shelf, Order, User, AuditLog
 from backend.warehouse import Warehouse
 from backend.layout_optimizer import LayoutOptimizer
 from backend.route_optimizer import RouteOptimizer
 from backend.comparison import calculate_comparison_statistics
 from backend.batch_optimizer import BatchOptimizer
 from backend.fleet_allocator import FleetAllocator
+from backend.security import (
+    hash_password,
+    verify_password,
+    generate_token,
+    verify_token,
+    login_rate_limiter
+)
 
 # Base directories
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -62,7 +70,227 @@ def handle_mysql_error(err):
     }), 500
 
 
+# -------------------------------------------------------------
+# Authentication & RBAC Middleware Helpers
+# -------------------------------------------------------------
+
+def get_client_ip():
+    """Extracts client IP address supporting reverse proxies and direct connections."""
+    if request.headers.get("X-Forwarded-For"):
+        return request.headers.get("X-Forwarded-For").split(",")[0].strip()
+    return request.remote_addr or "127.0.0.1"
+
+
+def fetch_user_by_email(conn, email: str) -> User | None:
+    """Queries user record by normalized lowercase email and hydrates User domain model."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, email, name, password_hash, salt, role, created_at, last_login FROM users WHERE email = %s",
+            (email.strip().lower(),)
+        )
+        row = cur.fetchone()
+        return User(**row) if row else None
+
+
+def fetch_user_by_id(conn, user_id: int) -> User | None:
+    """Queries user record by primary key and hydrates User domain model."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, email, name, password_hash, salt, role, created_at, last_login FROM users WHERE id = %s",
+            (int(user_id),)
+        )
+        row = cur.fetchone()
+        return User(**row) if row else None
+
+
+def record_audit_log(conn, user_id, email, action, status, details=None, ip_address=None):
+    """Inserts a security audit trail record into auth_audit_logs."""
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO auth_audit_logs (user_id, email, action, ip_address, status, details)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (user_id, email, action, ip_address or get_client_ip(), status, details))
+        conn.commit()
+    except Exception as e:
+        print(f"[Audit Log Warning] Could not record auth audit event: {e}")
+
+
+def require_auth(f):
+    """
+    Decorator Guard: Validates HMAC-SHA256 signed bearer token from Authorization header.
+    Injects hydrated User entity into decorated handler as keyword argument `current_user`.
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return jsonify({
+                "status": "error",
+                "error": "Authentication required. Missing or malformed Authorization header."
+            }), 401
+
+        token = auth_header[7:].strip()
+        claims = verify_token(token)
+        if not claims or "sub" not in claims:
+            return jsonify({
+                "status": "error",
+                "error": "Invalid, tampered, or expired session token."
+            }), 401
+
+        conn = get_db()
+        try:
+            user = fetch_user_by_id(conn, claims["sub"])
+            if not user:
+                return jsonify({
+                    "status": "error",
+                    "error": "Authenticated user record no longer exists."
+                }), 401
+        finally:
+            conn.close()
+
+        return f(*args, current_user=user, **kwargs)
+    return decorated
+
+
+def require_role(*allowed_roles):
+    """
+    Decorator Guard: Enforces Role-Based Access Control (RBAC).
+    Verifies that the authenticated user possesses one of the allowed roles.
+    """
+    def decorator(f):
+        @wraps(f)
+        @require_auth
+        def decorated(*args, current_user=None, **kwargs):
+            if current_user.role not in allowed_roles:
+                return jsonify({
+                    "status": "error",
+                    "error": f"Access forbidden. Required role: {', '.join(allowed_roles)}. Current role: '{current_user.role}'."
+                }), 403
+            return f(*args, current_user=current_user, **kwargs)
+        return decorated
+    return decorator
+
+
+# -------------------------------------------------------------
+# Authentication REST API Endpoints
+# -------------------------------------------------------------
+
+@app.route("/api/auth/login", methods=["POST"])
+def auth_login():
+    """
+    Authenticates user credentials against PBKDF2 cryptographic hash & salt.
+    Enforces sliding-window rate limiting to prevent brute-force credential stuffing.
+    Returns: JSON with signed bearer token and user profile.
+    """
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+    client_ip = get_client_ip()
+
+    # Rate limiting guard (max 5 requests per 60s per IP+email pair)
+    rate_key = f"{client_ip}:{email or 'anonymous'}"
+    allowed, retry_after = login_rate_limiter.is_allowed(rate_key)
+    if not allowed:
+        return jsonify({
+            "status": "error",
+            "error": f"Too many failed login attempts. Rate limit exceeded. Try again in {retry_after} seconds.",
+            "retry_after": retry_after
+        }), 429
+
+    if not email or not password:
+        return jsonify({"status": "error", "error": "Both email and password are required."}), 400
+
+    conn = get_db()
+    try:
+        user = fetch_user_by_email(conn, email)
+
+        # Constant-time password verification
+        if not user or not user.verify_password(password):
+            record_audit_log(conn, user.id if user else None, email, "LOGIN", "FAILURE", "Invalid credentials", client_ip)
+            return jsonify({
+                "status": "error",
+                "error": "Invalid email or password."
+            }), 401
+
+        # Successful authentication: reset rate limiter for this user
+        login_rate_limiter.reset(rate_key)
+        record_audit_log(conn, user.id, email, "LOGIN", "SUCCESS", f"Authenticated as {user.role}", client_ip)
+
+        # Update last_login timestamp
+        with conn.cursor() as cur:
+            cur.execute("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = %s", (user.id,))
+        conn.commit()
+
+        # Generate signed HMAC-SHA256 bearer token (12 hour expiration)
+        token = generate_token({
+            "sub": user.id,
+            "email": user.email,
+            "role": user.role,
+            "name": user.name
+        }, expires_in_seconds=43200)
+
+        return jsonify({
+            "status": "success",
+            "token": token,
+            "user": user.to_dict()
+        })
+    finally:
+        conn.close()
+
+
+@app.route("/api/auth/me", methods=["GET"])
+@require_auth
+def auth_me(current_user: User):
+    """Returns currently authenticated user profile based on bearer token."""
+    return jsonify({
+        "status": "success",
+        "user": current_user.to_dict()
+    })
+
+
+@app.route("/api/auth/logout", methods=["POST"])
+@require_auth
+def auth_logout(current_user: User):
+    """Logs the user logout event in the audit trail."""
+    conn = get_db()
+    try:
+        record_audit_log(conn, current_user.id, current_user.email, "LOGOUT", "SUCCESS", "User signed out", get_client_ip())
+        return jsonify({
+            "status": "success",
+            "message": "User session logged out successfully."
+        })
+    finally:
+        conn.close()
+
+
+@app.route("/api/auth/audit", methods=["GET"])
+@require_role("manager")
+def auth_audit_logs(current_user: User):
+    """Administrative endpoint: Retrieves authentication audit logs (Manager only)."""
+    limit = parse_int_arg("limit", default=50, min_val=1, max_val=200)
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, user_id, email, action, ip_address, status, details, created_at
+                FROM auth_audit_logs
+                ORDER BY id DESC LIMIT %s
+            """, (limit,))
+            rows = cur.fetchall()
+            logs = [AuditLog(**row).to_dict() for row in rows]
+            return jsonify({
+                "status": "success",
+                "audit_logs": logs,
+                "count": len(logs)
+            })
+    finally:
+        conn.close()
+
+
+# -------------------------------------------------------------
 # Helper Functions to populate OOP Entities from MySQL
+# -------------------------------------------------------------
 def fetch_all_shelves(conn):
     with conn.cursor() as cur:
         cur.execute("SELECT id, distance_to_packing, capacity, current_load, x, y FROM shelves ORDER BY id ASC")

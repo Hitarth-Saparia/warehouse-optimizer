@@ -5,6 +5,8 @@ Core Object-Oriented Domain Entities matching the database tables:
 - Shelf
 - Order
 - Worker
+- User (RBAC & Authentication Domain Model)
+- AuditLog (Security Audit Trail)
 """
 
 class Product:
@@ -79,4 +81,125 @@ class Worker:
             "id": self.id,
             "name": self.name,
             "current_shelf_id": self.current_shelf_id
+        }
+
+
+class User:
+    """
+    User domain entity representing an authenticated warehouse operator.
+    Implements Role-Based Access Control (RBAC) domain rules:
+    - manager: full administrative control (layout re-slotting, fleet allocation, route picking, audits)
+    - supervisor: picking supervisor (picking execution, corridor blockages)
+    - fleet: fleet coordinator (mTSP fleet balancing and wave batch allocations)
+    - guest: read-only analytics and metrics exploration
+    """
+
+    ROLE_PERMISSIONS = {
+        "manager": {
+            "can_modify_layout": True,
+            "can_manage_fleet": True,
+            "can_pick_orders": True,
+            "can_view_audit": True,
+            "can_manage_corridors": True
+        },
+        "supervisor": {
+            "can_modify_layout": False,
+            "can_manage_fleet": False,
+            "can_pick_orders": True,
+            "can_view_audit": False,
+            "can_manage_corridors": True
+        },
+        "fleet": {
+            "can_modify_layout": False,
+            "can_manage_fleet": True,
+            "can_pick_orders": True,
+            "can_view_audit": False,
+            "can_manage_corridors": False
+        },
+        "guest": {
+            "can_modify_layout": False,
+            "can_manage_fleet": False,
+            "can_pick_orders": False,
+            "can_view_audit": False,
+            "can_manage_corridors": False
+        }
+    }
+
+    def __init__(self, id, email, name, password_hash, salt, role="guest", created_at=None, last_login=None):
+        self.id = id
+        self.email = email
+        self.name = name
+        self.password_hash = password_hash
+        self.salt = salt
+        self.role = role.lower() if role else "guest"
+        self.created_at = created_at
+        self.last_login = last_login
+
+    def verify_password(self, plain_password: str) -> bool:
+        """Verifies candidate plaintext password against stored cryptographic salt & hash."""
+        from backend.security import verify_password
+        return verify_password(plain_password, self.password_hash, self.salt)
+
+    def has_permission(self, permission: str) -> bool:
+        """Evaluates whether the user's role grants the requested operational permission."""
+        role_matrix = self.ROLE_PERMISSIONS.get(self.role, self.ROLE_PERMISSIONS["guest"])
+        return role_matrix.get(permission, False)
+
+    @property
+    def permissions(self) -> dict:
+        """Returns the full capability dictionary for this user's role."""
+        return self.ROLE_PERMISSIONS.get(self.role, self.ROLE_PERMISSIONS["guest"]).copy()
+
+    @property
+    def initials(self) -> str:
+        """Generates 2-letter uppercase avatar initials from the user's name."""
+        parts = self.name.strip().split()
+        if len(parts) >= 2:
+            return (parts[0][0] + parts[1][0]).upper()
+        elif parts:
+            return parts[0][:2].upper()
+        return "U"
+
+    def to_dict(self, include_sensitive: bool = False) -> dict:
+        """Serializes domain model to a secure, JSON-serializable dictionary."""
+        data = {
+            "id": self.id,
+            "email": self.email,
+            "name": self.name,
+            "role": self.role,
+            "initials": self.initials,
+            "permissions": self.permissions,
+            "created_at": str(self.created_at) if self.created_at else None,
+            "last_login": str(self.last_login) if self.last_login else None
+        }
+        if include_sensitive:
+            data["password_hash"] = self.password_hash
+            data["salt"] = self.salt
+        return data
+
+
+class AuditLog:
+    """
+    AuditLog domain entity representing a security or authentication audit event.
+    """
+    def __init__(self, id, user_id, email, action, ip_address, status, details=None, created_at=None):
+        self.id = id
+        self.user_id = user_id
+        self.email = email
+        self.action = action
+        self.ip_address = ip_address
+        self.status = status
+        self.details = details
+        self.created_at = created_at
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "email": self.email,
+            "action": self.action,
+            "ip_address": self.ip_address,
+            "status": self.status,
+            "details": self.details,
+            "created_at": str(self.created_at) if self.created_at else None
         }
