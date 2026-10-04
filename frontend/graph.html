@@ -99,7 +99,7 @@
               Packing Hub
             </span>
             <span style="display: flex; align-items: center; gap: 0.35rem;">
-              <span style="width: 14px; height: 10px; background: #2563eb; border-radius: 3px; display: inline-block;"></span> 
+              <span style="width: 14px; height: 10px; background: #707070; border-radius: 3px; display: inline-block;"></span> 
               Storage Shelf
             </span>
           </div>
@@ -175,7 +175,7 @@
             </div>
             <div style="background: var(--bg); border: 1px solid var(--border); padding: 0.85rem; border-radius: 8px;">
               <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Current Load</div>
-              <div style="font-size: 1.35rem; font-weight: 800; color: #2563eb;" id="node-load">0 / 999</div>
+              <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-main);" id="node-load">0 / 999</div>
             </div>
           </div>
 
@@ -658,14 +658,14 @@
             ctx.shadowColor = 'rgba(37, 99, 235, 0.6)';
             ctx.shadowBlur = 14;
           } else if (isHovered) {
-            ctx.shadowColor = 'rgba(59, 130, 246, 0.4)';
+            ctx.shadowColor = 'rgba(192, 192, 192, 0.4)';
             ctx.shadowBlur = 10;
           }
 
           const rackGrad = ctx.createLinearGradient(x, y, x, y + h);
           if (isSelected) {
-            rackGrad.addColorStop(0, '#2563eb');
-            rackGrad.addColorStop(1, '#1d4ed8');
+            rackGrad.addColorStop(0, '#707070');
+            rackGrad.addColorStop(1, '#555555');
           } else {
             rackGrad.addColorStop(0, '#475569');
             rackGrad.addColorStop(1, '#334155');
@@ -676,7 +676,7 @@
           ctx.roundRect(x, y, w, h, 5);
           ctx.fill();
 
-          ctx.strokeStyle = isSelected ? '#93c5fd' : (isHovered ? '#60a5fa' : '#64748b');
+          ctx.strokeStyle = isSelected ? '#C0C0C0' : (isHovered ? '#A0A0A0' : '#64748b');
           ctx.lineWidth = isSelected ? 2.5 : 1.2;
           ctx.stroke();
 
@@ -685,7 +685,7 @@
           ctx.shadowBlur = 0;
 
           // Uprights
-          ctx.fillStyle = isSelected ? '#1e3a8a' : '#1e293b';
+          ctx.fillStyle = isSelected ? '#333333' : '#1e293b';
           ctx.fillRect(x, y, 4, h);
           ctx.fillRect(x + w - 4, y, 4, h);
 
@@ -731,7 +731,7 @@
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      ctx.fillStyle = '#3b82f6';
+      ctx.fillStyle = '#C0C0C0';
       ctx.beginPath();
       ctx.moveTo(cx, cy - 10);
       ctx.lineTo(cx - 4, cy + 3);

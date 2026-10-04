@@ -104,7 +104,7 @@
             </svg>
             ⚡ Simulate Live Order
           </button>
-          <button id="btn-custom" class="btn btn-secondary" onclick="openCustomOrderModal()" style="border-color: #2563eb; color: #1d4ed8; font-weight: 700;">
+          <button id="btn-custom" class="btn btn-secondary" onclick="openCustomOrderModal()" style="border-color: var(--border); color: var(--text-main); font-weight: 700;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -125,7 +125,7 @@
       <div class="stats-grid">
         <div class="stat-card highlight">
           <div class="stat-label">Total Round-Trip Distance</div>
-          <div class="stat-value" id="res-distance" style="color: #2563eb;">-- m</div>
+          <div class="stat-value" id="res-distance" style="color: var(--text-main);">-- m</div>
           <div class="stat-desc">Packing &rarr; Shelves &rarr; Packing</div>
         </div>
         <div class="stat-card violet">
@@ -928,7 +928,7 @@
         ctx.shadowColor = 'rgba(239, 68, 68, 0.7)';
         ctx.shadowBlur = 14;
       } else if (isHovered) {
-        ctx.shadowColor = 'rgba(59, 130, 246, 0.5)';
+        ctx.shadowColor = 'rgba(192, 192, 192, 0.4)';
         ctx.shadowBlur = 10;
       }
 
@@ -948,7 +948,7 @@
       ctx.fill();
 
       // Rack Outline
-      ctx.strokeStyle = isStop ? '#fca5a5' : (isHovered ? '#93c5fd' : '#64748b');
+      ctx.strokeStyle = isStop ? '#fca5a5' : (isHovered ? '#C0C0C0' : '#64748b');
       ctx.lineWidth = isStop ? 2.2 : (isHovered ? 2 : 1.2);
       ctx.stroke();
 
@@ -1063,7 +1063,7 @@
       ctx.stroke();
 
       // North Arrow
-      ctx.fillStyle = '#3b82f6';
+      ctx.fillStyle = '#C0C0C0';
       ctx.beginPath();
       ctx.moveTo(cx, cy - 10);
       ctx.lineTo(cx - 4, cy + 3);
@@ -1147,7 +1147,7 @@
       ctx.roundRect(tx, ty, tw, th, 8);
       ctx.fill();
 
-      ctx.strokeStyle = isStop ? '#ef4444' : '#3b82f6';
+      ctx.strokeStyle = isStop ? '#ef4444' : '#C0C0C0';
       ctx.lineWidth = 1.5;
       ctx.stroke();
 

@@ -305,9 +305,9 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td style="font-weight: 500;">${it.product_name}</td>
-          <td><span class="badge" style="background:#f1f5f9; color:#0f172a; font-weight:700;">${it.quantity}x</span></td>
+          <td><span class="badge" style="background:var(--border-light); color:var(--text-main); font-weight:700;">${it.quantity}x</span></td>
           <td><span class="badge badge-primary">Shelf ${it.shelf_id}</span></td>
-          <td><span class="badge" style="background:#eff6ff; color:#1d4ed8;">#${it.order_id}</span></td>
+          <td><span class="badge" style="background:var(--border-light); color:var(--text-main); font-weight:700;">#${it.order_id}</span></td>
         `;
         tbody.appendChild(tr);
       });
@@ -799,7 +799,7 @@
           ctx.roundRect(x, y, w, h, 5);
           ctx.fill();
 
-          ctx.strokeStyle = isStop ? '#c4b5fd' : (isHovered ? '#93c5fd' : '#64748b');
+          ctx.strokeStyle = isStop ? '#c4b5fd' : (isHovered ? '#C0C0C0' : '#64748b');
           ctx.lineWidth = isStop ? 2.2 : (isHovered ? 2 : 1.2);
           ctx.stroke();
 
@@ -884,7 +884,7 @@
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      ctx.fillStyle = '#3b82f6';
+      ctx.fillStyle = '#C0C0C0';
       ctx.beginPath();
       ctx.moveTo(cx, cy - 10);
       ctx.lineTo(cx - 4, cy + 3);

@@ -9,12 +9,35 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
-  /* Theme: Light (Default) */
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --primary-gradient: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  --primary-glow: rgba(37, 99, 235, 0.25);
-  --primary-light: #eff6ff;
+  /* Curated Shades of Grey Palette Swatches */
+  --pale-carbon: #C0C0C0;
+  --cool-pebble: #B5B5B5;
+  --soft-iron: #A0A0A0;
+  --soft-ash-gray: #9C9C9C;
+  --misty-granite: #9A9A9A;
+  --foggy-steel: #909090;
+  --quiet-smoke: #8D8D8D;
+  --matte-cloud: #B1B1B1;
+  --matte-silver-dust: #A8A8A8;
+  --urban-fog: #9E9E9E;
+  --cool-concrete: #888888;
+  --urban-stone: #7E7E7E;
+  --faded-alloy: #7C7C7C;
+  --shadow-gray: #686868;
+  --industrial-mist: #868686;
+  --matte-smoke-gray: #7A7A7A;
+  --industrial-clay: #787878;
+  --stormy-shadow: #707070;
+  --dusty-slate: #6F6F6F;
+  --dim-graphite: #5C5C5C;
+  --charcoal-veil: #555555;
+
+  /* Theme: Light Monochrome (Architectural Matte Concrete & Steel) */
+  --primary: #555555;
+  --primary-hover: #3f3f46;
+  --primary-gradient: linear-gradient(135deg, #707070 0%, #555555 100%);
+  --primary-glow: rgba(85, 85, 85, 0.22);
+  --primary-light: #ececee;
 
   --success: #10b981;
   --success-hover: #059669;
@@ -27,29 +50,29 @@
   --danger: #ef4444;
   --danger-light: #fef2f2;
 
-  --violet: #8b5cf6;
-  --violet-light: #f5f3ff;
+  --violet: #787878;
+  --violet-light: #f4f4f5;
 
-  --cyan: #06b6d4;
-  --cyan-light: #ecfeff;
+  --cyan: #888888;
+  --cyan-light: #f4f4f5;
 
   /* Surfaces & Backgrounds */
-  --bg: #f8fafc;
+  --bg: #ececee;
   --card-bg: #ffffff;
-  --card-hover: #ffffff;
-  --border: #e2e8f0;
-  --border-light: #f1f5f9;
-  --canvas-bg: #f8fafc;
+  --card-hover: #f7f7f8;
+  --border: #d1d1d6;
+  --border-light: #e4e4e7;
+  --canvas-bg: #ececee;
 
   /* Text Colors */
-  --text-main: #0f172a;
-  --text-secondary: #334155;
-  --text-muted: #64748b;
-  --text-light: #94a3b8;
+  --text-main: #18181b;
+  --text-secondary: #3f3f46;
+  --text-muted: #71717a;
+  --text-light: #8D8D8D;
 
   /* Header & Navigation */
-  --nav-bg: rgba(15, 23, 42, 0.95);
-  --nav-border: rgba(255, 255, 255, 0.08);
+  --nav-bg: rgba(28, 28, 30, 0.96);
+  --nav-border: rgba(124, 124, 124, 0.28);
 
   /* Typography */
   --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -66,13 +89,13 @@
   --shadow-glow: 0 0 20px -3px var(--primary-glow);
 }
 
-/* Theme: Dark Mode */
+/* Theme: Dark Industrial Monochrome (Graphite, Charcoal & Silver) */
 [data-theme="dark"] {
-  --primary: #3b82f6;
-  --primary-hover: #60a5fa;
-  --primary-gradient: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
-  --primary-glow: rgba(59, 130, 246, 0.35);
-  --primary-light: rgba(59, 130, 246, 0.15);
+  --primary: #A0A0A0;
+  --primary-hover: #C0C0C0;
+  --primary-gradient: linear-gradient(135deg, #707070 0%, #555555 100%);
+  --primary-glow: rgba(192, 192, 192, 0.22);
+  --primary-light: rgba(124, 124, 124, 0.2);
 
   --success: #10b981;
   --success-hover: #34d399;
@@ -85,29 +108,29 @@
   --danger: #ef4444;
   --danger-light: rgba(239, 68, 68, 0.15);
 
-  --violet: #a78bfa;
-  --violet-light: rgba(139, 92, 246, 0.15);
+  --violet: #9A9A9A;
+  --violet-light: rgba(154, 154, 154, 0.15);
 
-  --cyan: #22d3ee;
-  --cyan-light: rgba(6, 182, 212, 0.15);
+  --cyan: #B1B1B1;
+  --cyan-light: rgba(177, 177, 177, 0.15);
 
   /* Surfaces & Backgrounds */
-  --bg: #0b0f19;
-  --card-bg: #111827;
-  --card-hover: #172033;
-  --border: #1f293d;
-  --border-light: #2d3748;
-  --canvas-bg: #0b0f19;
+  --bg: #141416;
+  --card-bg: #1e1e22;
+  --card-hover: #26262c;
+  --border: #333338;
+  --border-light: #3f3f46;
+  --canvas-bg: #141416;
 
   /* Text Colors */
-  --text-main: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-  --text-light: #64748b;
+  --text-main: #f4f4f5;
+  --text-secondary: #C0C0C0;
+  --text-muted: #A0A0A0;
+  --text-light: #707070;
 
   /* Header & Navigation */
-  --nav-bg: rgba(10, 15, 26, 0.96);
-  --nav-border: rgba(255, 255, 255, 0.08);
+  --nav-bg: rgba(20, 20, 22, 0.96);
+  --nav-border: rgba(124, 124, 124, 0.24);
 
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
@@ -116,6 +139,7 @@
   --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
   --shadow-glow: 0 0 20px -3px var(--primary-glow);
 }
+
 
 /* Base Reset & Smooth Scroll */
 * {
@@ -196,12 +220,12 @@ body {
 .nav-logo-icon {
   width: 36px;
   height: 36px;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #707070 0%, #444444 100%);
   border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 0 12px rgba(124, 124, 124, 0.45);
 }
 
 .nav-brand-title {
@@ -250,9 +274,9 @@ body {
 
 .nav-links a.active {
   color: #ffffff;
-  background: rgba(37, 99, 235, 0.25);
-  border: 1px solid rgba(59, 130, 246, 0.4);
-  box-shadow: 0 0 12px rgba(37, 99, 235, 0.2);
+  background: rgba(124, 124, 124, 0.3);
+  border: 1px solid rgba(192, 192, 192, 0.35);
+  box-shadow: 0 0 12px rgba(124, 124, 124, 0.25);
 }
 
 .nav-right-actions {
@@ -294,7 +318,7 @@ body {
 
 .theme-toggle-btn .moon-icon {
   display: block;
-  color: #93c5fd;
+  color: #cbd5e1;
 }
 
 [data-theme="dark"] .theme-toggle-btn .sun-icon {
@@ -522,7 +546,7 @@ body {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle at center, rgba(59, 130, 246, 0.08) 0%, transparent 60%);
+  background: radial-gradient(circle at center, rgba(192, 192, 192, 0.08) 0%, transparent 60%);
   pointer-events: none;
 }
 
@@ -583,7 +607,7 @@ body {
 
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #3b82f6 0%, #10b981 100%);
+  background: linear-gradient(90deg, #888888 0%, #555555 100%);
   border-radius: 9999px;
   transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -659,12 +683,12 @@ tr.highlight-row td {
 .velocity-fill {
   height: 100%;
   border-radius: 4px;
-  background: #3b82f6;
+  background: #707070;
 }
 
 .velocity-fill.high { background: #10b981; }
-.velocity-fill.medium { background: #3b82f6; }
-.velocity-fill.low { background: #94a3b8; }
+.velocity-fill.medium { background: #707070; }
+.velocity-fill.low { background: #9A9A9A; }
 
 /* Badges */
 .badge {
@@ -685,8 +709,8 @@ tr.highlight-row td {
 
 .badge-primary {
   background-color: var(--primary-light);
-  color: #1e40af;
-  border-color: #bfdbfe;
+  color: var(--primary);
+  border-color: var(--border);
 }
 
 .badge-success {
@@ -709,19 +733,19 @@ tr.highlight-row td {
 
 .badge-violet {
   background-color: var(--violet-light);
-  color: #5b21b6;
-  border-color: #ddd6fe;
+  color: #555555;
+  border-color: var(--border);
 }
 
 .badge-cyan {
   background-color: var(--cyan-light);
-  color: #155e75;
-  border-color: #a5f3fc;
+  color: #555555;
+  border-color: var(--border);
 }
 
 [data-theme="dark"] .badge-primary {
-  color: #93c5fd;
-  border-color: rgba(59, 130, 246, 0.35);
+  color: #C0C0C0;
+  border-color: rgba(192, 192, 192, 0.35);
 }
 
 [data-theme="dark"] .badge-success {
@@ -780,12 +804,12 @@ tr.highlight-row td {
 .btn-primary {
   background: var(--primary-gradient);
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 2px 8px var(--primary-glow);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+  background: linear-gradient(135deg, #5C5C5C 0%, #444444 100%);
+  box-shadow: 0 4px 12px var(--primary-glow);
   transform: translateY(-1px);
 }
 
@@ -973,8 +997,8 @@ canvas {
 
 .alert-info {
   background-color: var(--primary-light);
-  border: 1px solid #bfdbfe;
-  color: #1e40af;
+  border: 1px solid var(--border);
+  color: var(--text-main);
 }
 
 .alert-success {
@@ -984,8 +1008,8 @@ canvas {
 }
 
 [data-theme="dark"] .alert-info {
-  border-color: rgba(59, 130, 246, 0.35);
-  color: #93c5fd;
+  border-color: rgba(124, 124, 124, 0.35);
+  color: #f4f4f5;
 }
 
 [data-theme="dark"] .alert-success {
@@ -1085,7 +1109,7 @@ kbd {
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, #2563eb, #8b5cf6, #10b981);
+  background: linear-gradient(90deg, #C0C0C0, #707070, #555555);
   border-top-left-radius: var(--radius-lg);
   border-top-right-radius: var(--radius-lg);
 }
@@ -1099,7 +1123,7 @@ kbd {
   width: 52px;
   height: 52px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #707070 0%, #555555 100%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1408,13 +1432,13 @@ kbd {
 
 .auth-alert-info {
   background-color: var(--primary-light);
-  border: 1px solid var(--primary);
-  color: #1d4ed8;
+  border: 1px solid var(--border);
+  color: var(--text-main);
 }
 
 [data-theme="dark"] .auth-alert-info {
-  color: #93c5fd;
-  border-color: rgba(59, 130, 246, 0.4);
+  color: #f4f4f5;
+  border-color: rgba(124, 124, 124, 0.4);
 }
 
 /* Spinner for button loading */
@@ -1441,8 +1465,8 @@ kbd {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  background: rgba(37, 99, 235, 0.2);
-  border: 1px solid rgba(59, 130, 246, 0.45);
+  background: rgba(124, 124, 124, 0.25);
+  border: 1px solid rgba(192, 192, 192, 0.35);
   color: #ffffff;
   padding: 0.45rem 0.85rem;
   border-radius: 8px;
