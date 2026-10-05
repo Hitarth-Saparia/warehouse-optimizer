@@ -84,18 +84,39 @@
       </div>
 
       <div class="auth-header">
-        <div class="auth-icon-badge">
+        <div class="auth-icon-badge" id="auth-header-icon">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
           </svg>
         </div>
-        <h1 class="auth-title">Welcome Back</h1>
-        <p class="auth-subtitle">Sign in to access real-time inventory slotting, TSP picking, and fleet controls</p>
+        <h1 class="auth-title" id="auth-title">Welcome Back</h1>
+        <p class="auth-subtitle" id="auth-subtitle">Sign in to access real-time inventory slotting, TSP picking, and fleet controls</p>
+      </div>
+
+      <!-- Auth Mode Switcher (Sign In vs Create Account) -->
+      <div class="auth-tabs" role="tablist">
+        <button type="button" class="auth-tab-btn active" id="tab-login" role="tab" aria-selected="true" onclick="switchAuthMode('login')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+            <polyline points="10 17 15 12 10 7"></polyline>
+            <line x1="15" y1="12" x2="3" y2="12"></line>
+          </svg>
+          <span>Sign In</span>
+        </button>
+        <button type="button" class="auth-tab-btn" id="tab-register" role="tab" aria-selected="false" onclick="switchAuthMode('register')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="8.5" cy="7" r="4"></circle>
+            <line x1="20" y1="8" x2="20" y2="14"></line>
+            <line x1="23" y1="11" x2="17" y2="11"></line>
+          </svg>
+          <span>Create Account</span>
+        </button>
       </div>
 
       <!-- Quick Fill Role Presets for Easy Demoing -->
-      <div class="demo-accounts">
+      <div class="demo-accounts" id="demo-profiles-section">
         <div class="demo-accounts-title">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
@@ -128,12 +149,51 @@
         <span id="alert-message">Alert message</span>
       </div>
 
-      <!-- Sign In Form -->
-      <form id="login-form" onsubmit="handleLoginSubmit(event)" novalidate>
+      <!-- Authentication Form (Sign In / Register) -->
+      <form id="login-form" onsubmit="handleAuthSubmit(event)" novalidate>
+
+        <!-- Full Name (Registration Mode Only) -->
+        <div class="form-group" id="group-name" style="display: none;">
+          <label class="form-label" for="register-name">Full Name</label>
+          <div class="input-group">
+            <div class="input-icon-left">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </div>
+            <input 
+              type="text" 
+              id="register-name" 
+              name="name" 
+              class="form-input has-left-icon" 
+              placeholder="e.g. Jordan Miller" 
+              autocomplete="name"
+            >
+          </div>
+        </div>
+
+        <!-- Role Selector (Registration Mode Only) -->
+        <div class="form-group" id="group-role" style="display: none;">
+          <label class="form-label" for="register-role">Warehouse Role / Access Level</label>
+          <div class="input-group">
+            <div class="input-icon-left">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+            </div>
+            <select id="register-role" class="form-input form-select has-left-icon">
+              <option value="supervisor">📦 Picker Lead (Supervision & Route Picking)</option>
+              <option value="fleet">🚛 Fleet Lead (mTSP & Fleet Workload Balancing)</option>
+              <option value="manager">👔 Operations Manager (Full Layout & Fleet Access)</option>
+              <option value="guest">📊 Guest Analyst (Exploration & Metrics)</option>
+            </select>
+          </div>
+        </div>
         
         <!-- Email Input -->
         <div class="form-group">
-          <label class="form-label" for="login-email">Email or Operator ID</label>
+          <label class="form-label" for="login-email" id="label-email">Email or Operator ID</label>
           <div class="input-group">
             <div class="input-icon-left">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -169,7 +229,7 @@
               id="login-password" 
               name="password" 
               class="form-input has-left-icon has-right-icon" 
-              placeholder="Enter your password" 
+              placeholder="Enter your password (min 6 characters)" 
               value="password123" 
               required 
               autocomplete="current-password"
@@ -178,7 +238,7 @@
               type="button" 
               class="input-action-btn" 
               id="toggle-password-btn" 
-              onclick="togglePasswordVisibility()" 
+              onclick="togglePasswordVisibility('login-password', 'eye-icon')" 
               aria-label="Show password" 
               title="Toggle password visibility"
             >
@@ -197,8 +257,39 @@
           </div>
         </div>
 
+        <!-- Confirm Password Input (Registration Mode Only) -->
+        <div class="form-group" id="group-confirm-password" style="display: none;">
+          <label class="form-label" for="register-confirm-password">Confirm Password</label>
+          <div class="input-group">
+            <div class="input-icon-left">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+            </div>
+            <input 
+              type="password" 
+              id="register-confirm-password" 
+              class="form-input has-left-icon has-right-icon" 
+              placeholder="Re-enter your password" 
+              autocomplete="new-password"
+            >
+            <button 
+              type="button" 
+              class="input-action-btn" 
+              onclick="togglePasswordVisibility('register-confirm-password', 'eye-icon-confirm')" 
+              aria-label="Show password" 
+              title="Toggle password visibility"
+            >
+              <svg id="eye-icon-confirm" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </div>
+        </div>
+
         <!-- Remember Me & Forgot Password -->
-        <div class="form-row-remember">
+        <div class="form-row-remember" id="row-remember-forgot">
           <label class="remember-label">
             <input type="checkbox" id="remember-me" class="remember-checkbox" checked>
             <span>Remember session</span>
@@ -219,17 +310,25 @@
 
       </form>
 
-      <!-- SSO / Fast Guest Testing Divider -->
-      <div class="auth-divider">Or Quick Access</div>
+      <!-- Toggle Prompt ("Don't have an account? Create an account") -->
+      <div class="auth-toggle-prompt" id="auth-toggle-prompt">
+        <span>Don't have an account?</span>
+        <a class="auth-toggle-link" onclick="switchAuthMode('register')">Create an account</a>
+      </div>
 
-      <button type="button" class="btn-sso" onclick="handleSSOLogin()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-          <line x1="8" y1="21" x2="16" y2="21"></line>
-          <line x1="12" y1="17" x2="12" y2="21"></line>
-        </svg>
-        <span>Instant Guest Demo Access</span>
-      </button>
+      <!-- SSO / Fast Guest Testing Divider -->
+      <div id="sso-section">
+        <div class="auth-divider">Or Quick Access</div>
+
+        <button type="button" class="btn-sso" onclick="handleSSOLogin()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+          <span>Instant Guest Demo Access</span>
+        </button>
+      </div>
 
       <!-- Footer Info -->
       <div class="auth-footer">
@@ -250,8 +349,9 @@
   </footer>
 
   <script>
-    // Selected role state
+    // Selected role state & auth mode
     let activeRoleKey = 'manager';
+    let currentAuthMode = 'login'; // 'login' or 'register'
 
     // Check if user is already logged in on load
     document.addEventListener('DOMContentLoaded', () => {
@@ -267,8 +367,13 @@
 
       // Check URL query parameters
       const urlParams = new URLSearchParams(window.location.search);
+      const modeParam = urlParams.get('mode');
       const roleParam = urlParams.get('role');
       const loginRequired = urlParams.get('login_required');
+
+      if (modeParam === 'register' || modeParam === 'signup') {
+        switchAuthMode('register');
+      }
 
       if (loginRequired === '1' && !currentUser) {
         showAlert('info', '🔒 Please sign in to access Warehouse Optimizer features.');
@@ -297,9 +402,98 @@
     });
 
     /**
-     * Role selection helper
+     * Switch between Sign In and Create Account modes
+     */
+    function switchAuthMode(mode) {
+      currentAuthMode = mode;
+      clearAlert();
+
+      const tabLogin = document.getElementById('tab-login');
+      const tabRegister = document.getElementById('tab-register');
+      const groupName = document.getElementById('group-name');
+      const groupRole = document.getElementById('group-role');
+      const groupConfirm = document.getElementById('group-confirm-password');
+      const demoProfiles = document.getElementById('demo-profiles-section');
+      const rowRemember = document.getElementById('row-remember-forgot');
+      const ssoSection = document.getElementById('sso-section');
+      const title = document.getElementById('auth-title');
+      const subtitle = document.getElementById('auth-subtitle');
+      const labelEmail = document.getElementById('label-email');
+      const btnText = document.getElementById('btn-text');
+      const btnIcon = document.getElementById('btn-icon');
+      const togglePrompt = document.getElementById('auth-toggle-prompt');
+
+      if (mode === 'register') {
+        tabLogin.classList.remove('active');
+        tabLogin.setAttribute('aria-selected', 'false');
+        tabRegister.classList.add('active');
+        tabRegister.setAttribute('aria-selected', 'true');
+
+        groupName.style.display = 'block';
+        groupRole.style.display = 'block';
+        groupConfirm.style.display = 'block';
+        demoProfiles.style.display = 'none';
+        rowRemember.style.display = 'none';
+        ssoSection.style.display = 'none';
+
+        title.textContent = 'Create Account';
+        subtitle.textContent = 'Register your warehouse profile. Your credentials will be saved in the dataset.';
+        labelEmail.textContent = 'Work Email Address';
+
+        btnText.textContent = 'Create Account & Save to Dataset';
+        btnIcon.innerHTML = `
+          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="8.5" cy="7" r="4"></circle>
+          <line x1="20" y1="8" x2="20" y2="14"></line>
+          <line x1="23" y1="11" x2="17" y2="11"></line>
+        `;
+
+        togglePrompt.innerHTML = `
+          <span>Already have an account?</span>
+          <a class="auth-toggle-link" onclick="switchAuthMode('login')">Sign In</a>
+        `;
+
+        document.getElementById('register-name').focus();
+      } else {
+        tabRegister.classList.remove('active');
+        tabRegister.setAttribute('aria-selected', 'false');
+        tabLogin.classList.add('active');
+        tabLogin.setAttribute('aria-selected', 'true');
+
+        groupName.style.display = 'none';
+        groupRole.style.display = 'none';
+        groupConfirm.style.display = 'none';
+        demoProfiles.style.display = 'block';
+        rowRemember.style.display = 'flex';
+        ssoSection.style.display = 'block';
+
+        title.textContent = 'Welcome Back';
+        subtitle.textContent = 'Sign in to access real-time inventory slotting, TSP picking, and fleet controls';
+        labelEmail.textContent = 'Email or Operator ID';
+
+        const account = DEMO_ACCOUNTS[activeRoleKey] || DEMO_ACCOUNTS.manager;
+        btnText.textContent = `Sign In as ${account.role}`;
+        btnIcon.innerHTML = `
+          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+          <polyline points="10 17 15 12 10 7"></polyline>
+          <line x1="15" y1="12" x2="3" y2="12"></line>
+        `;
+
+        togglePrompt.innerHTML = `
+          <span>Don't have an account?</span>
+          <a class="auth-toggle-link" onclick="switchAuthMode('register')">Create an account</a>
+        `;
+      }
+    }
+
+    /**
+     * Role selection helper (For Sign In Demo Profiles)
      */
     function selectDemoRole(roleKey) {
+      if (currentAuthMode !== 'login') {
+        switchAuthMode('login');
+      }
+
       activeRoleKey = roleKey;
       const account = DEMO_ACCOUNTS[roleKey];
       if (!account) return;
@@ -319,23 +513,22 @@
     /**
      * Show / Hide Password
      */
-    function togglePasswordVisibility() {
-      const pwd = document.getElementById('login-password');
-      const icon = document.getElementById('eye-icon');
-      const btn = document.getElementById('toggle-password-btn');
+    function togglePasswordVisibility(inputId = 'login-password', iconId = 'eye-icon') {
+      const pwd = document.getElementById(inputId);
+      const icon = document.getElementById(iconId);
+
+      if (!pwd || !icon) return;
 
       if (pwd.type === 'password') {
         pwd.type = 'text';
-        btn.setAttribute('aria-label', 'Hide password');
         icon.innerHTML = `
           <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
           <line x1="1" y1="1" x2="23" y2="23"></line>
         `;
       } else {
         pwd.type = 'password';
-        btn.setAttribute('aria-label', 'Show password');
         icon.innerHTML = `
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"></path>
           <circle cx="12" cy="12" r="3"></circle>
         `;
       }
@@ -357,12 +550,95 @@
     }
 
     /**
-     * Handle Form Submission (Connected to backend /api/auth/login)
+     * Form Submission Router (Login or Registration)
      */
-    async function handleLoginSubmit(event) {
+    async function handleAuthSubmit(event) {
       event.preventDefault();
       clearAlert();
 
+      if (currentAuthMode === 'register') {
+        await handleRegisterSubmit();
+      } else {
+        await handleLoginSubmit();
+      }
+    }
+
+    /**
+     * Handle Registration Mode Submission
+     */
+    async function handleRegisterSubmit() {
+      const name = document.getElementById('register-name').value.trim();
+      const email = document.getElementById('login-email').value.trim();
+      const role = document.getElementById('register-role').value;
+      const password = document.getElementById('login-password').value;
+      const confirmPassword = document.getElementById('register-confirm-password').value;
+
+      if (!name) {
+        showAlert('error', 'Please enter your full name.');
+        document.getElementById('register-name').focus();
+        return;
+      }
+
+      if (!email || !email.includes('@')) {
+        showAlert('error', 'Please enter a valid work email address.');
+        document.getElementById('login-email').focus();
+        return;
+      }
+
+      if (!password || password.length < 6) {
+        showAlert('error', 'Password must be at least 6 characters.');
+        document.getElementById('login-password').focus();
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        showAlert('error', 'Passwords do not match. Please re-check your confirm password.');
+        document.getElementById('register-confirm-password').focus();
+        return;
+      }
+
+      const btn = document.getElementById('btn-submit');
+      const btnSpinner = document.getElementById('btn-spinner');
+      const btnIcon = document.getElementById('btn-icon');
+      const btnText = document.getElementById('btn-text');
+
+      btn.disabled = true;
+      btnSpinner.style.display = 'inline-block';
+      btnIcon.style.display = 'none';
+      btnText.textContent = 'Saving account to dataset...';
+
+      const result = await registerUser(name, email, role, password);
+
+      btn.disabled = false;
+      btnSpinner.style.display = 'none';
+      btnIcon.style.display = 'inline-block';
+
+      if (result.success) {
+        const roleLabel = role === 'supervisor' ? 'Picker Lead' :
+                          role === 'fleet' ? 'Fleet Lead' :
+                          role === 'manager' ? 'Operations Manager' : 'Guest Analyst';
+
+        showAlert(
+          'success',
+          `✓ Account created for ${name} (${roleLabel})! Your credentials have been saved to the dataset. You can now sign in.`
+        );
+
+        // Switch to Sign In mode with new email prefilled
+        switchAuthMode('login');
+        document.getElementById('login-email').value = email;
+        document.getElementById('login-password').value = '';
+        document.getElementById('login-password').placeholder = 'Enter your new password';
+        document.getElementById('login-password').focus();
+      } else {
+        btnText.textContent = 'Create Account & Save to Dataset';
+        showAlert('error', result.error || 'Failed to create account.');
+      }
+    }
+
+    /**
+     * Handle Sign In Mode Submission
+     */
+    async function handleLoginSubmit() {
       const email = document.getElementById('login-email').value.trim();
       const password = document.getElementById('login-password').value;
 
@@ -390,11 +666,11 @@
       btnIcon.style.display = 'none';
       btnText.textContent = 'Verifying credentials...';
 
-      // Call backend API
+      // Call authentication handler
       const result = await loginUser(email, password);
 
       if (result.success) {
-        showAlert('success', `Authentication successful! Welcome back, ${result.user.name}. Redirecting...`);
+        showAlert('success', `Authentication successful! Welcome, ${result.user.name}. Redirecting...`);
         btnText.textContent = 'Authenticated!';
         btnSpinner.style.display = 'none';
 

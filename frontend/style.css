@@ -1332,6 +1332,77 @@ kbd {
   display: flex;
 }
 
+/* Auth Mode Segmented Control Tabs */
+.auth-tabs {
+  display: flex;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  margin-bottom: 1.25rem;
+  gap: 4px;
+}
+
+.auth-tab-btn {
+  flex: 1;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  transition: all 0.2s ease;
+}
+
+.auth-tab-btn:hover {
+  color: var(--text-main);
+}
+
+.auth-tab-btn.active {
+  background: var(--card-bg);
+  color: var(--text-main);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border);
+}
+
+[data-theme="dark"] .auth-tab-btn.active {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.auth-toggle-prompt {
+  margin-top: 1.25rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.auth-toggle-link {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  margin-left: 0.35rem;
+}
+
+.auth-toggle-link:hover {
+  text-decoration: underline;
+}
+
+.form-select.has-left-icon {
+  padding-left: 2.75rem;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+}
+
 .auth-submit-btn {
   width: 100%;
   padding: 0.8rem 1.5rem;
