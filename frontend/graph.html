@@ -541,7 +541,7 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       const dark = typeof isDarkMode === 'function' && isDarkMode();
-      ctx.fillStyle = dark ? '#232620' : '#EEEEEE';
+      ctx.fillStyle = dark ? '#161618' : '#F8F8FA';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // World scale
@@ -732,7 +732,8 @@
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      ctx.fillStyle = '#777C6D';
+      const dark = typeof isDarkMode === 'function' && isDarkMode();
+      ctx.fillStyle = dark ? '#E5E5EA' : '#2C2C2E';
       ctx.beginPath();
       ctx.moveTo(cx, cy - 10);
       ctx.lineTo(cx - 4, cy + 3);
@@ -754,8 +755,7 @@
       ctx.textBaseline = 'middle';
       ctx.fillText('N', cx, cy - 11);
 
-      const dark = typeof isDarkMode === 'function' && isDarkMode();
-      ctx.fillStyle = dark ? '#EEEEEE' : '#2C3028';
+      ctx.fillStyle = dark ? '#F2F2F7' : '#1C1C1E';
       ctx.font = 'bold 11px sans-serif';
       ctx.textAlign = 'left';
       ctx.fillText('FACILITY MDC-01 • TOPOLOGY MAP', cx + 22, cy - 2);
@@ -817,7 +817,7 @@
     window.addEventListener('themechange', () => {
       const canvas = document.getElementById('graph-canvas');
       if (canvas) {
-        canvas.style.background = isDarkMode() ? '#232620' : '#EEEEEE';
+        canvas.style.background = isDarkMode() ? '#161618' : '#F8F8FA';
         drawGraph();
       }
     });

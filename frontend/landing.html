@@ -12,30 +12,30 @@
 <script src="auth.js"></script>
 <style>
 :root {
-  --primary: #777C6D;
-  --primary-hover: #626659;
-  --accent: #B7B89F;
-  --bg-main: #EEEEEE;
+  --primary: #2C2C2E;
+  --primary-hover: #1C1C1E;
+  --accent: #7A7A7E;
+  --bg-main: #F8F8FA;
   --card-bg: #FFFFFF;
-  --border-color: #CBCBCB;
-  --text-main: #1E201E;
-  --text-secondary: #555555;
+  --border-color: #D8D8DC;
+  --text-main: #1C1C1E;
+  --text-secondary: #58585B;
   --font-sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  --glass: rgba(238, 238, 238, 0.72);
-  --shadow: 0 8px 24px rgba(30, 32, 30, 0.08);
-  --shadow-lg: 0 18px 40px rgba(30, 32, 30, 0.14);
+  --glass: rgba(248, 248, 250, 0.85);
+  --shadow: 0 8px 24px rgba(28, 28, 30, 0.06);
+  --shadow-lg: 0 18px 40px rgba(28, 28, 30, 0.10);
   --radius: 16px;
 }
 [data-theme="dark"] {
-  --bg-main: #1A1C19;
-  --card-bg: #242722;
-  --border-color: #3A3E37;
-  --text-main: #EEEEEE;
-  --text-secondary: #B4B6AE;
-  --glass: rgba(26, 28, 25, 0.72);
-  --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.5);
+  --bg-main: #161618;
+  --card-bg: #222226;
+  --border-color: #38383D;
+  --text-main: #F2F2F7;
+  --text-secondary: #AEAEB2;
+  --glass: rgba(22, 22, 24, 0.85);
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.6);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; scroll-padding-top: 84px; }
@@ -68,8 +68,8 @@ section { padding: 72px 0; }
   transition: transform .2s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
 }
 .btn:hover { transform: translateY(-3px); }
-.btn-primary { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(119,124,109,.35); }
-.btn-primary:hover { background: var(--primary-hover); box-shadow: 0 10px 22px rgba(98,102,89,.4); }
+.btn-primary { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(44,44,46,.35); }
+.btn-primary:hover { background: var(--primary-hover); box-shadow: 0 10px 22px rgba(28,28,30,.4); }
 .btn-outline { background: transparent; color: var(--text-main); border-color: var(--border-color); }
 .btn-outline:hover { border-color: var(--primary); box-shadow: var(--shadow); }
 .btn:focus-visible, .nav-links a:focus-visible, summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
@@ -187,19 +187,19 @@ header.site-header {
 .faq-body code { font-family: var(--font-mono); font-size: .82rem; background: var(--bg-main); padding: 1px 6px; border-radius: 4px; }
 
 /* Footer */
-footer.site-footer { background: #1E201E; color: #CBCBCB; padding: 64px 0 28px; margin-top: 40px; }
+footer.site-footer { background: #18181A; color: #C7C7CC; padding: 64px 0 28px; margin-top: 40px; }
 .footer-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 40px; }
-.footer-brand p { font-size: .88rem; margin-top: 14px; max-width: 300px; color: #9a9c94; }
-.footer-brand .brand-text strong { color: #EEE; }
-.footer-brand .brand-text span { color: #9a9c94; }
-footer h4 { color: #EEE; font-size: .85rem; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 16px; font-family: var(--font-mono); }
+.footer-brand p { font-size: .88rem; margin-top: 14px; max-width: 300px; color: #8E8E93; }
+.footer-brand .brand-text strong { color: #F2F2F7; }
+.footer-brand .brand-text span { color: #8E8E93; }
+footer h4 { color: #F2F2F7; font-size: .85rem; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 16px; font-family: var(--font-mono); }
 footer li + li { margin-top: 10px; }
-footer li a { font-size: .9rem; color: #B4B6AE; transition: color .2s, padding-left .2s; }
-footer li a:hover { color: var(--accent); padding-left: 4px; }
-.footer-bottom { margin-top: 48px; padding-top: 22px; border-top: 1px solid #3A3E37; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; font-size: .83rem; color: #9a9c94; }
+footer li a { font-size: .9rem; color: #AEAEB2; transition: color .2s, padding-left .2s; }
+footer li a:hover { color: #FFFFFF; padding-left: 4px; }
+.footer-bottom { margin-top: 48px; padding-top: 22px; border-top: 1px solid #2C2C2E; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; font-size: .83rem; color: #8E8E93; }
 .socials { display: flex; gap: 10px; }
-.socials a { width: 36px; height: 36px; border-radius: 99px; border: 1px solid #3A3E37; display: grid; place-items: center; color: #B4B6AE; transition: transform .2s, color .2s, border-color .2s; }
-.socials a:hover { transform: translateY(-3px); color: var(--accent); border-color: var(--accent); }
+.socials a { width: 36px; height: 36px; border-radius: 99px; border: 1px solid #2C2C2E; display: grid; place-items: center; color: #AEAEB2; transition: transform .2s, color .2s, border-color .2s; }
+.socials a:hover { transform: translateY(-3px); color: #FFFFFF; border-color: #8E8E93; }
 
 /* Responsive */
 @media (max-width: 1024px) {
@@ -298,7 +298,7 @@ footer li a:hover { color: var(--accent); padding-left: 4px; }
             <!-- optimized route -->
             <path class="route" d="M30 300 L30 260 L130 260 L130 170 L230 170 L230 90 L330 90 L330 200 L430 200 L430 300" fill="none" stroke="var(--primary)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
             <!-- second picker -->
-            <path class="route" d="M30 300 L30 260 L230 260 L230 220 L330 220 L330 130 L430 130" fill="none" stroke="#B7B89F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="animation-duration:1.8s"/>
+            <path class="route" d="M30 300 L30 260 L230 260 L230 220 L330 220 L330 130 L430 130" fill="none" stroke="#7A7A7E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="animation-duration:1.8s"/>
             <!-- pick nodes -->
             <g fill="var(--card-bg)" stroke="var(--primary)" stroke-width="3">
               <circle cx="130" cy="170" r="7"/><circle cx="230" cy="90" r="7"/><circle cx="330" cy="200" r="7"/><circle cx="330" cy="90" r="7"/>
