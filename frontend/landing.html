@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warehouse Optimizer — Intelligent Slotting & TSP Routing</title>
+<meta name="description" content="Enterprise AI supply chain platform for warehouse slotting, TSP picking route optimization, and multi-picker fleet balancing.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="theme.js"></script>
+<script src="auth.js"></script>
+<style>
+:root {
+  --primary: #777C6D;
+  --primary-hover: #626659;
+  --accent: #B7B89F;
+  --bg-main: #EEEEEE;
+  --card-bg: #FFFFFF;
+  --border-color: #CBCBCB;
+  --text-main: #1E201E;
+  --text-secondary: #555555;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --glass: rgba(238, 238, 238, 0.72);
+  --shadow: 0 8px 24px rgba(30, 32, 30, 0.08);
+  --shadow-lg: 0 18px 40px rgba(30, 32, 30, 0.14);
+  --radius: 16px;
+}
+[data-theme="dark"] {
+  --bg-main: #1A1C19;
+  --card-bg: #242722;
+  --border-color: #3A3E37;
+  --text-main: #EEEEEE;
+  --text-secondary: #B4B6AE;
+  --glass: rgba(26, 28, 25, 0.72);
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.5);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-main);
+  color: var(--text-main);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  transition: background .3s, color .3s;
+}
+a { color: inherit; text-decoration: none; }
+ul { list-style: none; }
+svg { display: block; }
+.container { width: min(1180px, 100% - 40px); margin-inline: auto; }
+section { padding: 72px 0; }
+.section-head { text-align: center; max-width: 680px; margin: 0 auto 48px; }
+.eyebrow {
+  font-family: var(--font-mono); font-size: .75rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--primary); font-weight: 700; margin-bottom: 10px;
+}
+.section-head h2 { font-size: clamp(1.6rem, 3.5vw, 2.3rem); line-height: 1.2; font-weight: 800; letter-spacing: -.02em; }
+.section-head p { color: var(--text-secondary); margin-top: 12px; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px;
+  border-radius: 12px; font-weight: 600; font-size: .95rem; font-family: inherit;
+  cursor: pointer; border: 1.5px solid transparent;
+  transition: transform .2s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+}
+.btn:hover { transform: translateY(-3px); }
+.btn-primary { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(119,124,109,.35); }
+.btn-primary:hover { background: var(--primary-hover); box-shadow: 0 10px 22px rgba(98,102,89,.4); }
+.btn-outline { background: transparent; color: var(--text-main); border-color: var(--border-color); }
+.btn-outline:hover { border-color: var(--primary); box-shadow: var(--shadow); }
+.btn:focus-visible, .nav-links a:focus-visible, summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+
+/* Nav */
+header.site-header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--glass); backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border-bottom: 1px solid var(--border-color);
+}
+.nav { display: flex; align-items: center; justify-content: space-between; height: 68px; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--primary); display: grid; place-items: center; color: #fff; }
+.brand-text strong { display: block; font-size: 1rem; font-weight: 800; line-height: 1.1; }
+.brand-text span { font-size: .68rem; color: var(--text-secondary); font-family: var(--font-mono); }
+.nav-links { display: flex; gap: 26px; }
+.nav-links a { font-size: .9rem; font-weight: 500; color: var(--text-secondary); transition: color .2s; position: relative; }
+.nav-links a:hover { color: var(--text-main); }
+.nav-links a::after { content: ""; position: absolute; left: 0; bottom: -4px; height: 2px; width: 0; background: var(--primary); transition: width .25s; }
+.nav-links a:hover::after { width: 100%; }
+.nav-actions { display: flex; align-items: center; gap: 10px; }
+.icon-btn {
+  width: 40px; height: 40px; border-radius: 10px; border: 1.5px solid var(--border-color);
+  background: transparent; color: var(--text-main); display: grid; place-items: center; cursor: pointer;
+  transition: transform .2s, border-color .2s;
+}
+.icon-btn:hover { transform: translateY(-2px); border-color: var(--primary); }
+.nav-actions .btn { padding: 9px 18px; }
+
+/* Hero */
+.hero { padding: 72px 0 56px; position: relative; overflow: hidden; }
+.hero::before {
+  content: ""; position: absolute; inset: -20% -10% auto auto; width: 520px; height: 520px;
+  background: radial-gradient(circle, rgba(183,184,159,.45), transparent 65%); z-index: 0; pointer-events: none;
+}
+.hero-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1.05fr 1fr; gap: 48px; align-items: center; }
+.badge {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px;
+  background: rgba(183,184,159,.28); border: 1px solid var(--accent); font-size: .8rem; font-weight: 600;
+  font-family: var(--font-mono); margin-bottom: 20px;
+}
+.hero h1 { font-size: clamp(2.1rem, 5vw, 3.5rem); line-height: 1.1; font-weight: 800; letter-spacing: -.03em; }
+.hero h1 em { font-style: normal; color: var(--primary); }
+.hero p.sub { margin-top: 18px; font-size: 1.08rem; color: var(--text-secondary); max-width: 540px; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 28px; }
+.chips { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+.chip {
+  background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 10px 14px;
+  display: flex; flex-direction: column; min-width: 130px;
+}
+.chip b { font-family: var(--font-mono); font-size: 1.2rem; color: var(--primary); }
+.chip span { font-size: .75rem; color: var(--text-secondary); }
+
+/* Mockup */
+.mockup {
+  background: var(--glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color); border-radius: 20px; box-shadow: var(--shadow-lg); padding: 14px;
+}
+.mockup-bar { display: flex; align-items: center; gap: 6px; padding: 4px 6px 12px; }
+.mockup-bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--border-color); }
+.mockup-bar i:first-child { background: var(--accent); }
+.mockup-bar span { margin-left: auto; font-family: var(--font-mono); font-size: .7rem; color: var(--text-secondary); }
+.mockup-body { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border-color); padding: 10px; }
+.mockup svg { width: 100%; height: auto; }
+.route { stroke-dasharray: 8 6; animation: dash 1.2s linear infinite; }
+@keyframes dash { to { stroke-dashoffset: -28; } }
+.pulse { animation: pulse 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.35); opacity: .7; } }
+.mockup-legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 10px 4px 2px; font-size: .72rem; color: var(--text-secondary); font-family: var(--font-mono); }
+.mockup-legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; background: var(--c); }
+
+/* Cards */
+.card {
+  background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius);
+  padding: 28px; transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+}
+.card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: var(--accent); }
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.stat .num { font-family: var(--font-mono); font-size: 2.2rem; font-weight: 700; color: var(--primary); line-height: 1.1; }
+.stat .label { margin-top: 8px; font-weight: 600; }
+.stat .desc { font-size: .83rem; color: var(--text-secondary); margin-top: 4px; }
+
+.features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+.f-icon { width: 48px; height: 48px; border-radius: 12px; background: rgba(183,184,159,.3); color: var(--primary-hover); display: grid; place-items: center; margin-bottom: 18px; }
+[data-theme="dark"] .f-icon { color: var(--accent); }
+.feature h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
+.feature p { color: var(--text-secondary); font-size: .92rem; }
+.tag { display: inline-block; margin-top: 14px; font-family: var(--font-mono); font-size: .72rem; padding: 3px 10px; border-radius: 6px; background: var(--bg-main); border: 1px solid var(--border-color); color: var(--text-secondary); }
+
+/* Profiles */
+.profiles-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+.role-badge { display: inline-block; font-size: .72rem; font-weight: 700; padding: 4px 12px; border-radius: 999px; background: var(--primary); color: #fff; margin-bottom: 14px; }
+.profile h3 { font-size: 1.15rem; font-weight: 700; }
+.profile p { color: var(--text-secondary); font-size: .88rem; margin: 6px 0 16px; }
+.creds { background: var(--bg-main); border: 1px dashed var(--border-color); border-radius: 10px; padding: 12px 14px; font-family: var(--font-mono); font-size: .8rem; margin-bottom: 18px; }
+.creds div { display: flex; justify-content: space-between; gap: 10px; }
+.creds div + div { margin-top: 4px; }
+.creds span { color: var(--text-secondary); }
+.profile .btn { width: 100%; justify-content: center; }
+
+/* FAQ */
+.faq-list { max-width: 800px; margin: 0 auto; display: grid; gap: 12px; }
+.faq-item { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; overflow: hidden; transition: border-color .2s, box-shadow .2s; }
+.faq-item:hover { border-color: var(--accent); }
+.faq-item[open] { box-shadow: var(--shadow); border-color: var(--primary); }
+.faq-item summary { list-style: none; cursor: pointer; padding: 18px 22px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary svg { flex-shrink: 0; transition: transform .3s ease; color: var(--primary); }
+.faq-item[open] summary svg { transform: rotate(180deg); }
+.faq-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .35s ease; }
+.faq-item[open] .faq-body { grid-template-rows: 1fr; }
+.faq-body > div { overflow: hidden; }
+.faq-body p { padding: 0 22px 20px; color: var(--text-secondary); font-size: .93rem; }
+.faq-body code { font-family: var(--font-mono); font-size: .82rem; background: var(--bg-main); padding: 1px 6px; border-radius: 4px; }
+
+/* Footer */
+footer.site-footer { background: #1E201E; color: #CBCBCB; padding: 64px 0 28px; margin-top: 40px; }
+.footer-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 40px; }
+.footer-brand p { font-size: .88rem; margin-top: 14px; max-width: 300px; color: #9a9c94; }
+.footer-brand .brand-text strong { color: #EEE; }
+.footer-brand .brand-text span { color: #9a9c94; }
+footer h4 { color: #EEE; font-size: .85rem; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 16px; font-family: var(--font-mono); }
+footer li + li { margin-top: 10px; }
+footer li a { font-size: .9rem; color: #B4B6AE; transition: color .2s, padding-left .2s; }
+footer li a:hover { color: var(--accent); padding-left: 4px; }
+.footer-bottom { margin-top: 48px; padding-top: 22px; border-top: 1px solid #3A3E37; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; font-size: .83rem; color: #9a9c94; }
+.socials { display: flex; gap: 10px; }
+.socials a { width: 36px; height: 36px; border-radius: 99px; border: 1px solid #3A3E37; display: grid; place-items: center; color: #B4B6AE; transition: transform .2s, color .2s, border-color .2s; }
+.socials a:hover { transform: translateY(-3px); color: var(--accent); border-color: var(--accent); }
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .hero-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .features-grid, .profiles-grid { grid-template-columns: repeat(2, 1fr); }
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 768px) {
+  section { padding: 52px 0; }
+  .nav-links, .brand-text span { display: none; }
+  .hero { padding-top: 44px; }
+  .stats-grid, .features-grid, .profiles-grid, .footer-grid { grid-template-columns: 1fr; }
+  .cta-row .btn { flex: 1 1 100%; justify-content: center; }
+  .chip { flex: 1 1 100%; flex-direction: row; justify-content: space-between; align-items: center; }
+  .footer-bottom { flex-direction: column; align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <nav class="container nav" aria-label="Primary">
+    <a href="landing.html" class="brand" aria-label="Warehouse Optimizer home">
+      <span class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7.5L12 12.5l8.7-5"/><path d="M12 22V12.5"/></svg>
+      </span>
+      <span class="brand-text"><strong>Warehouse Optimizer</strong><span>Intelligent Slotting &amp; TSP Routing</span></span>
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#engine">Optimization Engine</a>
+      <a href="#metrics">Live Metrics</a>
+      <a href="#demo">Demo Roles</a>
+      <a href="#faq">FAQ</a>
+      <a href="login.html?redirect=index.html">Dashboard</a>
+    </div>
+    <div class="nav-actions">
+      <button class="icon-btn theme-toggle-btn" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle theme" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+      </button>
+      <a href="login.html" class="btn btn-primary">Sign In</a>
+    </div>
+  </nav>
+</header>
+
+<main id="top">
+
+  <!-- 2. Hero -->
+  <section class="hero">
+    <div class="container hero-grid">
+      <div>
+        <span class="badge">⚡ Enterprise AI Supply Chain Engine 2.0</span>
+        <h1>Reduce Warehouse Walking Distance by <em>Up to 38%</em></h1>
+        <p class="sub">Optimize product slotting using velocity demand, execute exact Traveling Salesperson Problem (TSP) picking paths, and balance multi-picker fleets in real-time.</p>
+        <div class="cta-row">
+          <a href="login.html?redirect=index.html" class="btn btn-primary">
+            Launch Interactive Demo
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+          <a href="login.html?redirect=graph.html" class="btn btn-outline">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7.5 6h9M6.5 8l4 8M17.5 8l-4 8"/></svg>
+            View Graph Topology
+          </a>
+        </div>
+        <div class="chips" id="metrics-chips">
+          <div class="chip"><b>32.4%</b><span>Avg Distance Saved</span></div>
+          <div class="chip"><b>4.2x</b><span>Wave Throughput</span></div>
+          <div class="chip"><b>0.4s</b><span>Route Calculation</span></div>
+        </div>
+      </div>
+
+      <div class="mockup" id="engine" aria-label="Dashboard preview">
+        <div class="mockup-bar"><i></i><i></i><i></i><span>zone-A · wave #218 · 3 pickers</span></div>
+        <div class="mockup-body">
+          <svg viewBox="0 0 480 340" role="img" aria-label="2D warehouse grid with animated picking routes">
+            <!-- floor -->
+            <rect x="0" y="0" width="480" height="340" rx="8" fill="var(--bg-main)"/>
+            <!-- shelf blocks -->
+            <g fill="var(--accent)" opacity=".75">
+              <rect x="50" y="50" width="26" height="190" rx="4"/><rect x="82" y="50" width="26" height="190" rx="4"/>
+              <rect x="150" y="50" width="26" height="190" rx="4"/><rect x="182" y="50" width="26" height="190" rx="4"/>
+              <rect x="250" y="50" width="26" height="190" rx="4"/><rect x="282" y="50" width="26" height="190" rx="4"/>
+              <rect x="350" y="50" width="26" height="190" rx="4"/><rect x="382" y="50" width="26" height="190" rx="4"/>
+            </g>
+            <!-- crossways -->
+            <g stroke="var(--border-color)" stroke-width="1.5" stroke-dasharray="3 4">
+              <line x1="20" y1="30" x2="460" y2="30"/><line x1="20" y1="260" x2="460" y2="260"/>
+              <line x1="130" y1="30" x2="130" y2="260"/><line x1="230" y1="30" x2="230" y2="260"/><line x1="330" y1="30" x2="330" y2="260"/>
+            </g>
+            <!-- baseline Manhattan (grey) -->
+            <path d="M30 300 L30 260 L130 260 L130 40 L230 40 L230 260 L330 260 L330 40 L430 40 L430 260 L430 300" fill="none" stroke="var(--border-color)" stroke-width="3" opacity=".9"/>
+            <!-- optimized route -->
+            <path class="route" d="M30 300 L30 260 L130 260 L130 170 L230 170 L230 90 L330 90 L330 200 L430 200 L430 300" fill="none" stroke="var(--primary)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- second picker -->
+            <path class="route" d="M30 300 L30 260 L230 260 L230 220 L330 220 L330 130 L430 130" fill="none" stroke="#B7B89F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="animation-duration:1.8s"/>
+            <!-- pick nodes -->
+            <g fill="var(--card-bg)" stroke="var(--primary)" stroke-width="3">
+              <circle cx="130" cy="170" r="7"/><circle cx="230" cy="90" r="7"/><circle cx="330" cy="200" r="7"/><circle cx="330" cy="90" r="7"/>
+            </g>
+            <g fill="var(--primary-hover)">
+              <circle class="pulse" cx="230" cy="170" r="6"/><circle class="pulse" cx="430" cy="200" r="6" style="animation-delay:.5s"/>
+            </g>
+            <g fill="var(--accent)" stroke="var(--text-secondary)" stroke-width="2">
+              <circle cx="230" cy="220" r="6"/><circle cx="330" cy="130" r="6"/><circle cx="430" cy="130" r="6"/>
+            </g>
+            <!-- depot -->
+            <rect x="12" y="294" width="36" height="30" rx="6" fill="var(--text-main)"/>
+            <text x="30" y="313" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700" fill="var(--bg-main)">DEPOT</text>
+            <!-- label -->
+            <rect x="338" y="296" width="130" height="30" rx="8" fill="var(--card-bg)" stroke="var(--border-color)"/>
+            <text x="403" y="315" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="var(--primary)">−32.4% distance</text>
+          </svg>
+          <div class="mockup-legend">
+            <span style="--c:var(--primary)">2-Opt route</span>
+            <span style="--c:var(--border-color)">Manhattan baseline</span>
+            <span style="--c:var(--accent)">Picker 2</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Metrics -->
+  <section id="metrics" style="padding-top:24px">
+    <div class="container">
+      <div class="section-head">
+        <div class="eyebrow">Business Impact</div>
+        <h2>Measurable gains on every shift</h2>
+        <p>Results from simulated multi-zone warehouse benchmarks against a nearest-neighbour Manhattan baseline.</p>
+      </div>
+      <div class="stats-grid">
+        <article class="card stat"><div class="num">32.4%</div><div class="label">Distance Reduction</div><p class="desc">Shorter average pick path per wave.</p></article>
+        <article class="card stat"><div class="num">12.8km</div><div class="label">Daily Walked Miles Saved</div><p class="desc">Across a 20-picker floor, per day.</p></article>
+        <article class="card stat"><div class="num">0.14</div><div class="label">Gini Fleet Workload Balance</div><p class="desc">Near-even load across all pickers.</p></article>
+        <article class="card stat"><div class="num">99.9%</div><div class="label">Order Picking Accuracy</div><p class="desc">Guided, sequenced pick lists.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Features -->
+  <section id="features">
+    <div class="container">
+      <div class="section-head">
+        <div class="eyebrow">Core Platform</div>
+        <h2>Everything your floor needs to move faster</h2>
+        <p>From where items live to how pickers walk — one engine, end to end.</p>
+      </div>
+      <div class="features-grid">
+        <article class="card feature">
+          <div class="f-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg></div>
+          <h3>Velocity &amp; ABC Slotting</h3>
+          <p>Dynamic SKU placement based on sales frequency — fast movers sit closest to the depot, slow movers go deep.</p>
+          <span class="tag">A / B / C classes</span>
+        </article>
+        <article class="card feature">
+          <div class="f-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19c0-6 8-2 8-8s8-2 8-8"/><circle cx="4" cy="19" r="1.8"/><circle cx="20" cy="3" r="1.8"/></svg></div>
+          <h3>TSP Pick Route Optimization</h3>
+          <p>Exact 2-Opt heuristic compared side-by-side against a Manhattan baseline, so savings are always visible.</p>
+          <span class="tag">2-Opt vs Manhattan</span>
+        </article>
+        <article class="card feature">
+          <div class="f-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7.5 6h9M6.5 8l4 8M17.5 8l-4 8"/></svg></div>
+          <h3>Interactive 2D Graph Topology</h3>
+          <p>Aisles, crossways and pick nodes modelled as a graph, with dynamic detour rerouting when paths are blocked.</p>
+          <span class="tag">Dijkstra · live detours</span>
+        </article>
+        <article class="card feature">
+          <div class="f-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/><path d="M3 17l9 4 9-4"/></svg></div>
+          <h3>Intelligent Wave Batching</h3>
+          <p>Groups multiple orders into waves that respect cart capacity while minimizing combined travel.</p>
+          <span class="tag">Capacity-aware</span>
+        </article>
+        <article class="card feature">
+          <div class="f-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M15.5 14.2c3 .2 5.5 2.4 5.5 5.8"/></svg></div>
+          <h3>Multi-Picker Fleet Balancing</h3>
+          <p>Minimizes makespan and prevents aisle congestion by spreading work evenly across the fleet.</p>
+          <span class="tag">Min-makespan</span>
+        </article>
+        <article class="card feature">
+          <div class="f-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
+          <h3>Enterprise Audit Trail &amp; RBAC</h3>
+          <p>Role-based access for Operations Managers, Picker Leads and Fleet Coordinators, with every action logged.</p>
+          <span class="tag">3 roles · full audit log</span>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Demo profiles -->
+  <section id="demo">
+    <div class="container">
+      <div class="section-head">
+        <div class="eyebrow">Quick Access</div>
+        <h2>Jump in with a demo role</h2>
+        <p>Pick a profile to explore the platform exactly as that user would see it.</p>
+      </div>
+      <div class="profiles-grid">
+        <article class="card profile">
+          <span class="role-badge">Operations Manager</span>
+          <h3>Manager</h3>
+          <p>Slotting analytics, KPI dashboards, audit trail and user management.</p>
+          <div class="creds"><div><span>user</span> admin@warehouse.io</div><div><span>pass</span> password123</div></div>
+          <a href="login.html" class="btn btn-primary">Sign in as Manager</a>
+        </article>
+        <article class="card profile">
+          <span class="role-badge">Picker Lead</span>
+          <h3>Picker Lead</h3>
+          <p>Wave batching, TSP route comparison and graph topology tools.</p>
+          <div class="creds"><div><span>user</span> supervisor@warehouse.io</div><div><span>pass</span> password123</div></div>
+          <a href="login.html" class="btn btn-primary">Sign in as Picker Lead</a>
+        </article>
+        <article class="card profile">
+          <span class="role-badge">Fleet Coordinator</span>
+          <h3>Fleet Lead</h3>
+          <p>Multi-picker assignment, workload balance and congestion monitoring.</p>
+          <div class="creds"><div><span>user</span> fleet@warehouse.io</div><div><span>pass</span> password123</div></div>
+          <a href="login.html" class="btn btn-primary">Sign in as Fleet Lead</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. FAQ -->
+  <section id="faq">
+    <div class="container">
+      <div class="section-head">
+        <div class="eyebrow">FAQ</div>
+        <h2>Questions, answered</h2>
+      </div>
+      <div class="faq-list">
+        <details class="faq-item" open>
+          <summary>Does it work with both MySQL and SQLite?
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="faq-body"><div><p>Yes. The platform runs on MySQL in production and automatically falls back to a local SQLite file when MySQL isn't reachable, so the demo works with zero setup. The schema and queries are identical across both.</p></div></div>
+        </details>
+        <details class="faq-item">
+          <summary>How are blocked aisles and detours handled?
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="faq-body"><div><p>The warehouse is modelled as a graph of aisles, crossways and pick nodes. When an edge is marked blocked, shortest paths are recomputed over the remaining graph and the route is re-sequenced, so pickers get a valid detour instantly.</p></div></div>
+        </details>
+        <details class="faq-item">
+          <summary>How fast is the TSP solver on large pick lists?
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="faq-body"><div><p>Typical waves of 20–40 picks resolve in about 0.4 seconds. We seed a nearest-neighbour tour and refine it with <code>2-Opt</code> swaps, which gives near-optimal routes. Very small lists can be solved exactly.</p></div></div>
+        </details>
+        <details class="faq-item">
+          <summary>Can it integrate with our existing WMS?
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="faq-body"><div><p>Yes. Orders, SKU velocity and locations can be imported via CSV or a REST API, and optimized pick lists and slotting recommendations are exported back in the same formats, so it can sit alongside your current WMS.</p></div></div>
+        </details>
+        <details class="faq-item">
+          <summary>Who can see what? How does access control work?
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="faq-body"><div><p>Three roles — Operations Manager, Picker Lead and Fleet Coordinator — each see only the tools relevant to them, and every optimization run and configuration change is written to the audit trail.</p></div></div>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 7. Footer -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="landing.html" class="brand">
+          <span class="brand-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7.5L12 12.5l8.7-5"/><path d="M12 22V12.5"/></svg></span>
+          <span class="brand-text"><strong>Warehouse Optimizer</strong><span>Intelligent Slotting &amp; TSP Routing</span></span>
+        </a>
+        <p>AI-driven slotting, routing and fleet balancing for modern warehouses.</p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <ul>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#engine">Optimization Engine</a></li>
+          <li><a href="#metrics">Live Metrics</a></li>
+          <li><a href="#demo">Demo Roles</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Documentation</h4>
+        <ul>
+          <li><a href="login.html?redirect=index.html">Dashboard</a></li>
+          <li><a href="login.html?redirect=products.html">Products Catalog</a></li>
+          <li><a href="login.html?redirect=layout.html">Layout Optimizer</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Tech Stack</h4>
+        <ul>
+          <li><a href="#">Python · Flask</a></li>
+          <li><a href="#">MySQL / SQLite</a></li>
+          <li><a href="#">NetworkX Graphs</a></li>
+          <li><a href="#">2-Opt TSP Solver</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Warehouse Optimizer. All rights reserved.</span>
+      <div class="socials">
+        <a href="https://github.com/" aria-label="GitHub" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 000 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.3 1 .1-.7.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 015.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6A11.5 11.5 0 0023.5 12 11.5 11.5 0 0012 .5z"/></svg></a>
+        <a href="#" aria-label="LinkedIn"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M4.98 3.5a2.5 2.5 0 11-.01 5 2.5 2.5 0 01.01-5zM3 9.5h4V21H3V9.5zm7 0h3.8v1.6h.1c.5-1 1.800-2 3.700-2 4 0 4.700 2.600 4.700 6V21h-4v-5.200c0-1.200 0-2.800-1.700-2.800s-2 1.300-2 2.700V21h-4V9.500z"/></svg></a>
+        <a href="#" aria-label="X / Twitter"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.200 2H21l-6.500 7.400L22 22h-6l-4.700-6.100L5.900 22H3l7-8L2.500 2h6.100l4.300 5.600L18.200 2zm-1 18h1.600L7.900 3.700H6.200L17.200 20z"/></svg></a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

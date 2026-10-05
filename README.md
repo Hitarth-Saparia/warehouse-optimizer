@@ -91,15 +91,15 @@ This sets up:
 python backend/app.py
 ```
 The Flask server starts at:
-👉 **`http://127.0.0.1:5001`**
+👉 **`http://127.0.0.1:5050`**
 
 ### 5. Access the Frontend Pages
 Open your browser to any of the 5 pages:
-- **Dashboard**: `http://127.0.0.1:5001/index.html` (or `http://127.0.0.1:5001/`)
-- **Products Catalog**: `http://127.0.0.1:5001/products.html`
-- **Layout Optimizer**: `http://127.0.0.1:5001/layout.html`
-- **Warehouse Graph**: `http://127.0.0.1:5001/graph.html`
-- **Order Picking**: `http://127.0.0.1:5001/order-picking.html`
+- **Dashboard**: `http://127.0.0.1:5050/index.html` (or `http://127.0.0.1:5050/`)
+- **Products Catalog**: `http://127.0.0.1:5050/products.html`
+- **Layout Optimizer**: `http://127.0.0.1:5050/layout.html`
+- **Warehouse Graph**: `http://127.0.0.1:5050/graph.html`
+- **Order Picking**: `http://127.0.0.1:5050/order-picking.html`
 
 ---
 

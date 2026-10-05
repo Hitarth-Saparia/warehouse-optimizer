@@ -246,8 +246,40 @@ function renderNavAuth() {
   }
 }
 
+/**
+ * Protected feature pages requiring active user login
+ */
+const PROTECTED_FEATURE_PAGES = [
+  'index.html',
+  'products.html',
+  'layout.html',
+  'graph.html',
+  'order-picking.html',
+  'waves.html',
+  'fleet.html'
+];
+
+/**
+ * Enforce Route Access Control:
+ * If accessing a protected feature page without login, redirect to login.html
+ */
+function checkPageProtection() {
+  const path = window.location.pathname;
+  let page = path.split('/').pop();
+  if (!page || page === '') return;
+
+  const isProtected = PROTECTED_FEATURE_PAGES.some(p => page.endsWith(p));
+  const user = getAuthUser();
+
+  if (isProtected && !user) {
+    const target = encodeURIComponent(page);
+    window.location.href = `login.html?redirect=${target}&login_required=1`;
+  }
+}
+
 // Auto-run on DOM load and listen for changes
 document.addEventListener('DOMContentLoaded', () => {
+  checkPageProtection();
   renderNavAuth();
   verifySession();
 });

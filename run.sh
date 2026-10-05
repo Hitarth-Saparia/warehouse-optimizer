@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Warehouse Layout & Order Picking Optimizer - Startup Script
+# Warehouse Layout & Order Picking Optimizer - Central Management Script
 # ==============================================================================
 
 set -e
@@ -29,7 +29,7 @@ RED="\033[0;31m"
 RESET="\033[0m"
 
 # Default configuration
-PORT="${PORT:-5001}"
+PORT="${PORT:-5050}"
 HOST="${HOST:-0.0.0.0}"
 DB_HOST="${DB_HOST:-127.0.0.1}"
 DB_PORT="${DB_PORT:-3306}"
@@ -38,12 +38,12 @@ DB_PASS="${DB_PASS:-}"
 DB_NAME="${DB_NAME:-wareopt}"
 
 # Virtual environment resolution (.venv or venv)
-if [ -d "$SCRIPT_DIR/.venv" ]; then
-    VENV_DIR="$SCRIPT_DIR/.venv"
-elif [ -d "$SCRIPT_DIR/venv" ]; then
+if [ -d "$SCRIPT_DIR/venv" ]; then
     VENV_DIR="$SCRIPT_DIR/venv"
-else
+elif [ -d "$SCRIPT_DIR/.venv" ]; then
     VENV_DIR="$SCRIPT_DIR/.venv"
+else
+    VENV_DIR="$SCRIPT_DIR/venv"
 fi
 
 print_banner() {
@@ -58,15 +58,20 @@ print_help() {
     print_banner
     echo -e "${BOLD}Usage:${RESET} ./run.sh [command]"
     echo ""
-    echo -e "${BOLD}Commands:${RESET}"
-    echo -e "  ${GREEN}(default)${RESET}        Start the Flask web application and frontend"
-    echo -e "  ${GREEN}start${RESET}            Start the Flask web application"
-    echo -e "  ${GREEN}seed${RESET}             Seed the MySQL database (schema + sample data)"
-    echo -e "  ${GREEN}--seed | all${RESET}     Seed the database and then launch the web application"
-    echo -e "  ${GREEN}help | --help${RESET}    Display this help message"
+    echo -e "${BOLD}Available Commands:${RESET}"
+    echo -e "  ${GREEN}start | (default)${RESET}  Start the Flask web application server"
+    echo -e "  ${GREEN}seed${RESET}             Seed the database (MySQL schema + sample data or SQLite)"
+    echo -e "  ${GREEN}--seed | all${RESET}     Seed the database and launch the web application server"
+    echo -e "  ${GREEN}test | tests${RESET}     Run complete unit & integration test suites (27 tests)"
+    echo -e "  ${GREEN}install | deps${RESET}   Install or update Python dependencies in virtualenv"
+    echo -e "  ${GREEN}mysql-start${RESET}      Start the local MySQL daemon service"
+    echo -e "  ${GREEN}mysql-stop${RESET}       Stop the local MySQL daemon service"
+    echo -e "  ${GREEN}mysql-status${RESET}     Check status of the local MySQL service"
+    echo -e "  ${GREEN}clean${RESET}            Clean build caches, __pycache__, and temporary files"
+    echo -e "  ${GREEN}help | --help | -h${RESET} Display this help menu"
     echo ""
     echo -e "${BOLD}Environment Variables:${RESET}"
-    echo -e "  PORT             Port for Flask server (default: 5001)"
+    echo -e "  PORT             Port for Flask server (default: 5050)"
     echo -e "  DB_HOST          MySQL host (default: 127.0.0.1)"
     echo -e "  DB_PORT          MySQL port (default: 3306)"
     echo -e "  DB_USER          MySQL user (default: root)"
@@ -79,7 +84,7 @@ ensure_venv() {
     if [ ! -d "$VENV_DIR" ]; then
         echo -e "${YELLOW}Virtual environment not found. Creating at $VENV_DIR...${RESET}"
         python3 -m venv "$VENV_DIR"
-        echo -e "${GREEN}Virtual environment created successfully.${RESET}"
+        echo -e "${GREEN}✔ Virtual environment created successfully.${RESET}"
     fi
 
     # Explicitly point to the virtualenv binaries
@@ -97,8 +102,15 @@ ensure_venv() {
     if ! "$PYTHON_BIN" -c "import flask, flask_cors, pymysql" 2>/dev/null; then
         echo -e "${YELLOW}Installing dependencies from backend/requirements.txt...${RESET}"
         "$PYTHON_BIN" -m pip install -r backend/requirements.txt
-        echo -e "${GREEN}Dependencies installed successfully.${RESET}"
+        echo -e "${GREEN}✔ Dependencies installed successfully.${RESET}"
     fi
+}
+
+install_dependencies() {
+    ensure_venv
+    echo -e "${BLUE}▶ Installing / updating dependencies from backend/requirements.txt...${RESET}"
+    "$PYTHON_BIN" -m pip install -r backend/requirements.txt
+    echo -e "${GREEN}✔ All dependencies installed successfully!${RESET}"
 }
 
 ensure_db_auth() {
@@ -159,15 +171,16 @@ except Exception:
             exit 1
         fi
     elif [ "$test_code" = "REFUSED" ]; then
-        echo -e "${RED}⚠️  Could not connect to MySQL at 127.0.0.1:3306 (Connection refused).${RESET}"
-        echo -e "${YELLOW}Please make sure MySQL is started: sudo /usr/local/mysql/support-files/mysql.server start${RESET}"
-        exit 1
+        echo -e "${YELLOW}⚠️  MySQL server is not running at 127.0.0.1:3306.${RESET}"
+        echo -e "${CYAN}ℹ️  Falling back to local SQLite database (database/wareopt.sqlite)...${RESET}"
+        echo -e "${YELLOW}Tip: To start MySQL instead, run: ./run.sh mysql-start${RESET}"
+        return 0
     fi
 }
 
 seed_db() {
     ensure_db_auth
-    echo -e "${BLUE}▶ Initializing and seeding MySQL database...${RESET}"
+    echo -e "${BLUE}▶ Initializing and seeding database...${RESET}"
     "$PYTHON_BIN" database/seed.py
     echo -e "${GREEN}✔ Database seeded successfully!${RESET}"
 }
@@ -176,38 +189,47 @@ check_and_prepare_db() {
     ensure_db_auth
     local status
     status=$("$PYTHON_BIN" -c "
-import os, sys, pymysql
-
+import sys
 try:
-    conn = pymysql.connect(
-        host=os.environ.get('DB_HOST', '127.0.0.1'),
-        port=int(os.environ.get('DB_PORT', 3306)),
-        user=os.environ.get('DB_USER', 'root'),
-        password=os.environ.get('DB_PASS', '')
-    )
-    cur = conn.cursor()
-    cur.execute(\"SHOW DATABASES LIKE 'wareopt'\")
-    if not cur.fetchone():
-        print('NEED_SEED')
-        sys.exit(0)
-    conn.select_db('wareopt')
-    cur.execute(\"SELECT COUNT(*) FROM shelves\")
-    count = cur.fetchone()[0]
-    if count == 0:
-        print('NEED_SEED')
-    else:
-        print('READY')
+    from backend.db import get_db_connection, ACTIVE_DB_TYPE
+    conn = get_db_connection()
     conn.close()
+    print(f'READY_{ACTIVE_DB_TYPE.upper()}')
 except Exception as e:
     print(f'ERROR: {e}')
 " 2>&1)
 
-    if [[ "$status" == "NEED_SEED" ]]; then
-        echo -e "${YELLOW}Database 'wareopt' is empty or not yet seeded. Auto-seeding now...${RESET}"
-        seed_db
-    elif [[ "$status" == "READY" ]]; then
+    if [[ "$status" == *"READY_MYSQL"* ]]; then
         echo -e "${GREEN}✔ MySQL database 'wareopt' connected and verified.${RESET}"
+    elif [[ "$status" == *"READY_SQLITE"* ]]; then
+        echo -e "${GREEN}✔ Resilient SQLite database active and ready (zero setup required).${RESET}"
     fi
+}
+
+run_tests() {
+    ensure_venv
+    echo -e "${BLUE}▶ Running unit and integration test suite...${RESET}"
+    "$PYTHON_BIN" -m pytest tests/ -v
+    echo -e "${GREEN}✔ All tests executed successfully!${RESET}"
+}
+
+mysql_control() {
+    local action="$1"
+    if [ -f "/usr/local/mysql/support-files/mysql.server" ]; then
+        echo -e "${BLUE}▶ Executing: sudo /usr/local/mysql/support-files/mysql.server $action${RESET}"
+        sudo /usr/local/mysql/support-files/mysql.server "$action"
+    else
+        echo -e "${RED}Error: MySQL support-files script not found at /usr/local/mysql/support-files/mysql.server${RESET}"
+        exit 1
+    fi
+}
+
+clean_cache() {
+    echo -e "${BLUE}▶ Cleaning temporary Python build caches and bytecode...${RESET}"
+    find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+    find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+    find . -type f -name "*.pyc" -delete 2>/dev/null || true
+    echo -e "${GREEN}✔ Caches cleaned successfully!${RESET}"
 }
 
 start_server() {
@@ -217,7 +239,8 @@ start_server() {
     echo -e "${BOLD}Starting Flask server on:${RESET} ${CYAN}http://127.0.0.1:${PORT}${RESET}"
     echo ""
     echo -e "${BOLD}Available Web Pages:${RESET}"
-    echo -e "  • Dashboard:        ${CYAN}http://127.0.0.1:${PORT}/${RESET}"
+    echo -e "  • Landing Page:     ${CYAN}http://127.0.0.1:${PORT}/${RESET}"
+    echo -e "  • Dashboard:        ${CYAN}http://127.0.0.1:${PORT}/index.html${RESET}"
     echo -e "  • Products Catalog: ${CYAN}http://127.0.0.1:${PORT}/products.html${RESET}"
     echo -e "  • Layout Optimizer: ${CYAN}http://127.0.0.1:${PORT}/layout.html${RESET}"
     echo -e "  • Warehouse Graph:  ${CYAN}http://127.0.0.1:${PORT}/graph.html${RESET}"
@@ -245,6 +268,24 @@ case "$1" in
         seed_db
         echo ""
         start_server
+        ;;
+    test|tests)
+        run_tests
+        ;;
+    install|deps)
+        install_dependencies
+        ;;
+    mysql-start)
+        mysql_control "start"
+        ;;
+    mysql-stop)
+        mysql_control "stop"
+        ;;
+    mysql-status)
+        mysql_control "status"
+        ;;
+    clean)
+        clean_cache
         ;;
     start|"")
         ensure_venv

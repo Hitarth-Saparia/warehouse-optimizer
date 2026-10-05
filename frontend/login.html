@@ -13,7 +13,7 @@
 
   <!-- Common Navigation Bar -->
   <nav class="navbar">
-    <a href="index.html" class="nav-brand">
+    <a href="landing.html" class="nav-brand" title="Return to Landing Page">
       <div class="nav-logo-icon">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
@@ -28,6 +28,7 @@
     </a>
 
     <ul class="nav-links">
+      <li><a href="landing.html">Home / Landing</a></li>
       <li><a href="index.html">Dashboard</a></li>
       <li><a href="products.html">Products</a></li>
       <li><a href="layout.html">Layout Optimizer</a></li>
@@ -38,12 +39,12 @@
     </ul>
 
     <div class="nav-right-actions">
-      <a href="index.html" class="btn btn-secondary" style="padding: 0.45rem 0.85rem; font-size: 0.85rem; text-decoration: none;">
+      <a href="landing.html" class="btn btn-secondary" style="padding: 0.45rem 0.85rem; font-size: 0.85rem; text-decoration: none;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="19" y1="12" x2="5" y2="12"></line>
           <polyline points="12 19 5 12 12 5"></polyline>
         </svg>
-        <span>Dashboard</span>
+        <span>Landing Page</span>
       </a>
       <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle theme">
         <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -264,6 +265,21 @@
         }
       }
 
+      // Check URL query parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const roleParam = urlParams.get('role');
+      const loginRequired = urlParams.get('login_required');
+
+      if (loginRequired === '1' && !currentUser) {
+        showAlert('info', '🔒 Please sign in to access Warehouse Optimizer features.');
+      }
+
+      if (roleParam) {
+        if (roleParam === 'manager') selectDemoRole('manager');
+        else if (roleParam === 'supervisor' || roleParam === 'picker') selectDemoRole('supervisor');
+        else if (roleParam === 'fleet') selectDemoRole('fleet');
+      }
+
       // Password input caps lock listener
       const passwordInput = document.getElementById('login-password');
       const capsWarning = document.getElementById('caps-warning');
@@ -382,8 +398,9 @@
         btnText.textContent = 'Authenticated!';
         btnSpinner.style.display = 'none';
 
+        const redirectTarget = new URLSearchParams(window.location.search).get('redirect') || 'index.html';
         setTimeout(() => {
-          window.location.href = 'index.html';
+          window.location.href = redirectTarget;
         }, 700);
       } else {
         btn.disabled = false;
@@ -407,8 +424,9 @@
       const result = await loginUser('guest@warehouse.io', 'password123');
       if (result.success) {
         showAlert('success', 'Authenticated via Instant Guest Access! Redirecting...');
+        const redirectTarget = new URLSearchParams(window.location.search).get('redirect') || 'index.html';
         setTimeout(() => {
-          window.location.href = 'index.html';
+          window.location.href = redirectTarget;
         }, 600);
       } else {
         showAlert('error', result.error || 'Guest login failed.');

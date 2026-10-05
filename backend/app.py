@@ -1013,13 +1013,13 @@ def assign_fleet_waves():
 
 @app.route("/")
 def index():
-    return send_from_directory(FRONTEND_DIR, "index.html")
+    return send_from_directory(FRONTEND_DIR, "landing.html")
 
 @app.route("/<path:path>")
 def static_proxy(path):
     return send_from_directory(FRONTEND_DIR, path)
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5001))
+    port = int(os.environ.get("PORT", 5050))
     print(f"Warehouse Optimizer Server running on http://127.0.0.1:{port}")
     app.run(host="0.0.0.0", port=port, debug=True)

@@ -13,7 +13,7 @@
 
   <!-- Common Navigation Bar -->
   <nav class="navbar">
-    <a href="index.html" class="nav-brand">
+    <a href="landing.html" class="nav-brand" title="Return to Landing Page">
       <div class="nav-logo-icon">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
@@ -27,6 +27,7 @@
       </div>
     </a>
     <ul class="nav-links">
+      <li><a href="landing.html">Landing Page</a></li>
       <li><a href="index.html">Dashboard</a></li>
       <li><a href="products.html">Products</a></li>
       <li><a href="layout.html">Layout Optimizer</a></li>
@@ -624,7 +625,7 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       const dark = typeof isDarkMode === 'function' && isDarkMode();
-      ctx.fillStyle = dark ? '#0b0f19' : '#f8fafc';
+      ctx.fillStyle = dark ? '#232620' : '#EEEEEE';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       ctx.save();
@@ -884,7 +885,7 @@
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      ctx.fillStyle = '#C0C0C0';
+      ctx.fillStyle = '#777C6D';
       ctx.beginPath();
       ctx.moveTo(cx, cy - 10);
       ctx.lineTo(cx - 4, cy + 3);
@@ -907,7 +908,7 @@
       ctx.fillText('N', cx, cy - 11);
 
       const dark = typeof isDarkMode === 'function' && isDarkMode();
-      ctx.fillStyle = dark ? '#f8fafc' : '#0f172a';
+      ctx.fillStyle = dark ? '#EEEEEE' : '#2C3028';
       ctx.font = 'bold 11px sans-serif';
       ctx.textAlign = 'left';
       ctx.fillText('FACILITY MDC-01 • WAVE BATCHING', cx + 22, cy - 2);
@@ -953,7 +954,7 @@
     window.addEventListener('themechange', () => {
       const canvas = document.getElementById('wave-canvas');
       if (canvas) {
-        canvas.style.background = isDarkMode() ? '#0b0f19' : '#f8fafc';
+        canvas.style.background = isDarkMode() ? '#232620' : '#EEEEEE';
         renderSelectedWave();
       }
     });

@@ -203,8 +203,30 @@ def init_sqlite_database():
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
         );
     """)
+    conn.commit()
 
-    # Check if already seeded
+    # Ensure demo user accounts are always seeded if missing
+    cur.execute("SELECT COUNT(*) FROM users")
+    if cur.fetchone()[0] == 0:
+        from backend.security import hash_password
+        demo_users = [
+            ("admin@warehouse.io", "Alex Morgan", "password123", "manager"),
+            ("supervisor@warehouse.io", "Elena Ramos", "password123", "supervisor"),
+            ("fleet@warehouse.io", "David Chen", "password123", "fleet"),
+            ("guest@warehouse.io", "Guest Analyst", "password123", "guest"),
+        ]
+        sqlite_users_data = []
+        for email, name, plain_pwd, role in demo_users:
+            pwd_hash, salt = hash_password(plain_pwd)
+            sqlite_users_data.append((email, name, pwd_hash, salt, role))
+
+        cur.executemany(
+            "INSERT INTO users (email, name, password_hash, salt, role) VALUES (?, ?, ?, ?, ?)",
+            sqlite_users_data
+        )
+        conn.commit()
+
+    # Check if warehouse topology is already seeded
     cur.execute("SELECT COUNT(*) FROM shelves")
     if cur.fetchone()[0] > 0:
         conn.close()
@@ -355,8 +377,7 @@ def init_sqlite_database():
 
 def get_sqlite_connection():
     """Returns a wrapped SQLite connection configured to match PyMySQL DictCursor."""
-    if not os.path.exists(SQLITE_DB_PATH):
-        init_sqlite_database()
+    init_sqlite_database()
 
     raw_conn = sqlite3.connect(SQLITE_DB_PATH)
     raw_conn.row_factory = sqlite3.Row
