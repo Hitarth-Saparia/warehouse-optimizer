@@ -193,9 +193,101 @@ async function verifySession() {
 }
 
 /**
+ * Role Evaluation Helpers
+ */
+function isPickerLeadUser(user) {
+  if (!user) return false;
+  const role = String(user.role || '').toLowerCase();
+  const email = String(user.email || '').toLowerCase();
+  const name = String(user.name || '').toLowerCase();
+
+  return (
+    role === 'supervisor' ||
+    role.includes('lead') ||
+    role.includes('picker') ||
+    email.startsWith('supervisor@') ||
+    name.includes('elena')
+  );
+}
+
+function isFleetUser(user) {
+  if (!user) return false;
+  const role = String(user.role || '').toLowerCase();
+  const email = String(user.email || '').toLowerCase();
+  const name = String(user.name || '').toLowerCase();
+
+  return (
+    role === 'fleet' ||
+    role.includes('fleet') ||
+    email.startsWith('fleet@') ||
+    name.includes('david chen')
+  );
+}
+
+function isManagerUser(user) {
+  if (!user) return false;
+  const role = String(user.role || '').toLowerCase();
+  const email = String(user.email || '').toLowerCase();
+
+  return (
+    role === 'manager' ||
+    role.includes('admin') ||
+    role.includes('manager') ||
+    email.startsWith('admin@')
+  );
+}
+
+/**
+ * Determine whether Fleet Balancing should be visible/accessible
+ * - Picker Lead: Fleet option is NOT visible
+ * - Fleet Login: Fleet option IS visible
+ * - Manager Login: Fleet option IS visible
+ */
+function shouldShowFleetNav(user) {
+  if (!user) return true; // Default visible for unauthenticated preview
+  if (isPickerLeadUser(user)) {
+    return false; // Specifically hidden for Picker Lead / supervisor
+  }
+  if (isFleetUser(user) || isManagerUser(user)) {
+    return true; // Shown for Fleet login & Operations Manager
+  }
+  if (user.permissions && typeof user.permissions.can_manage_fleet === 'boolean') {
+    return user.permissions.can_manage_fleet;
+  }
+  return false;
+}
+
+/**
+ * Update role-based navigation item visibility.
+ * Toggles the "Fleet Balancing" navigation link depending on active user role.
+ */
+function updateNavRoleVisibility() {
+  const user = getAuthUser();
+  const showFleet = shouldShowFleetNav(user);
+
+  const fleetLinks = document.querySelectorAll(
+    '.nav-links a[href*="fleet.html"], .nav-links a[href="fleet.html"]'
+  );
+
+  fleetLinks.forEach(link => {
+    const parentLi = link.closest('li') || link;
+    if (showFleet) {
+      parentLi.style.removeProperty('display');
+      parentLi.classList.remove('nav-hidden');
+    } else {
+      parentLi.style.setProperty('display', 'none', 'important');
+      parentLi.classList.add('nav-hidden');
+    }
+  });
+}
+
+/**
  * Dynamically render login button or user profile pill in the navbar
  */
 function renderNavAuth() {
+  // Synchronize role navigation links
+  updateNavRoleVisibility();
+
   const rightActions = document.querySelector('.nav-right-actions');
   if (!rightActions) return;
 
@@ -261,7 +353,8 @@ const PROTECTED_FEATURE_PAGES = [
 
 /**
  * Enforce Route Access Control:
- * If accessing a protected feature page without login, redirect to login.html
+ * If accessing a protected feature page without login, redirect to login.html.
+ * If a Picker Lead tries to navigate directly to fleet.html, redirect to index.html.
  */
 function checkPageProtection() {
   const path = window.location.pathname;
@@ -274,6 +367,12 @@ function checkPageProtection() {
   if (isProtected && !user) {
     const target = encodeURIComponent(page);
     window.location.href = `login.html?redirect=${target}&login_required=1`;
+    return;
+  }
+
+  // Prevent unauthorized access to fleet balancing
+  if (user && page.endsWith('fleet.html') && !shouldShowFleetNav(user)) {
+    window.location.href = 'index.html';
   }
 }
 
@@ -281,6 +380,15 @@ function checkPageProtection() {
 document.addEventListener('DOMContentLoaded', () => {
   checkPageProtection();
   renderNavAuth();
+  updateNavRoleVisibility();
   verifySession();
 });
-window.addEventListener('authchange', renderNavAuth);
+
+window.addEventListener('authchange', () => {
+  renderNavAuth();
+  updateNavRoleVisibility();
+});
+
+if (document.readyState === 'interactive' || document.readyState === 'complete') {
+  updateNavRoleVisibility();
+}

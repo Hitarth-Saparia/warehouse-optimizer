@@ -294,6 +294,11 @@ body {
   box-shadow: 0 0 12px rgba(124, 124, 124, 0.25);
 }
 
+.nav-links li.nav-hidden,
+.nav-links a.nav-hidden {
+  display: none !important;
+}
+
 .nav-right-actions {
   display: flex;
   align-items: center;
