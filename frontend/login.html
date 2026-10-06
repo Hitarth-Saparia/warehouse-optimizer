@@ -141,12 +141,19 @@
 
       <!-- Status Alert Box -->
       <div id="auth-alert" class="auth-alert" role="alert">
-        <svg id="alert-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="8" x2="12" y2="12"></line>
-          <line x1="12" y1="16" x2="12.01" y2="16"></line>
-        </svg>
-        <span id="alert-message">Alert message</span>
+        <div style="display: flex; align-items: flex-start; gap: 0.6rem; width: 100%;">
+          <svg id="alert-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <div style="flex: 1;">
+            <div id="alert-message">Alert message</div>
+            <button type="button" id="alert-action-btn" class="alert-action-btn" style="display: none;">
+              Create Account with this Email →
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Authentication Form (Sign In / Register) -->
@@ -229,7 +236,7 @@
               id="login-password" 
               name="password" 
               class="form-input has-left-icon has-right-icon" 
-              placeholder="Enter your password (min 6 characters)" 
+              placeholder="Enter your password" 
               value="password123" 
               required 
               autocomplete="current-password"
@@ -254,6 +261,23 @@
               <path d="M12 2l-7 7h4v9h6V9h4z"></path>
             </svg>
             <span>Caps Lock is ON</span>
+          </div>
+
+          <!-- Password Criteria & Live Strength Meter (Registration Mode) -->
+          <div class="password-criteria-box" id="password-criteria-box" style="display: none;">
+            <div class="password-strength-meter">
+              <div class="strength-bar-track">
+                <div class="strength-bar-fill" id="strength-bar-fill"></div>
+              </div>
+              <span class="strength-text" id="strength-text">Password Strength: Please enter a password</span>
+            </div>
+            <ul class="criteria-list" id="criteria-list">
+              <li id="rule-len" class="criteria-item"><span class="rule-icon">○</span> At least 8 characters</li>
+              <li id="rule-upper" class="criteria-item"><span class="rule-icon">○</span> At least one uppercase letter (A-Z)</li>
+              <li id="rule-lower" class="criteria-item"><span class="rule-icon">○</span> At least one lowercase letter (a-z)</li>
+              <li id="rule-num" class="criteria-item"><span class="rule-icon">○</span> At least one number (0-9)</li>
+              <li id="rule-special" class="criteria-item"><span class="rule-icon">○</span> At least one special symbol (!@#$%^&*)</li>
+            </ul>
           </div>
         </div>
 
@@ -286,13 +310,18 @@
               </svg>
             </button>
           </div>
+
+          <!-- Confirm Password Match Indicator -->
+          <div class="confirm-match-indicator" id="confirm-match-indicator" style="display: none;">
+            <span id="confirm-match-text"></span>
+          </div>
         </div>
 
         <!-- Remember Me & Forgot Password -->
         <div class="form-row-remember" id="row-remember-forgot">
           <label class="remember-label">
-            <input type="checkbox" id="remember-me" class="remember-checkbox" checked>
-            <span>Remember session</span>
+            <input type="checkbox" id="remember-me" class="remember-checkbox">
+            <span>Remember session on this browser</span>
           </label>
           <a href="#" class="forgot-link" onclick="handleForgotPassword(event)">Forgot Password?</a>
         </div>
@@ -399,7 +428,105 @@
           });
         });
       }
+
+      // Real-time password criteria and confirm match listeners
+      const confirmInput = document.getElementById('register-confirm-password');
+      if (passwordInput) {
+        passwordInput.addEventListener('input', updatePasswordCriteriaUI);
+      }
+      if (confirmInput) {
+        confirmInput.addEventListener('input', updateConfirmMatchUI);
+      }
     });
+
+    /**
+     * Real-time password criteria & visual strength meter
+     */
+    function updatePasswordCriteriaUI() {
+      if (currentAuthMode !== 'register') return;
+      const pwd = document.getElementById('login-password').value || '';
+
+      const rules = {
+        len: pwd.length >= 8,
+        upper: /[A-Z]/.test(pwd),
+        lower: /[a-z]/.test(pwd),
+        num: /[0-9]/.test(pwd),
+        special: /[!@#$%^&*(),.?":{}|<>\-_+=\[\]\\;'/`~]/.test(pwd)
+      };
+
+      const setRuleUI = (id, met) => {
+        const item = document.getElementById(id);
+        if (!item) return;
+        if (met) {
+          item.classList.add('met');
+          item.querySelector('.rule-icon').textContent = '✓';
+        } else {
+          item.classList.remove('met');
+          item.querySelector('.rule-icon').textContent = '○';
+        }
+      };
+
+      setRuleUI('rule-len', rules.len);
+      setRuleUI('rule-upper', rules.upper);
+      setRuleUI('rule-lower', rules.lower);
+      setRuleUI('rule-num', rules.num);
+      setRuleUI('rule-special', rules.special);
+
+      // Strength Score
+      const score = Object.values(rules).filter(Boolean).length;
+      const bar = document.getElementById('strength-bar-fill');
+      const text = document.getElementById('strength-text');
+
+      if (bar && text) {
+        bar.className = 'strength-bar-fill';
+        if (pwd.length === 0) {
+          bar.style.width = '0%';
+          text.textContent = 'Password Strength: Please enter a password';
+          text.style.color = 'var(--text-light)';
+        } else if (score <= 2) {
+          bar.classList.add('weak');
+          text.textContent = 'Password Strength: Weak (Must satisfy all criteria)';
+          text.style.color = '#ef4444';
+        } else if (score === 3 || score === 4) {
+          bar.classList.add('fair');
+          text.textContent = 'Password Strength: Fair (Almost complete)';
+          text.style.color = '#f59e0b';
+        } else {
+          bar.classList.add('strong');
+          text.textContent = 'Password Strength: Strong & Secure ✓';
+          text.style.color = '#10b981';
+        }
+      }
+
+      updateConfirmMatchUI();
+    }
+
+    /**
+     * Real-time confirm password comparison
+     */
+    function updateConfirmMatchUI() {
+      if (currentAuthMode !== 'register') return;
+      const pwd = document.getElementById('login-password').value || '';
+      const confirmPwd = document.getElementById('register-confirm-password').value || '';
+      const indicator = document.getElementById('confirm-match-indicator');
+      const text = document.getElementById('confirm-match-text');
+
+      if (!indicator || !text) return;
+
+      if (!confirmPwd) {
+        indicator.style.display = 'none';
+        return;
+      }
+
+      indicator.style.display = 'flex';
+      if (pwd === confirmPwd) {
+        indicator.className = 'confirm-match-indicator matched';
+        text.textContent = '✓ Passwords match';
+      } else {
+        indicator.className = 'confirm-match-indicator mismatch';
+        text.textContent = '⚠ Passwords do not match';
+      }
+    }
 
     /**
      * Switch between Sign In and Create Account modes
@@ -413,12 +540,15 @@
       const groupName = document.getElementById('group-name');
       const groupRole = document.getElementById('group-role');
       const groupConfirm = document.getElementById('group-confirm-password');
+      const criteriaBox = document.getElementById('password-criteria-box');
+      const confirmIndicator = document.getElementById('confirm-match-indicator');
       const demoProfiles = document.getElementById('demo-profiles-section');
       const rowRemember = document.getElementById('row-remember-forgot');
       const ssoSection = document.getElementById('sso-section');
       const title = document.getElementById('auth-title');
       const subtitle = document.getElementById('auth-subtitle');
       const labelEmail = document.getElementById('label-email');
+      const pwdInput = document.getElementById('login-password');
       const btnText = document.getElementById('btn-text');
       const btnIcon = document.getElementById('btn-icon');
       const togglePrompt = document.getElementById('auth-toggle-prompt');
@@ -432,15 +562,16 @@
         groupName.style.display = 'block';
         groupRole.style.display = 'block';
         groupConfirm.style.display = 'block';
+        if (criteriaBox) criteriaBox.style.display = 'block';
         demoProfiles.style.display = 'none';
         rowRemember.style.display = 'none';
         ssoSection.style.display = 'none';
 
         title.textContent = 'Create Account';
-        subtitle.textContent = 'Register your warehouse profile. Your credentials will be saved in the dataset.';
+        subtitle.textContent = 'Register your warehouse profile. Your credentials will be saved in the database.';
         labelEmail.textContent = 'Work Email Address';
 
-        btnText.textContent = 'Create Account & Save to Dataset';
+        btnText.textContent = 'Create Account & Save to Database';
         btnIcon.innerHTML = `
           <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
           <circle cx="8.5" cy="7" r="4"></circle>
@@ -453,6 +584,12 @@
           <a class="auth-toggle-link" onclick="switchAuthMode('login')">Sign In</a>
         `;
 
+        if (pwdInput) {
+          pwdInput.placeholder = 'Create a secure password (min. 8 chars)';
+          if (pwdInput.value === 'password123') pwdInput.value = '';
+        }
+        updatePasswordCriteriaUI();
+
         document.getElementById('register-name').focus();
       } else {
         tabRegister.classList.remove('active');
@@ -463,6 +600,8 @@
         groupName.style.display = 'none';
         groupRole.style.display = 'none';
         groupConfirm.style.display = 'none';
+        if (criteriaBox) criteriaBox.style.display = 'none';
+        if (confirmIndicator) confirmIndicator.style.display = 'none';
         demoProfiles.style.display = 'block';
         rowRemember.style.display = 'flex';
         ssoSection.style.display = 'block';
@@ -483,6 +622,10 @@
           <span>Don't have an account?</span>
           <a class="auth-toggle-link" onclick="switchAuthMode('register')">Create an account</a>
         `;
+
+        if (pwdInput) {
+          pwdInput.placeholder = 'Enter your password';
+        }
       }
     }
 
@@ -535,18 +678,37 @@
     }
 
     /**
-     * Alert UI Helper
+     * Alert UI Helper with optional action button
      */
-    function showAlert(type, message) {
+    function showAlert(type, message, actionText = null, actionCallback = null) {
       const alert = document.getElementById('auth-alert');
       const msg = document.getElementById('alert-message');
+      const actionBtn = document.getElementById('alert-action-btn');
+
       alert.className = `auth-alert auth-alert-${type} visible`;
       msg.textContent = message;
+
+      if (actionText && actionCallback && actionBtn) {
+        actionBtn.textContent = actionText;
+        actionBtn.style.display = 'inline-flex';
+        actionBtn.onclick = (e) => {
+          e.preventDefault();
+          actionCallback();
+        };
+      } else if (actionBtn) {
+        actionBtn.style.display = 'none';
+        actionBtn.onclick = null;
+      }
     }
 
     function clearAlert() {
       const alert = document.getElementById('auth-alert');
+      const actionBtn = document.getElementById('alert-action-btn');
       alert.className = 'auth-alert';
+      if (actionBtn) {
+        actionBtn.style.display = 'none';
+        actionBtn.onclick = null;
+      }
     }
 
     /**
@@ -585,8 +747,10 @@
         return;
       }
 
-      if (!password || password.length < 6) {
-        showAlert('error', 'Password must be at least 6 characters.');
+      // Check password criteria
+      const passCheck = validatePasswordCriteria(password);
+      if (!passCheck.isValid) {
+        showAlert('error', passCheck.error);
         document.getElementById('login-password').focus();
         return;
       }
@@ -605,7 +769,7 @@
       btn.disabled = true;
       btnSpinner.style.display = 'inline-block';
       btnIcon.style.display = 'none';
-      btnText.textContent = 'Saving account to dataset...';
+      btnText.textContent = 'Saving account to database...';
 
       const result = await registerUser(name, email, role, password);
 
@@ -620,17 +784,18 @@
 
         showAlert(
           'success',
-          `✓ Account created for ${name} (${roleLabel})! Your credentials have been saved to the dataset. You can now sign in.`
+          `✓ Account created for ${name} (${roleLabel})! Your credentials have been saved to the database. Redirecting to your workspace...`
         );
 
-        // Switch to Sign In mode with new email prefilled
-        switchAuthMode('login');
-        document.getElementById('login-email').value = email;
-        document.getElementById('login-password').value = '';
-        document.getElementById('login-password').placeholder = 'Enter your new password';
-        document.getElementById('login-password').focus();
+        let redirectTarget = new URLSearchParams(window.location.search).get('redirect') || 'index.html';
+        if (result.user && !isPageAllowedForUser(redirectTarget, result.user)) {
+          redirectTarget = 'index.html';
+        }
+        setTimeout(() => {
+          window.location.href = redirectTarget;
+        }, 900);
       } else {
-        btnText.textContent = 'Create Account & Save to Dataset';
+        btnText.textContent = 'Create Account & Save to Database';
         showAlert('error', result.error || 'Failed to create account.');
       }
     }
@@ -641,6 +806,7 @@
     async function handleLoginSubmit() {
       const email = document.getElementById('login-email').value.trim();
       const password = document.getElementById('login-password').value;
+      const rememberMe = document.getElementById('remember-me')?.checked || false;
 
       // Basic client validation
       if (!email || !email.includes('@')) {
@@ -649,8 +815,8 @@
         return;
       }
 
-      if (!password || password.length < 6) {
-        showAlert('error', 'Password must be at least 6 characters.');
+      if (!password) {
+        showAlert('error', 'Please enter your password.');
         document.getElementById('login-password').focus();
         return;
       }
@@ -667,14 +833,17 @@
       btnText.textContent = 'Verifying credentials...';
 
       // Call authentication handler
-      const result = await loginUser(email, password);
+      const result = await loginUser(email, password, rememberMe);
 
       if (result.success) {
-        showAlert('success', `Authentication successful! Welcome, ${result.user.name}. Redirecting...`);
+        showAlert('success', `Authentication successful! Welcome back, ${result.user.name}. Redirecting...`);
         btnText.textContent = 'Authenticated!';
         btnSpinner.style.display = 'none';
 
-        const redirectTarget = new URLSearchParams(window.location.search).get('redirect') || 'index.html';
+        let redirectTarget = new URLSearchParams(window.location.search).get('redirect') || 'index.html';
+        if (result.user && !isPageAllowedForUser(redirectTarget, result.user)) {
+          redirectTarget = 'index.html';
+        }
         setTimeout(() => {
           window.location.href = redirectTarget;
         }, 700);
@@ -686,6 +855,21 @@
 
         if (result.status === 429) {
           showAlert('error', `Rate limit exceeded: Too many attempts. Try again in ${result.retryAfter || 60} seconds.`);
+        } else if (result.code === 'ACCOUNT_NOT_FOUND') {
+          showAlert(
+            'error',
+            result.error || 'No account found with this email. Please create an account first!',
+            'Create Account with this Email →',
+            () => {
+              switchAuthMode('register');
+              document.getElementById('login-email').value = email;
+              document.getElementById('register-name').focus();
+            }
+          );
+        } else if (result.code === 'INVALID_PASSWORD') {
+          showAlert('error', result.error || 'Incorrect password. Please verify and try again.');
+          document.getElementById('login-password').focus();
+          document.getElementById('login-password').select();
         } else {
           showAlert('error', result.error || 'Invalid email or password.');
         }
@@ -700,7 +884,10 @@
       const result = await loginUser('guest@warehouse.io', 'password123');
       if (result.success) {
         showAlert('success', 'Authenticated via Instant Guest Access! Redirecting...');
-        const redirectTarget = new URLSearchParams(window.location.search).get('redirect') || 'index.html';
+        let redirectTarget = new URLSearchParams(window.location.search).get('redirect') || 'index.html';
+        if (result.user && !isPageAllowedForUser(redirectTarget, result.user)) {
+          redirectTarget = 'index.html';
+        }
         setTimeout(() => {
           window.location.href = redirectTarget;
         }, 600);

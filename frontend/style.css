@@ -1639,3 +1639,411 @@ kbd {
 .nav-user-logout:hover {
   color: #f87171;
 }
+
+/* Password Criteria and Strength Box */
+.password-criteria-box {
+  margin-top: 0.65rem;
+  padding: 0.75rem 0.85rem;
+  background: rgba(124, 124, 124, 0.08);
+  border: 1px solid rgba(124, 124, 124, 0.2);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  transition: all 0.25s ease;
+}
+
+[data-theme="dark"] .password-criteria-box {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.password-strength-meter {
+  margin-bottom: 0.6rem;
+}
+
+.strength-bar-track {
+  width: 100%;
+  height: 5px;
+  background: rgba(124, 124, 124, 0.25);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: 0.35rem;
+}
+
+.strength-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 9999px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+  background: #ef4444;
+}
+
+.strength-bar-fill.weak { width: 25%; background: #ef4444; }
+.strength-bar-fill.fair { width: 50%; background: #f59e0b; }
+.strength-bar-fill.good { width: 75%; background: #3b82f6; }
+.strength-bar-fill.strong { width: 100%; background: #10b981; }
+
+.strength-text {
+  font-size: 0.75rem;
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+.criteria-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.25rem;
+}
+
+.criteria-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #94a3b8;
+  font-size: 0.76rem;
+  transition: color 0.2s ease;
+}
+
+.criteria-item .rule-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  font-size: 0.65rem;
+  line-height: 1;
+  background: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.criteria-item.met {
+  color: #10b981;
+}
+
+.criteria-item.met .rule-icon {
+  background: #10b981;
+  color: #ffffff;
+}
+
+/* Confirm Match Indicator */
+.confirm-match-indicator {
+  margin-top: 0.4rem;
+  font-size: 0.76rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 500;
+}
+
+.confirm-match-indicator.matched {
+  color: #10b981;
+}
+
+.confirm-match-indicator.mismatch {
+  color: #ef4444;
+}
+
+/* Action button inside auth alert (e.g. Create Account First) */
+.alert-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #ffffff;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.alert-action-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.7);
+  transform: translateY(-1px);
+}
+
+/* =====================================================================
+   Role-Based Multi-Dashboard Styles
+   ===================================================================== */
+
+.role-switcher-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  background: rgba(124, 124, 124, 0.08);
+  border: 1px solid rgba(124, 124, 124, 0.2);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.5rem;
+  backdrop-filter: blur(12px);
+}
+
+[data-theme="dark"] .role-switcher-banner {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.role-banner-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.role-banner-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  background: rgba(124, 124, 124, 0.15);
+  border: 1px solid rgba(124, 124, 124, 0.25);
+}
+
+.role-banner-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.role-banner-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.role-banner-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-light);
+}
+
+.role-tab-group {
+  display: inline-flex;
+  background: rgba(0, 0, 0, 0.15);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid rgba(124, 124, 124, 0.2);
+  gap: 3px;
+}
+
+[data-theme="dark"] .role-tab-group {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.role-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-light);
+  padding: 0.45rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.role-tab-btn:hover {
+  color: var(--text-main);
+  background: rgba(124, 124, 124, 0.12);
+}
+
+.role-tab-btn.active {
+  background: var(--surface);
+  color: var(--text-main);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(124, 124, 124, 0.25);
+}
+
+[data-theme="dark"] .role-tab-btn.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.role-dashboard-view {
+  animation: fadeInView 0.25s ease-in-out;
+}
+
+@keyframes fadeInView {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Worker Cards Grid (Fleet Dashboard) */
+.worker-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.worker-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.worker-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(124, 124, 124, 0.45);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.worker-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.worker-card-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.worker-card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  background: rgba(124, 124, 124, 0.05);
+  padding: 0.65rem 0.5rem;
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+
+.worker-stat-sublabel {
+  font-size: 0.68rem;
+  color: var(--text-light);
+  text-transform: uppercase;
+}
+
+.worker-stat-subval {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-top: 2px;
+}
+
+.worker-progress-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.74rem;
+  color: var(--text-light);
+  margin-bottom: 0.35rem;
+}
+
+.worker-progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(124, 124, 124, 0.2);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.worker-progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #3b82f6, #6366f1);
+  transition: width 0.4s ease;
+}
+
+.worker-progress-fill.heavy {
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+}
+
+.worker-progress-fill.balanced {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
+/* Action button inside dashboard tables */
+.btn-table-action {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: rgba(124, 124, 124, 0.1);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-decoration: none;
+}
+
+.btn-table-action:hover {
+  background: var(--primary-gradient);
+  border-color: transparent;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.btn-table-complete {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #10b981;
+}
+
+.btn-table-complete:hover {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.badge-status {
+  padding: 0.25rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.badge-status.pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-status.picking {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.badge-status.completed {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+

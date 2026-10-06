@@ -352,23 +352,25 @@ def init_sqlite_database():
 
     cur.executemany("INSERT INTO order_items (order_id, product_id, quantity) VALUES (?, ?, ?)", order_items_data)
 
-    # Seed Demo Users
-    from backend.security import hash_password
-    demo_users = [
-        ("admin@warehouse.io", "Alex Morgan", "password123", "manager"),
-        ("supervisor@warehouse.io", "Elena Ramos", "password123", "supervisor"),
-        ("fleet@warehouse.io", "David Chen", "password123", "fleet"),
-        ("guest@warehouse.io", "Guest Analyst", "password123", "guest"),
-    ]
-    sqlite_users_data = []
-    for email, name, plain_pwd, role in demo_users:
-        pwd_hash, salt = hash_password(plain_pwd)
-        sqlite_users_data.append((email, name, pwd_hash, salt, role))
+    # Seed Demo Users (if not already seeded)
+    cur.execute("SELECT COUNT(*) FROM users")
+    if cur.fetchone()[0] == 0:
+        from backend.security import hash_password
+        demo_users = [
+            ("admin@warehouse.io", "Alex Morgan", "password123", "manager"),
+            ("supervisor@warehouse.io", "Elena Ramos", "password123", "supervisor"),
+            ("fleet@warehouse.io", "David Chen", "password123", "fleet"),
+            ("guest@warehouse.io", "Guest Analyst", "password123", "guest"),
+        ]
+        sqlite_users_data = []
+        for email, name, plain_pwd, role in demo_users:
+            pwd_hash, salt = hash_password(plain_pwd)
+            sqlite_users_data.append((email, name, pwd_hash, salt, role))
 
-    cur.executemany(
-        "INSERT INTO users (email, name, password_hash, salt, role) VALUES (?, ?, ?, ?, ?)",
-        sqlite_users_data
-    )
+        cur.executemany(
+            "INSERT OR IGNORE INTO users (email, name, password_hash, salt, role) VALUES (?, ?, ?, ?, ?)",
+            sqlite_users_data
+        )
 
     conn.commit()
     conn.close()

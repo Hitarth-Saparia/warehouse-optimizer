@@ -6,6 +6,7 @@ Serves static frontend HTML/CSS directly.
 """
 
 import os
+import re
 from functools import wraps
 import pymysql
 from flask import Flask, jsonify, request, send_from_directory
@@ -176,12 +177,103 @@ def require_role(*allowed_roles):
 # Authentication REST API Endpoints
 # -------------------------------------------------------------
 
+@app.route("/api/auth/register", methods=["POST"])
+def auth_register():
+    """
+    Registers a new user account into the database with cryptographic salt + PBKDF2 hash.
+    Enforces strict password criteria (min 8 chars, uppercase, lowercase, digit, special character).
+    """
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+    role = (data.get("role") or "supervisor").strip().lower()
+    client_ip = get_client_ip()
+
+    if not name:
+        return jsonify({"status": "error", "error": "Full name is required."}), 400
+    if not email or "@" not in email:
+        return jsonify({"status": "error", "error": "A valid email address is required."}), 400
+    if role not in ["manager", "supervisor", "fleet", "guest"]:
+        role = "supervisor"
+
+    # Enforce password criteria: 8+ chars, upper, lower, number, special character
+    if len(password) < 8:
+        return jsonify({
+            "status": "error",
+            "error": "Password must be at least 8 characters long."
+        }), 400
+    if not re.search(r"[A-Z]", password):
+        return jsonify({
+            "status": "error",
+            "error": "Password must include at least one uppercase letter (A-Z)."
+        }), 400
+    if not re.search(r"[a-z]", password):
+        return jsonify({
+            "status": "error",
+            "error": "Password must include at least one lowercase letter (a-z)."
+        }), 400
+    if not re.search(r"[0-9]", password):
+        return jsonify({
+            "status": "error",
+            "error": "Password must include at least one number (0-9)."
+        }), 400
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>\-_+=\[\]\\;'/`~]", password):
+        return jsonify({
+            "status": "error",
+            "error": "Password must include at least one special character (!@#$%^&* etc.)."
+        }), 400
+
+    conn = get_db()
+    try:
+        existing = fetch_user_by_email(conn, email)
+        if existing:
+            return jsonify({
+                "status": "error",
+                "code": "EMAIL_ALREADY_EXISTS",
+                "error": "An account with this email already exists. Please sign in instead."
+            }), 409
+
+        pwd_hash, salt = hash_password(password)
+
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO users (email, name, password_hash, salt, role) VALUES (%s, %s, %s, %s, %s)",
+                (email, name, pwd_hash, salt, role)
+            )
+            user_id = cur.lastrowid
+        conn.commit()
+
+        record_audit_log(conn, user_id, email, "REGISTER", "SUCCESS", f"Registered new user '{name}' as {role}", client_ip)
+
+        new_user = fetch_user_by_id(conn, user_id)
+        if not new_user:
+            new_user = User(id=user_id, email=email, name=name, password_hash=pwd_hash, salt=salt, role=role)
+
+        token = generate_token({
+            "sub": new_user.id,
+            "email": new_user.email,
+            "role": new_user.role,
+            "name": new_user.name
+        }, expires_in_seconds=43200)
+
+        return jsonify({
+            "status": "success",
+            "message": f"Account created successfully for {name}!",
+            "token": token,
+            "user": new_user.to_dict()
+        }), 201
+    finally:
+        conn.close()
+
+
 @app.route("/api/auth/login", methods=["POST"])
 def auth_login():
     """
     Authenticates user credentials against PBKDF2 cryptographic hash & salt.
     Enforces sliding-window rate limiting to prevent brute-force credential stuffing.
     Returns: JSON with signed bearer token and user profile.
+    Differentiates between non-existent accounts and invalid passwords.
     """
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
@@ -205,12 +297,22 @@ def auth_login():
     try:
         user = fetch_user_by_email(conn, email)
 
-        # Constant-time password verification
-        if not user or not user.verify_password(password):
-            record_audit_log(conn, user.id if user else None, email, "LOGIN", "FAILURE", "Invalid credentials", client_ip)
+        # Check if email is registered
+        if not user:
+            record_audit_log(conn, None, email, "LOGIN", "FAILURE", "Account does not exist", client_ip)
             return jsonify({
                 "status": "error",
-                "error": "Invalid email or password."
+                "code": "ACCOUNT_NOT_FOUND",
+                "error": "No account found with this email. Please create an account first!"
+            }), 404
+
+        # Constant-time password verification
+        if not user.verify_password(password):
+            record_audit_log(conn, user.id, email, "LOGIN", "FAILURE", "Invalid password", client_ip)
+            return jsonify({
+                "status": "error",
+                "code": "INVALID_PASSWORD",
+                "error": "Incorrect password. Please verify and try again."
             }), 401
 
         # Successful authentication: reset rate limiter for this user

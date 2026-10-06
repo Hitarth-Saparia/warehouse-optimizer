@@ -48,8 +48,39 @@ function getRegisteredUsers() {
 }
 
 /**
- * Register a new user account into the dataset
- * Supports seamless frontend onboarding and persists locally
+ * Password Criteria Validator
+ * Enforces: Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special character
+ */
+function validatePasswordCriteria(password) {
+  const pwd = password || '';
+  const rules = {
+    minLength: pwd.length >= 8,
+    hasUpper: /[A-Z]/.test(pwd),
+    hasLower: /[a-z]/.test(pwd),
+    hasNumber: /[0-9]/.test(pwd),
+    hasSpecial: /[!@#$%^&*(),.?":{}|<>\-_+=\[\]\\;'/`~]/.test(pwd)
+  };
+
+  const allValid = rules.minLength && rules.hasUpper && rules.hasLower && rules.hasNumber && rules.hasSpecial;
+
+  let error = null;
+  if (!rules.minLength) {
+    error = 'Password must be at least 8 characters long.';
+  } else if (!rules.hasUpper) {
+    error = 'Password must include at least one uppercase letter (A-Z).';
+  } else if (!rules.hasLower) {
+    error = 'Password must include at least one lowercase letter (a-z).';
+  } else if (!rules.hasNumber) {
+    error = 'Password must include at least one number (0-9).';
+  } else if (!rules.hasSpecial) {
+    error = 'Password must include at least one special character (!@#$%^&* etc.).';
+  }
+
+  return { isValid: allValid, rules, error };
+}
+
+/**
+ * Register a new user account into the backend database (with local dataset fallback)
  */
 async function registerUser(name, email, role, password) {
   const normalizedEmail = (email || '').trim().toLowerCase();
@@ -62,18 +93,49 @@ async function registerUser(name, email, role, password) {
   if (!normalizedEmail || !normalizedEmail.includes('@')) {
     return { success: false, error: 'A valid email address is required.' };
   }
-  if (!password || password.length < 6) {
-    return { success: false, error: 'Password must be at least 6 characters.' };
+
+  // Enforce password criteria on client before dispatch
+  const check = validatePasswordCriteria(password);
+  if (!check.isValid) {
+    return { success: false, error: check.error };
   }
 
-  // Check against demo accounts to prevent collision
+  // Disallow collision with standard demo accounts
   for (const key of Object.keys(DEMO_ACCOUNTS)) {
     if (DEMO_ACCOUNTS[key].email.toLowerCase() === normalizedEmail) {
-      return { success: false, error: 'This email is reserved for demo profiles. Please use another email.' };
+      return { success: false, error: 'This email is reserved for demo profiles. Please sign in or use another email.' };
     }
   }
 
-  // Check if account already exists in registered dataset
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: trimmedName,
+        email: normalizedEmail,
+        role: selectedRole,
+        password: password
+      })
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.status === 'success') {
+      setAuthSession(data.token, data.user);
+      return { success: true, user: data.user, token: data.token, message: data.message };
+    } else {
+      return {
+        success: false,
+        code: data.code || 'REGISTRATION_FAILED',
+        error: data.error || 'Failed to create account. Please try again.'
+      };
+    }
+  } catch (err) {
+    console.warn('Backend register endpoint error, falling back to local dataset:', err);
+  }
+
+  // Local dataset fallback if backend is offline
   const users = getRegisteredUsers();
   if (users.some(u => (u.email || '').toLowerCase() === normalizedEmail)) {
     return { success: false, error: 'An account with this email already exists in the dataset.' };
@@ -83,7 +145,7 @@ async function registerUser(name, email, role, password) {
     supervisor: { can_modify_layout: false, can_manage_fleet: false, can_pick_orders: true, can_view_audit: false, can_manage_corridors: true },
     fleet: { can_modify_layout: false, can_manage_fleet: true, can_pick_orders: true, can_view_audit: false, can_manage_corridors: false },
     manager: { can_modify_layout: true, can_manage_fleet: true, can_pick_orders: true, can_view_audit: true, can_manage_corridors: true },
-    guest: { can_modify_layout: false, can_manage_fleet: false, can_pick_orders: false, can_view_audit: false, can_manage_corridors: false }
+    guest: { can_modify_layout: false, can_modify_fleet: false, can_pick_orders: false, can_view_audit: false, can_manage_corridors: false }
   };
 
   const parts = trimmedName.split(/\s+/);
@@ -107,26 +169,28 @@ async function registerUser(name, email, role, password) {
     return { success: false, error: 'Storage quota exceeded while saving account to dataset.' };
   }
 
-  return { success: true, user: newUser };
+  const sessionToken = 'token_registered_' + newUser.id + '_' + Date.now();
+  setAuthSession(sessionToken, newUser);
+  return { success: true, user: newUser, token: sessionToken };
 }
 
 /**
- * Retrieve current bearer token from localStorage
+ * Retrieve current bearer token from sessionStorage or localStorage
  */
 function getAuthToken() {
   try {
-    return localStorage.getItem(AUTH_TOKEN_KEY) || null;
+    return sessionStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem(AUTH_TOKEN_KEY) || null;
   } catch (e) {
     return null;
   }
 }
 
 /**
- * Retrieve current user profile object from localStorage
+ * Retrieve current user profile object from sessionStorage or localStorage
  */
 function getAuthUser() {
   try {
-    const raw = localStorage.getItem(AUTH_USER_KEY);
+    const raw = sessionStorage.getItem(AUTH_USER_KEY) || localStorage.getItem(AUTH_USER_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch (e) {
     console.error('Error reading auth state:', e);
@@ -135,12 +199,20 @@ function getAuthUser() {
 }
 
 /**
- * Persist user session (token and user profile)
+ * Persist user session.
+ * Stores primarily in sessionStorage so the session stays alive across pages
+ * and refreshes, and terminates cleanly when the website / browser tab is closed.
  */
-function setAuthSession(token, user) {
+function setAuthSession(token, user, rememberMe = false) {
   try {
-    if (token) localStorage.setItem(AUTH_TOKEN_KEY, token);
-    if (user) localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+    if (token) {
+      sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+      if (rememberMe) localStorage.setItem(AUTH_TOKEN_KEY, token);
+    }
+    if (user) {
+      sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+      if (rememberMe) localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+    }
     window.dispatchEvent(new CustomEvent('authchange', { detail: { user, token } }));
   } catch (e) {
     console.error('Error saving auth session:', e);
@@ -153,10 +225,12 @@ function setAuthUser(user) {
 }
 
 /**
- * Clear session from localStorage
+ * Clear session from both sessionStorage and localStorage
  */
 function clearAuthSession() {
   try {
+    sessionStorage.removeItem(AUTH_USER_KEY);
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
     localStorage.removeItem(AUTH_TOKEN_KEY);
     window.dispatchEvent(new CustomEvent('authchange', { detail: { user: null, token: null } }));
@@ -166,9 +240,10 @@ function clearAuthSession() {
 }
 
 /**
- * Authenticate with the backend REST API with fallback to the local registered accounts dataset
+ * Authenticate with the backend REST API.
+ * Distinguishes between non-existent account and wrong password.
  */
-async function loginUser(email, password) {
+async function loginUser(email, password, rememberMe = false) {
   const normalizedEmail = (email || '').trim().toLowerCase();
 
   try {
@@ -183,38 +258,56 @@ async function loginUser(email, password) {
     const data = await res.json();
 
     if (res.ok && data.status === 'success') {
-      setAuthSession(data.token, data.user);
+      setAuthSession(data.token, data.user, rememberMe);
       return { success: true, user: data.user, token: data.token };
     }
+
+    // Backend returned 404 (ACCOUNT_NOT_FOUND) or 401 (INVALID_PASSWORD)
+    return {
+      success: false,
+      status: res.status,
+      code: data.code || (res.status === 404 ? 'ACCOUNT_NOT_FOUND' : 'INVALID_PASSWORD'),
+      retryAfter: data.retry_after,
+      error: data.error || 'Authentication failed.'
+    };
   } catch (err) {
     console.warn('Backend login endpoint unavailable, checking registered dataset:', err);
   }
 
-  // Check dataset of newly registered accounts
+  // Check dataset of newly registered accounts if backend is offline
   const localUsers = getRegisteredUsers();
-  const match = localUsers.find(
-    u => (u.email || '').toLowerCase() === normalizedEmail && u.password === password
+  const emailMatch = localUsers.find(
+    u => (u.email || '').toLowerCase() === normalizedEmail
   );
 
-  if (match) {
-    const userProfile = {
-      id: match.id,
-      name: match.name,
-      email: match.email,
-      role: match.role,
-      initials: match.initials,
-      permissions: match.permissions,
-      created_at: match.created_at
+  if (!emailMatch) {
+    return {
+      success: false,
+      code: 'ACCOUNT_NOT_FOUND',
+      error: 'No account found with this email. Please create an account first!'
     };
-    const sessionToken = 'token_registered_' + match.id + '_' + Date.now();
-    setAuthSession(sessionToken, userProfile);
-    return { success: true, user: userProfile, token: sessionToken };
   }
 
-  return {
-    success: false,
-    error: 'Invalid email or password.'
+  if (emailMatch.password !== password) {
+    return {
+      success: false,
+      code: 'INVALID_PASSWORD',
+      error: 'Incorrect password. Please verify and try again.'
+    };
+  }
+
+  const userProfile = {
+    id: emailMatch.id,
+    name: emailMatch.name,
+    email: emailMatch.email,
+    role: emailMatch.role,
+    initials: emailMatch.initials,
+    permissions: emailMatch.permissions,
+    created_at: emailMatch.created_at
   };
+  const sessionToken = 'token_registered_' + emailMatch.id + '_' + Date.now();
+  setAuthSession(sessionToken, userProfile, rememberMe);
+  return { success: true, user: userProfile, token: sessionToken };
 }
 
 /**
@@ -332,40 +425,98 @@ function isManagerUser(user) {
 }
 
 /**
+ * Role-Based Access Configuration for App Navigation
+ * Defines which pages are accessible for each character/role:
+ * - Manager: All pages visible
+ * - Picker Lead (Supervisor): Layout Optimizer & Fleet Balancing hidden
+ * - Fleet Lead: Products, Layout Optimizer & Order Picking hidden
+ * - Guest / Analyst: Read-only views, Layout Optimizer & Fleet Balancing hidden
+ */
+const ROLE_ALLOWED_PAGES = {
+  manager: [
+    'landing.html',
+    'index.html',
+    'products.html',
+    'layout.html',
+    'graph.html',
+    'order-picking.html',
+    'waves.html',
+    'fleet.html'
+  ],
+  supervisor: [
+    'landing.html',
+    'index.html',
+    'products.html',
+    'graph.html',
+    'order-picking.html',
+    'waves.html'
+  ],
+  fleet: [
+    'landing.html',
+    'index.html',
+    'graph.html',
+    'waves.html',
+    'fleet.html'
+  ],
+  guest: [
+    'landing.html',
+    'index.html',
+    'products.html',
+    'graph.html',
+    'order-picking.html',
+    'waves.html'
+  ]
+};
+
+function getUserRoleKey(user) {
+  if (!user) return null;
+  if (isManagerUser(user)) return 'manager';
+  if (isPickerLeadUser(user)) return 'supervisor';
+  if (isFleetUser(user)) return 'fleet';
+  const role = String(user.role || '').toLowerCase();
+  if (ROLE_ALLOWED_PAGES[role]) return role;
+  return 'guest';
+}
+
+function isPageAllowedForUser(pageHrefOrName, user) {
+  if (!user) return true; // Default visible for unauthenticated preview
+  const roleKey = getUserRoleKey(user);
+  if (!roleKey || !ROLE_ALLOWED_PAGES[roleKey]) return true;
+
+  const cleanName = pageHrefOrName.split('?')[0].split('#')[0].split('/').pop();
+  if (!cleanName || cleanName === 'landing.html') return true;
+
+  return ROLE_ALLOWED_PAGES[roleKey].includes(cleanName);
+}
+
+/**
  * Determine whether Fleet Balancing should be visible/accessible
- * - Picker Lead: Fleet option is NOT visible
- * - Fleet Login: Fleet option IS visible
- * - Manager Login: Fleet option IS visible
+ * (Maintained for backward compatibility)
  */
 function shouldShowFleetNav(user) {
-  if (!user) return true; // Default visible for unauthenticated preview
-  if (isPickerLeadUser(user)) {
-    return false; // Specifically hidden for Picker Lead / supervisor
-  }
-  if (isFleetUser(user) || isManagerUser(user)) {
-    return true; // Shown for Fleet login & Operations Manager
-  }
-  if (user.permissions && typeof user.permissions.can_manage_fleet === 'boolean') {
-    return user.permissions.can_manage_fleet;
-  }
-  return false;
+  return isPageAllowedForUser('fleet.html', user);
 }
 
 /**
  * Update role-based navigation item visibility.
- * Toggles the "Fleet Balancing" navigation link depending on active user role.
+ * Toggles navbar links based on the active user role.
  */
 function updateNavRoleVisibility() {
   const user = getAuthUser();
-  const showFleet = shouldShowFleetNav(user);
+  const navLinks = document.querySelectorAll('.nav-links a');
 
-  const fleetLinks = document.querySelectorAll(
-    '.nav-links a[href*="fleet.html"], .nav-links a[href="fleet.html"]'
-  );
+  navLinks.forEach(link => {
+    const href = link.getAttribute('href') || '';
+    if (href.startsWith('#') || href.includes('login.html')) {
+      return;
+    }
+    const pageName = href.split('?')[0].split('#')[0].split('/').pop();
+    if (!pageName) return;
 
-  fleetLinks.forEach(link => {
+    const isAllowed = isPageAllowedForUser(pageName, user);
     const parentLi = link.closest('li') || link;
-    if (showFleet) {
+
+    if (isAllowed) {
       parentLi.style.removeProperty('display');
       parentLi.classList.remove('nav-hidden');
     } else {
@@ -448,7 +599,7 @@ const PROTECTED_FEATURE_PAGES = [
 /**
  * Enforce Route Access Control:
  * If accessing a protected feature page without login, redirect to login.html.
- * If a Picker Lead tries to navigate directly to fleet.html, redirect to index.html.
+ * If an authenticated user tries to navigate directly to a page unauthorized for their role, redirect to index.html.
  */
 function checkPageProtection() {
   const path = window.location.pathname;
@@ -464,8 +615,8 @@ function checkPageProtection() {
     return;
   }
 
-  // Prevent unauthorized access to fleet balancing
-  if (user && page.endsWith('fleet.html') && !shouldShowFleetNav(user)) {
+  // Prevent unauthorized access to pages hidden for this user's role
+  if (user && isProtected && !isPageAllowedForUser(page, user)) {
     window.location.href = 'index.html';
   }
 }
