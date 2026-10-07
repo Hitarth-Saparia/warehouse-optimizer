@@ -498,6 +498,19 @@ def get_orders():
     finally:
         conn.close()
 
+def recalculate_warehouse_distances(conn, w=None):
+    """Recalculates Dijkstra shortest distance to packing station (Shelf 1) for all shelves."""
+    if w is None:
+        w = fetch_warehouse(conn)
+    with conn.cursor() as cur:
+        for s_id in list(w.shelves.keys()):
+            if s_id == 1:
+                cur.execute("UPDATE shelves SET distance_to_packing = 0.0 WHERE id = 1")
+            else:
+                d, _ = w.dijkstra(1, s_id)
+                dist = round(d, 1) if d != float('inf') else 999.0
+                cur.execute("UPDATE shelves SET distance_to_packing = %s WHERE id = %s", (dist, s_id))
+
 @app.route("/api/warehouse/graph", methods=["GET"])
 def get_warehouse_graph():
     """Returns graph nodes (shelves) and edges (distances) for visualization."""
@@ -506,7 +519,308 @@ def get_warehouse_graph():
         warehouse = fetch_warehouse(conn)
         graph_dict = warehouse.to_dict()
         graph_dict["blocked_corridors"] = warehouse.get_blocked_corridors()
+        
+        # Attach slotted products information for each shelf
+        products = fetch_all_products(conn)
+        products_by_shelf = {}
+        for p in products:
+            if p.assigned_shelf_id is not None:
+                if p.assigned_shelf_id not in products_by_shelf:
+                    products_by_shelf[p.assigned_shelf_id] = []
+                products_by_shelf[p.assigned_shelf_id].append(p.to_dict())
+        graph_dict["products_by_shelf"] = products_by_shelf
         return jsonify(graph_dict)
+    finally:
+        conn.close()
+
+@app.route("/api/warehouse/graph/save", methods=["POST"])
+def save_warehouse_graph():
+    """
+    Saves an edited warehouse graph layout (nodes and edges) and recomputes shortest path distances.
+    """
+    data = request.get_json() or {}
+    nodes_data = data.get("nodes", [])
+    edges_data = data.get("edges", [])
+
+    if not nodes_data:
+        return jsonify({"error": "Graph must contain at least one node."}), 400
+
+    has_shelf_1 = any(int(n.get("id", 0)) == 1 for n in nodes_data)
+    if not has_shelf_1:
+        return jsonify({"error": "Warehouse must include Shelf 1 (Packing/Dispatch Dock)."}), 400
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            submitted_ids = set()
+            for n in nodes_data:
+                s_id = int(n["id"])
+                submitted_ids.add(s_id)
+                x = int(round(float(n.get("x", 0))))
+                y = int(round(float(n.get("y", 0))))
+                cap = int(n.get("capacity", 999 if s_id == 1 else 5))
+                cur_load = int(n.get("current_load", 0))
+                dist = float(n.get("distance_to_packing", 0.0))
+
+                cur.execute("SELECT id FROM shelves WHERE id = %s", (s_id,))
+                existing = cur.fetchone()
+                if existing:
+                    cur.execute("""
+                        UPDATE shelves
+                        SET x = %s, y = %s, capacity = %s, current_load = %s, distance_to_packing = %s
+                        WHERE id = %s
+                    """, (x, y, cap, cur_load, dist, s_id))
+                else:
+                    cur.execute("""
+                        INSERT INTO shelves (id, distance_to_packing, capacity, current_load, x, y)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (s_id, dist, cap, cur_load, x, y))
+
+            # Delete any shelves that were removed (except Shelf 1)
+            cur.execute("SELECT id FROM shelves")
+            all_db_shelves = [r["id"] for r in cur.fetchall()]
+            for db_id in all_db_shelves:
+                if db_id not in submitted_ids and db_id != 1:
+                    cur.execute("UPDATE products SET assigned_shelf_id = NULL WHERE assigned_shelf_id = %s", (db_id,))
+                    cur.execute("DELETE FROM edges WHERE from_shelf_id = %s OR to_shelf_id = %s", (db_id, db_id))
+                    cur.execute("DELETE FROM shelves WHERE id = %s", (db_id,))
+
+            # Synchronize edges
+            cur.execute("DELETE FROM edges")
+            edge_pairs_seen = set()
+            new_edges = []
+            for e in edges_data:
+                u = int(e["from_shelf_id"])
+                v = int(e["to_shelf_id"])
+                dist = float(e.get("distance", 1.0))
+                if u == v or u not in submitted_ids or v not in submitted_ids:
+                    continue
+                pair = (min(u, v), max(u, v))
+                if pair not in edge_pairs_seen:
+                    edge_pairs_seen.add(pair)
+                    new_edges.append((u, v, dist))
+                    new_edges.append((v, u, dist))
+
+            if new_edges:
+                cur.executemany(
+                    "INSERT INTO edges (from_shelf_id, to_shelf_id, distance) VALUES (%s, %s, %s)",
+                    new_edges
+                )
+
+        recalculate_warehouse_distances(conn)
+        conn.commit()
+
+        updated_w = fetch_warehouse(conn)
+        res_dict = updated_w.to_dict()
+        res_dict["blocked_corridors"] = updated_w.get_blocked_corridors()
+        return jsonify({
+            "status": "success",
+            "message": "Warehouse graph saved and shortest paths recomputed successfully.",
+            "graph": res_dict
+        })
+    except Exception as exc:
+        conn.rollback()
+        return jsonify({"error": f"Failed to save warehouse graph: {str(exc)}"}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/warehouse/graph/reset", methods=["POST"])
+def reset_warehouse_graph_api():
+    """Resets the warehouse topology to standard factory default grid."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM edges")
+            cur.execute("UPDATE products SET assigned_shelf_id = NULL WHERE assigned_shelf_id > 25")
+            cur.execute("DELETE FROM shelves WHERE id > 25")
+
+            shelves_data = [(1, 0.0, 999, 0, 80, 260)]
+            y_coords = [80, 150, 220, 290, 360, 430]
+            s_id = 2
+            aisle_x = [220, 380, 540, 700]
+            aisle_base_dist = [8.0, 16.0, 24.0, 32.0]
+            for a_idx, x in enumerate(aisle_x):
+                base_d = aisle_base_dist[a_idx]
+                for row_idx, y in enumerate(y_coords):
+                    dist = round(base_d + abs(y - 260) * 0.06 + row_idx * 1.5, 1)
+                    shelves_data.append((s_id, dist, 5, 0, x, y))
+                    s_id += 1
+
+            for sid, dist, cap, cur_l, x, y in shelves_data:
+                cur.execute("SELECT id FROM shelves WHERE id = %s", (sid,))
+                if cur.fetchone():
+                    cur.execute("""
+                        UPDATE shelves SET distance_to_packing=%s, capacity=%s, current_load=%s, x=%s, y=%s WHERE id=%s
+                    """, (dist, cap, cur_l, x, y, sid))
+                else:
+                    cur.execute("""
+                        INSERT INTO shelves (id, distance_to_packing, capacity, current_load, x, y) VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (sid, dist, cap, cur_l, x, y))
+
+            edges = [(1, 4, 10.0), (1, 5, 10.0), (1, 2, 14.0)]
+            for a in range(4):
+                start_s = 2 + a * 6
+                for i in range(5):
+                    edges.append((start_s + i, start_s + i + 1, 6.0))
+            edges.extend([
+                (2, 8, 12.0), (8, 14, 12.0), (14, 20, 12.0),
+                (5, 11, 12.0), (11, 17, 12.0), (17, 23, 12.0),
+                (7, 13, 12.0), (13, 19, 12.0), (19, 25, 12.0)
+            ])
+            full_edges = []
+            for u, v, w in edges:
+                full_edges.append((u, v, w))
+                full_edges.append((v, u, w))
+            cur.executemany("INSERT INTO edges (from_shelf_id, to_shelf_id, distance) VALUES (%s, %s, %s)", full_edges)
+
+        BLOCKED_CORRIDORS.clear()
+        CORRIDOR_PENALTIES.clear()
+        recalculate_warehouse_distances(conn)
+        conn.commit()
+
+        updated_w = fetch_warehouse(conn)
+        res_dict = updated_w.to_dict()
+        res_dict["blocked_corridors"] = updated_w.get_blocked_corridors()
+        return jsonify({
+            "status": "success",
+            "message": "Warehouse graph restored to factory default layout.",
+            "graph": res_dict
+        })
+    except Exception as exc:
+        conn.rollback()
+        return jsonify({"error": f"Failed to reset graph: {str(exc)}"}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/warehouse/shelves", methods=["POST"])
+def add_warehouse_shelf():
+    """Adds a new shelf location to the warehouse."""
+    data = request.get_json() or {}
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            # find next available shelf id if not provided
+            s_id = data.get("id")
+            if not s_id:
+                cur.execute("SELECT MAX(id) as max_id FROM shelves")
+                max_row = cur.fetchone()
+                s_id = (max_row["max_id"] or 1) + 1
+            else:
+                s_id = int(s_id)
+
+            x = int(round(float(data.get("x", 200))))
+            y = int(round(float(data.get("y", 200))))
+            capacity = int(data.get("capacity", 5))
+            dist = float(data.get("distance_to_packing", 0.0))
+
+            cur.execute("""
+                INSERT INTO shelves (id, distance_to_packing, capacity, current_load, x, y)
+                VALUES (%s, %s, %s, 0, %s, %s)
+            """, (s_id, dist, capacity, x, y))
+            conn.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": f"Shelf {s_id} added successfully.",
+            "shelf": {"id": s_id, "x": x, "y": y, "capacity": capacity, "current_load": 0, "distance_to_packing": dist}
+        }), 201
+    except Exception as exc:
+        conn.rollback()
+        return jsonify({"error": f"Failed to add shelf: {str(exc)}"}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/warehouse/shelves/<int:shelf_id>", methods=["PUT", "DELETE"])
+def manage_warehouse_shelf(shelf_id):
+    """Updates or deletes a specific shelf."""
+    if shelf_id == 1 and request.method == "DELETE":
+        return jsonify({"error": "Cannot delete Shelf 1 (Packing/Dispatch Dock)."}), 400
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            if request.method == "DELETE":
+                cur.execute("UPDATE products SET assigned_shelf_id = NULL WHERE assigned_shelf_id = %s", (shelf_id,))
+                cur.execute("DELETE FROM edges WHERE from_shelf_id = %s OR to_shelf_id = %s", (shelf_id, shelf_id))
+                cur.execute("DELETE FROM shelves WHERE id = %s", (shelf_id,))
+                recalculate_warehouse_distances(conn)
+                conn.commit()
+                return jsonify({"status": "success", "message": f"Shelf {shelf_id} deleted."})
+
+            # PUT update
+            data = request.get_json() or {}
+            x = data.get("x")
+            y = data.get("y")
+            capacity = data.get("capacity")
+            dist = data.get("distance_to_packing")
+
+            cur.execute("SELECT id, x, y, capacity, distance_to_packing, current_load FROM shelves WHERE id = %s", (shelf_id,))
+            shelf = cur.fetchone()
+            if not shelf:
+                return jsonify({"error": f"Shelf {shelf_id} not found."}), 404
+
+            new_x = int(round(float(x))) if x is not None else shelf["x"]
+            new_y = int(round(float(y))) if y is not None else shelf["y"]
+            new_cap = int(capacity) if capacity is not None else shelf["capacity"]
+            new_dist = float(dist) if dist is not None else shelf["distance_to_packing"]
+
+            cur.execute("""
+                UPDATE shelves
+                SET x = %s, y = %s, capacity = %s, distance_to_packing = %s
+                WHERE id = %s
+            """, (new_x, new_y, new_cap, new_dist, shelf_id))
+            conn.commit()
+
+            return jsonify({
+                "status": "success",
+                "message": f"Shelf {shelf_id} updated.",
+                "shelf": {"id": shelf_id, "x": new_x, "y": new_y, "capacity": new_cap, "distance_to_packing": new_dist}
+            })
+    except Exception as exc:
+        conn.rollback()
+        return jsonify({"error": f"Failed to modify shelf: {str(exc)}"}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/warehouse/edges", methods=["POST", "DELETE"])
+def manage_warehouse_edges():
+    """Adds, updates, or deletes a corridor connection between two shelves."""
+    data = request.get_json() or {}
+    u = data.get("from_shelf_id")
+    v = data.get("to_shelf_id")
+
+    if u is None or v is None:
+        return jsonify({"error": "'from_shelf_id' and 'to_shelf_id' are required."}), 400
+
+    try:
+        u, v = int(u), int(v)
+    except (ValueError, TypeError):
+        return jsonify({"error": "Shelf IDs must be integers."}), 400
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            if request.method == "DELETE":
+                cur.execute("DELETE FROM edges WHERE (from_shelf_id = %s AND to_shelf_id = %s) OR (from_shelf_id = %s AND to_shelf_id = %s)", (u, v, v, u))
+                recalculate_warehouse_distances(conn)
+                conn.commit()
+                return jsonify({"status": "success", "message": f"Corridor between Shelf {u} and Shelf {v} deleted."})
+
+            # POST: Add or update
+            dist = float(data.get("distance", 6.0))
+            cur.execute("DELETE FROM edges WHERE (from_shelf_id = %s AND to_shelf_id = %s) OR (from_shelf_id = %s AND to_shelf_id = %s)", (u, v, v, u))
+            cur.execute("INSERT INTO edges (from_shelf_id, to_shelf_id, distance) VALUES (%s, %s, %s)", (u, v, dist))
+            cur.execute("INSERT INTO edges (from_shelf_id, to_shelf_id, distance) VALUES (%s, %s, %s)", (v, u, dist))
+            recalculate_warehouse_distances(conn)
+            conn.commit()
+            return jsonify({
+                "status": "success",
+                "message": f"Corridor between Shelf {u} and Shelf {v} set to {dist}m.",
+                "edge": {"from_shelf_id": u, "to_shelf_id": v, "distance": dist}
+            })
+    except Exception as exc:
+        conn.rollback()
+        return jsonify({"error": f"Failed to modify edge: {str(exc)}"}), 500
     finally:
         conn.close()
 

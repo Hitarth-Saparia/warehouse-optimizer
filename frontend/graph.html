@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Warehouse Topology Graph. Visual 2D floorplan canvas showing shelves, corridors, and Dijkstra shortest paths.">
-  <title>Warehouse Graph | Warehouse Optimizer</title>
+  <meta name="description" content="Interactive Warehouse Topology Graph and CAD-style Floorplan Editor. Reposition shelves, connect corridors, adjust bay capacities, and simulate shortest paths.">
+  <title>Warehouse Graph Editor | Warehouse Optimizer</title>
   <link rel="stylesheet" href="style.css">
   <script src="theme.js"></script>
   <script src="auth.js"></script>
@@ -57,56 +57,184 @@
   </nav>
 
   <div class="container">
-    <div class="page-header">
+    <!-- Page Header & Action Bar -->
+    <div class="page-header" style="flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
       <div>
-        <h1 class="page-title">Warehouse Topology Graph</h1>
-        <p class="page-subtitle">Discrete Graph Model: Vertices represent shelves and packing station; weighted edges represent aisle distances</p>
+        <h1 class="page-title">Warehouse Topology Graph & Floorplan Editor</h1>
+        <p class="page-subtitle">Interactive 2D Floorplan Studio: Reposition racks, add storage bays, connect corridors, and compute shortest Dijkstra paths</p>
       </div>
-      <div>
-        <button id="btn-reload" class="btn btn-secondary" onclick="loadGraph()">
+      <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center;">
+        <span id="unsaved-badge" class="badge-unsaved" style="display: none;">
+          <span style="width: 8px; height: 8px; background: #f59e0b; border-radius: 50%; display: inline-block;"></span>
+          <span id="unsaved-text">Unsaved Changes</span>
+        </span>
+        <button id="btn-save-graph" class="btn btn-primary" onclick="saveGraphLayout()" title="Save all changes to backend database">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="23 4 23 10 17 10"></polyline>
-            <polyline points="1 20 1 14 7 14"></polyline>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
           </svg>
-          Reload Graph
+          Save Layout
+        </button>
+        <button id="btn-recalc-dist" class="btn btn-secondary" onclick="recalculateDistances()" title="Auto-calculate Euclidean corridor distances from rack positions">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 7 4 4 20 4 20 7"></polyline>
+            <line x1="9" y1="20" x2="15" y2="20"></line>
+            <line x1="12" y1="4" x2="12" y2="20"></line>
+          </svg>
+          Recalc Metric Distances
+        </button>
+        <button id="btn-reset-graph" class="btn btn-secondary" onclick="confirmResetGraph()" title="Reset layout back to factory default grid">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+          </svg>
+          Reset Default
+        </button>
+        <button id="btn-export-json" class="btn btn-secondary" onclick="exportGraphJson()" title="Export topology as JSON">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Export JSON
+        </button>
+        <button id="btn-import-trigger" class="btn btn-secondary" onclick="document.getElementById('import-file-input').click()" title="Import topology JSON">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          Import
+        </button>
+        <input type="file" id="import-file-input" accept=".json" style="display: none;" onchange="handleImportFile(event)">
+      </div>
+    </div>
+
+    <!-- Interactive Mode Toolbar -->
+    <div class="graph-toolbar">
+      <div class="graph-toolbar-group">
+        <button class="graph-mode-btn active" id="mode-btn-inspect" onclick="setEditorMode('inspect')" title="Select and inspect shelves and corridors (V)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          Inspect
+          <span class="graph-key-badge">V</span>
+        </button>
+        <button class="graph-mode-btn mode-move" id="mode-btn-move" onclick="setEditorMode('move')" title="Drag any shelf or packing dock to reposition (M)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="5 9 2 12 5 15"></polyline>
+            <polyline points="9 5 12 2 15 5"></polyline>
+            <polyline points="15 19 12 22 9 19"></polyline>
+            <polyline points="19 9 22 12 19 15"></polyline>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <line x1="12" y1="2" x2="12" y2="22"></line>
+          </svg>
+          Move Racks
+          <span class="graph-key-badge">M</span>
+        </button>
+        <button class="graph-mode-btn mode-add" id="mode-btn-add" onclick="setEditorMode('add')" title="Click on canvas to add a new storage shelf (A)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Add Shelf
+          <span class="graph-key-badge">A</span>
+        </button>
+        <button class="graph-mode-btn mode-connect" id="mode-btn-connect" onclick="setEditorMode('connect')" title="Click start shelf then target shelf to link with a corridor (C)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+          </svg>
+          Connect Corridor
+          <span class="graph-key-badge">C</span>
+        </button>
+        <button class="graph-mode-btn mode-block" id="mode-btn-block" onclick="setEditorMode('block')" title="Click any corridor to block or unblock traffic (B)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+          </svg>
+          Block Hazard
+          <span class="graph-key-badge">B</span>
+        </button>
+        <button class="graph-mode-btn mode-delete" id="mode-btn-delete" onclick="setEditorMode('delete')" title="Click any shelf or corridor to remove it (D)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          Delete
+          <span class="graph-key-badge">D</span>
+        </button>
+      </div>
+
+      <div class="graph-toolbar-divider"></div>
+
+      <!-- Toggles & Snapping -->
+      <div class="graph-toolbar-group" style="margin-left: auto;">
+        <button class="graph-toggle-pill active" id="toggle-snap" onclick="toggleSnapGrid()" title="Snap movement to 20px grid">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          Grid Snap
+        </button>
+        <button class="graph-toggle-pill active" id="toggle-auto-dist" onclick="toggleAutoDist()" title="Auto update corridor distance when racks are moved">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+          Auto Distances
+        </button>
+        <button class="graph-toggle-pill active" id="toggle-heatmap" onclick="toggleHeatmap()" title="Show capacity utilization bars on racks">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+          Heatmap
+        </button>
+        <button class="graph-toggle-pill active" id="toggle-minimap" onclick="toggleMinimap()" title="Toggle radar minimap HUD">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+          Minimap
         </button>
       </div>
     </div>
 
-    <div class="concept-tag">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="18" cy="5" r="3"></circle>
-        <circle cx="6" cy="12" r="3"></circle>
-        <circle cx="18" cy="19" r="3"></circle>
-        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-      </svg>
-      <div>
-        <strong>Graph Theory & Discrete Math:</strong> Undirected weighted graph $G = (V, E)$ stored in MySQL tables <code>shelves</code> and <code>edges</code>. Dijkstra's Algorithm with a min-heap priority queue computes exact shortest corridor walks between any nodes.
-      </div>
-    </div>
-
     <!-- Canvas Layout & Details Inspector -->
-    <div style="display: grid; grid-template-columns: 2.2fr 1fr; gap: 1.75rem; align-items: start;">
+    <div style="display: grid; grid-template-columns: 2.25fr 1fr; gap: 1.5rem; align-items: start;">
       
       <!-- Graph Canvas Container -->
       <div class="card" id="graph-canvas-card" style="padding: 1.25rem; position: relative;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-          <div class="card-title" style="margin-bottom: 0;">Warehouse Aisle Floorplan Canvas</div>
-          <div style="display: flex; gap: 0.75rem; font-size: 0.8rem; font-weight: normal; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 0.65rem;">
+            <div class="card-title" style="margin-bottom: 0;">Warehouse Floorplan Digital Twin</div>
+            <span id="canvas-mode-pill" class="badge badge-primary" style="font-size: 0.72rem; text-transform: uppercase;">INSPECT MODE</span>
+          </div>
+          <div style="display: flex; gap: 0.85rem; font-size: 0.78rem; font-weight: 600; align-items: center; color: var(--text-muted);">
             <span style="display: flex; align-items: center; gap: 0.35rem;">
-              <span style="width: 12px; height: 12px; background: #10b981; border-radius: 50%; box-shadow: 0 0 6px #10b981; display: inline-block;"></span> 
-              Packing Hub
+              <span style="width: 12px; height: 12px; background: #10b981; border-radius: 4px; display: inline-block; box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);"></span> 
+              Packing Hub #1
             </span>
             <span style="display: flex; align-items: center; gap: 0.35rem;">
-              <span style="width: 14px; height: 10px; background: #707070; border-radius: 3px; display: inline-block;"></span> 
+              <span style="width: 14px; height: 10px; background: #475569; border-radius: 3px; display: inline-block;"></span> 
               Storage Shelf
+            </span>
+            <span style="display: flex; align-items: center; gap: 0.35rem;">
+              <span style="width: 12px; height: 4px; background: #06b6d4; display: inline-block; border-radius: 2px;"></span> 
+              Shortest Path
+            </span>
+            <span style="display: flex; align-items: center; gap: 0.35rem;">
+              <span style="width: 14px; height: 6px; background: repeating-linear-gradient(45deg, #f59e0b, #f59e0b 3px, #000 3px, #000 6px); display: inline-block; border-radius: 2px;"></span> 
+              Blocked
             </span>
           </div>
         </div>
 
-        <!-- Floating Interactive Toolbar -->
+        <!-- Floating Interactive Canvas Controls Bar -->
         <div class="canvas-controls-bar">
           <button class="canvas-ctrl-btn" id="btn-zoom-in" title="Zoom In (+)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -124,6 +252,7 @@
               <line x1="8" y1="11" x2="14" y2="11"></line>
             </svg>
           </button>
+          <button class="canvas-ctrl-btn" id="btn-fit-view" onclick="fitViewToScreen()" title="Auto Fit Entire Warehouse to Screen" style="font-size: 0.72rem; min-width: 32px;">Fit</button>
           <button class="canvas-ctrl-btn" id="btn-zoom-reset" title="Reset View (1:1)" style="font-size: 0.72rem; min-width: 32px;">1:1</button>
           <div style="width: 1px; height: 16px; background: rgba(255,255,255,0.25); margin: 0 2px;"></div>
           <button class="canvas-ctrl-btn" id="btn-fullscreen-toggle" title="Toggle Fullscreen (F)">
@@ -142,51 +271,159 @@
           </button>
         </div>
 
-        <div class="canvas-wrapper" style="overflow: hidden; cursor: grab;">
-          <canvas id="graph-canvas" width="820" height="520" style="background: var(--canvas-bg); border-radius: 8px;"></canvas>
+        <!-- Canvas Wrapper -->
+        <div class="canvas-wrapper" style="overflow: hidden; cursor: grab; position: relative;">
+          <canvas id="graph-canvas" width="860" height="540" style="background: var(--canvas-bg); border-radius: 8px;"></canvas>
         </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">
-          <span>Tip: Click any shelf node or the green packing hub on the canvas to inspect real-time metrics, load, and corridor connections.</span>
+
+        <!-- Hint and Shortcuts Banner -->
+        <div class="canvas-hint-banner">
+          <span id="canvas-instruction-text">
+            <strong>Inspect Tool:</strong> Click any shelf or corridor to view details, inventory, and Dijkstra shortest path from Packing Dock.
+          </span>
           <span style="font-weight: 600; color: var(--primary); white-space: nowrap; margin-left: 1rem;">
             <kbd>Scroll</kbd> Zoom &bull; 
             <kbd>Drag</kbd> Pan &bull; 
+            <kbd>V/M/A/C/B/D</kbd> Tools &bull;
             <kbd>F</kbd> Fullscreen
           </span>
         </div>
       </div>
 
-      <!-- Node Inspector Panel -->
-      <div class="card">
-        <div class="card-title">Location Inspector</div>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
-          Click on any node in the canvas to inspect its details and connections.
-        </p>
+      <!-- Node & Topology Inspector Panel -->
+      <div class="card" id="inspector-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+          <div class="card-title" style="margin-bottom: 0;">Location Inspector</div>
+          <span id="selected-type-badge" class="badge badge-secondary" style="font-size: 0.72rem;">SHELF</span>
+        </div>
 
+        <!-- Dynamic Inspector Content -->
         <div id="inspector-content">
-          <div class="stat-card highlight" style="margin-bottom: 1.25rem;">
-            <div class="stat-label">Selected Node</div>
-            <div class="stat-value" id="node-id" style="font-size: 1.75rem;">Shelf 1</div>
-            <div class="stat-desc" id="node-type">Packing & Dispatch Hub</div>
+          <!-- Main Selected Item Card -->
+          <div class="stat-card highlight" style="margin-bottom: 1rem; position: relative;">
+            <div class="stat-label" id="inspector-headline">Selected Node</div>
+            <div class="stat-value" id="node-id" style="font-size: 1.65rem;">Packing Hub #1</div>
+            <div class="stat-desc" id="node-type">Dispatch & Inbound Origin Dock</div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.25rem;">
-            <div style="background: var(--bg); border: 1px solid var(--border); padding: 0.85rem; border-radius: 8px;">
-              <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Distance to Hub</div>
+          <!-- Quick Metric Gauges -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; margin-bottom: 1rem;">
+            <div style="background: var(--bg); border: 1px solid var(--border); padding: 0.75rem; border-radius: 8px;">
+              <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Distance to Dock</div>
               <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-main);" id="node-dist">0.0 m</div>
             </div>
-            <div style="background: var(--bg); border: 1px solid var(--border); padding: 0.85rem; border-radius: 8px;">
-              <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Current Load</div>
+            <div style="background: var(--bg); border: 1px solid var(--border); padding: 0.75rem; border-radius: 8px;">
+              <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Current Load</div>
               <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-main);" id="node-load">0 / 999</div>
             </div>
           </div>
 
-          <div class="card-title" style="font-size: 0.95rem; margin-bottom: 0.5rem;">Direct Corridors (Adjacent Edges)</div>
-          <div id="node-neighbors" style="font-size: 0.875rem; color: var(--text-main);">
-            <em>Click a shelf node to see its aisle connections.</em>
+          <!-- Inline Edit Shelf Form -->
+          <div id="shelf-editor-section" style="background: var(--bg); border: 1px solid var(--border); padding: 0.85rem; border-radius: 8px; margin-bottom: 1rem;">
+            <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.6rem; display: flex; justify-content: space-between; align-items: center;">
+              <span>Rack Configuration & Position</span>
+              <span id="shelf-coord-display" style="font-family: var(--font-mono); color: var(--primary); font-size: 0.75rem;">(80m, 260m)</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.45rem; margin-bottom: 0.6rem;">
+              <div>
+                <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 2px;">X (m)</label>
+                <input type="number" id="input-shelf-x" class="form-input" style="padding: 0.3rem 0.5rem; font-size: 0.8rem;" onchange="updateSelectedShelfProps()">
+              </div>
+              <div>
+                <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 2px;">Y (m)</label>
+                <input type="number" id="input-shelf-y" class="form-input" style="padding: 0.3rem 0.5rem; font-size: 0.8rem;" onchange="updateSelectedShelfProps()">
+              </div>
+              <div>
+                <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 2px;">Capacity</label>
+                <input type="number" id="input-shelf-cap" min="1" max="999" class="form-input" style="padding: 0.3rem 0.5rem; font-size: 0.8rem;" onchange="updateSelectedShelfProps()">
+              </div>
+            </div>
+            <div style="display: flex; gap: 0.45rem;">
+              <button id="btn-delete-selected-shelf" class="btn btn-secondary" style="flex: 1; padding: 0.35rem; font-size: 0.75rem; color: #ef4444;" onclick="deleteSelectedNode()">
+                Delete Shelf
+              </button>
+            </div>
           </div>
+
+          <!-- Connected Corridors -->
+          <div style="margin-bottom: 1rem;">
+            <div class="card-title" style="font-size: 0.88rem; margin-bottom: 0.4rem; display: flex; justify-content: space-between;">
+              <span>Direct Corridors (Edges)</span>
+              <span id="corridors-count-badge" class="badge badge-secondary" style="font-size: 0.7rem;">3 links</span>
+            </div>
+            <div id="node-neighbors" style="font-size: 0.82rem; max-height: 140px; overflow-y: auto;">
+              <em>Click a shelf node to see its aisle connections.</em>
+            </div>
+          </div>
+
+          <!-- Slotted Products in this Shelf -->
+          <div style="margin-bottom: 1rem;">
+            <div class="card-title" style="font-size: 0.88rem; margin-bottom: 0.4rem; display: flex; justify-content: space-between;">
+              <span>Slotted Products in Bay</span>
+              <span id="shelf-products-count" class="badge badge-primary" style="font-size: 0.7rem;">0 items</span>
+            </div>
+            <div id="shelf-products-list" style="max-height: 160px; overflow-y: auto;">
+              <div style="font-size: 0.8rem; color: var(--text-muted); padding: 0.5rem 0;">No items currently slotted.</div>
+            </div>
+          </div>
+
+          <!-- Facility Topology Stats -->
+          <div style="background: var(--bg); border: 1px solid var(--border); padding: 0.75rem; border-radius: 8px; font-size: 0.75rem; color: var(--text-muted);">
+            <div style="font-weight: 700; color: var(--text-main); margin-bottom: 0.3rem;">Topology Metrics</div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+              <span>Total Shelves (Vertices |V|):</span>
+              <strong id="metric-total-shelves" style="color: var(--text-main);">25</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+              <span>Walkable Corridors (|E|):</span>
+              <strong id="metric-total-edges" style="color: var(--text-main);">29</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+              <span>Graph Connected:</span>
+              <strong id="metric-is-connected" style="color: #10b981;">Yes (100% Reachable)</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>Max Graph Diameter:</span>
+              <strong id="metric-diameter" style="color: var(--text-main);">48.0 m</strong>
+            </div>
+          </div>
+
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- Floating Toast Notification -->
+  <div id="graph-toast" class="graph-toast success">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+      <polyline points="22 4 12 14.01 9 11.01"></polyline>
+    </svg>
+    <span id="toast-message">Warehouse graph saved successfully.</span>
+  </div>
+
+  <!-- Edge Distance Edit Modal -->
+  <div id="edge-modal" class="graph-modal-backdrop">
+    <div class="graph-modal-card">
+      <div class="graph-modal-header">
+        <div class="graph-modal-title" id="edge-modal-title">Corridor Connection</div>
+        <button class="graph-modal-close" onclick="closeEdgeModal()">&times;</button>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Configure walking distance between connected storage bays.
+      </p>
+      <div style="margin-bottom: 1.25rem;">
+        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); display: block; margin-bottom: 0.4rem;">Corridor Traversal Distance (Meters)</label>
+        <input type="number" id="input-edge-distance" step="0.5" min="1" max="500" class="form-input" style="font-size: 1rem; padding: 0.6rem;">
+      </div>
+      <div style="display: flex; justify-content: space-between; gap: 0.75rem;">
+        <button class="btn btn-secondary" style="color: #ef4444;" onclick="deleteCurrentModalEdge()">Delete Corridor</button>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-secondary" onclick="closeEdgeModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveEdgeModalDistance()">Save Distance</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -197,23 +434,49 @@
   </footer>
 
   <script>
-    let graphData = { nodes: [], edges: [] };
+    // -------------------------------------------------------------
+    // Global Graph State & Editor Configuration
+    // -------------------------------------------------------------
+    let graphData = { nodes: [], edges: [], blocked_corridors: [], products_by_shelf: {} };
     let selectedNodeId = 1;
+    let selectedEdge = null; // { from_shelf_id, to_shelf_id, distance }
     let hoveredNodeId = null;
+    let hoveredEdge = null;
+    let connectStartNodeId = null; // For Connect tool
+
+    // Editor Modes: 'inspect' | 'move' | 'add' | 'connect' | 'block' | 'delete'
+    let currentMode = 'inspect';
+    let unsavedChangesCount = 0;
+
+    // Layer and Feature Toggles
+    let snapToGrid = true;
+    let autoCalcDistances = true;
+    let showHeatmap = true;
+    let showMinimap = true;
 
     // View Transformation State for Pan & Zoom
     let view = {
       scale: 1.0,
-      minScale: 0.5,
+      minScale: 0.35,
       maxScale: 3.5,
       x: 0,
       y: 0,
       isDragging: false,
+      isDraggingNode: false,
+      draggedNodeId: null,
       dragStartX: 0,
-      dragStartY: 0
+      dragStartY: 0,
+      nodeOffsetX: 0,
+      nodeOffsetY: 0
     };
     let isFullscreen = false;
 
+    // Shortest path cache for visualization
+    let currentShortestPath = [];
+
+    // -------------------------------------------------------------
+    // Data Loading & API Communication
+    // -------------------------------------------------------------
     async function loadGraph() {
       try {
         const res = await fetch('/api/warehouse/graph');
@@ -226,16 +489,525 @@
           throw new Error("No warehouse nodes found in database.");
         }
 
+        unsavedChangesCount = 0;
+        updateUnsavedBadge();
         setupCanvasInteractivity();
         resizeCanvas();
+        fitViewToScreen();
         selectNode(1);
+        updateTopologyMetrics();
       } catch (err) {
         console.error("Failed to load graph:", err);
+        showToast("Error loading warehouse graph: " + err.message, "error");
       }
     }
 
+    async function saveGraphLayout() {
+      try {
+        const payload = {
+          nodes: graphData.nodes,
+          edges: graphData.edges
+        };
+        const res = await fetch('/api/warehouse/graph/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to save graph.");
+        }
+        
+        unsavedChangesCount = 0;
+        updateUnsavedBadge();
+        showToast("Warehouse floorplan and shortest paths saved to database!", "success");
+        if (data.graph) {
+          graphData.nodes = data.graph.nodes;
+          graphData.edges = data.graph.edges;
+          graphData.blocked_corridors = data.graph.blocked_corridors || [];
+          computeShortestPath();
+          updateInspector();
+          updateTopologyMetrics();
+          drawGraph();
+        }
+      } catch (err) {
+        console.error("Save error:", err);
+        showToast("Failed to save layout: " + err.message, "error");
+      }
+    }
+
+    async function confirmResetGraph() {
+      if (!confirm("Are you sure you want to reset the warehouse floorplan to factory default settings? All custom positions will be replaced.")) {
+        return;
+      }
+      try {
+        const res = await fetch('/api/warehouse/graph/reset', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Reset failed.");
+        
+        unsavedChangesCount = 0;
+        updateUnsavedBadge();
+        showToast("Warehouse restored to factory default layout.", "success");
+        await loadGraph();
+      } catch (err) {
+        console.error("Reset error:", err);
+        showToast("Failed to reset: " + err.message, "error");
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Editor Modes & Toolbar Interaction
+    // -------------------------------------------------------------
+    function setEditorMode(mode) {
+      currentMode = mode;
+      connectStartNodeId = null;
+
+      // Update button active classes
+      const modeButtons = ['inspect', 'move', 'add', 'connect', 'block', 'delete'];
+      modeButtons.forEach(m => {
+        const btn = document.getElementById(`mode-btn-${m}`);
+        if (btn) btn.classList.toggle('active', m === mode);
+      });
+
+      const pill = document.getElementById('canvas-mode-pill');
+      const instruction = document.getElementById('canvas-instruction-text');
+      const canvas = document.getElementById('graph-canvas');
+
+      switch (mode) {
+        case 'inspect':
+          pill.textContent = "INSPECT MODE";
+          pill.className = "badge badge-primary";
+          instruction.innerHTML = "<strong>Inspect Tool:</strong> Click any shelf or corridor to view details, inventory, and Dijkstra shortest path.";
+          canvas.style.cursor = 'grab';
+          break;
+        case 'move':
+          pill.textContent = "MOVE RACKS MODE";
+          pill.className = "badge badge-info";
+          instruction.innerHTML = "<strong>Move Tool:</strong> Click & drag any shelf or packing dock to reposition. Edges stretch automatically.";
+          canvas.style.cursor = 'move';
+          break;
+        case 'add':
+          pill.textContent = "ADD SHELF MODE";
+          pill.className = "badge badge-success";
+          instruction.innerHTML = "<strong>Add Shelf Tool:</strong> Click anywhere on the floorplan to place a new storage shelf.";
+          canvas.style.cursor = 'crosshair';
+          break;
+        case 'connect':
+          pill.textContent = "CONNECT CORRIDOR MODE";
+          pill.className = "badge";
+          pill.style.background = '#8b5cf6';
+          instruction.innerHTML = "<strong>Connect Tool:</strong> Click the first shelf, then click a second shelf to establish a walkable corridor.";
+          canvas.style.cursor = 'crosshair';
+          break;
+        case 'block':
+          pill.textContent = "BLOCK HAZARD MODE";
+          pill.className = "badge badge-warning";
+          instruction.innerHTML = "<strong>Block Tool:</strong> Click any corridor line to toggle between open traffic and maintenance/hazard blockage.";
+          canvas.style.cursor = 'pointer';
+          break;
+        case 'delete':
+          pill.textContent = "DELETE MODE";
+          pill.className = "badge badge-danger";
+          instruction.innerHTML = "<strong>Delete Tool:</strong> Click any shelf (except Packing Dock 1) or corridor line to delete it.";
+          canvas.style.cursor = 'not-allowed';
+          break;
+      }
+      drawGraph();
+    }
+
+    function toggleSnapGrid() {
+      snapToGrid = !snapToGrid;
+      document.getElementById('toggle-snap').classList.toggle('active', snapToGrid);
+      showToast(snapToGrid ? "Grid snap enabled (20m grid)" : "Freeform positioning enabled", "success");
+    }
+
+    function toggleAutoDist() {
+      autoCalcDistances = !autoCalcDistances;
+      document.getElementById('toggle-auto-dist').classList.toggle('active', autoCalcDistances);
+      showToast(autoCalcDistances ? "Auto metric corridor distances ON" : "Auto metric corridor distances OFF", "success");
+    }
+
+    function toggleHeatmap() {
+      showHeatmap = !showHeatmap;
+      document.getElementById('toggle-heatmap').classList.toggle('active', showHeatmap);
+      drawGraph();
+    }
+
+    function toggleMinimap() {
+      showMinimap = !showMinimap;
+      document.getElementById('toggle-minimap').classList.toggle('active', showMinimap);
+      drawGraph();
+    }
+
+    function markDirty() {
+      unsavedChangesCount++;
+      updateUnsavedBadge();
+    }
+
+    function updateUnsavedBadge() {
+      const badge = document.getElementById('unsaved-badge');
+      const text = document.getElementById('unsaved-text');
+      if (unsavedChangesCount > 0) {
+        badge.style.display = 'inline-flex';
+        text.textContent = `${unsavedChangesCount} Unsaved Change${unsavedChangesCount > 1 ? 's' : ''}`;
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    function showToast(msg, type = "success") {
+      const toast = document.getElementById('graph-toast');
+      const toastMsg = document.getElementById('toast-message');
+      toastMsg.textContent = msg;
+      toast.className = `graph-toast ${type} show`;
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3500);
+    }
+
+    // -------------------------------------------------------------
+    // Graph Mathematical & Editing Operations
+    // -------------------------------------------------------------
+    function recalculateDistances() {
+      let count = 0;
+      const nodeMap = {};
+      graphData.nodes.forEach(n => { nodeMap[n.id] = n; });
+
+      graphData.edges.forEach(e => {
+        const u = nodeMap[e.from_shelf_id];
+        const v = nodeMap[e.to_shelf_id];
+        if (u && v) {
+          // 10 pixels = 1.0 meter
+          const distMeters = Math.max(1.0, Math.round(Math.hypot(u.x - v.x, u.y - v.y) * 0.1 * 10) / 10);
+          if (e.distance !== distMeters) {
+            e.distance = distMeters;
+            count++;
+          }
+        }
+      });
+
+      markDirty();
+      computeShortestPath();
+      updateInspector();
+      drawGraph();
+      showToast(`Recalculated metric distances for ${count} corridors.`, "success");
+    }
+
+    function addShelfAt(worldX, worldY) {
+      if (snapToGrid) {
+        worldX = Math.round(worldX / 20) * 20;
+        worldY = Math.round(worldY / 20) * 20;
+      }
+
+      // Compute next unused ID
+      const existingIds = new Set(graphData.nodes.map(n => n.id));
+      let newId = 2;
+      while (existingIds.has(newId)) newId++;
+
+      const newShelf = {
+        id: newId,
+        x: worldX,
+        y: worldY,
+        capacity: 5,
+        current_load: 0,
+        distance_to_packing: 999.0
+      };
+
+      graphData.nodes.push(newShelf);
+
+      // Auto-connect to closest existing node if autoCalcDistances is on
+      if (graphData.nodes.length > 1) {
+        let nearestNode = null;
+        let minDist = Infinity;
+        graphData.nodes.forEach(n => {
+          if (n.id !== newId) {
+            const d = Math.hypot(n.x - worldX, n.y - worldY);
+            if (d < minDist) {
+              minDist = d;
+              nearestNode = n;
+            }
+          }
+        });
+
+        if (nearestNode && minDist < 200) {
+          const mDist = Math.max(1.0, Math.round(minDist * 0.1 * 10) / 10);
+          graphData.edges.push({
+            from_shelf_id: nearestNode.id,
+            to_shelf_id: newId,
+            distance: mDist
+          });
+        }
+      }
+
+      markDirty();
+      selectNode(newId);
+      updateTopologyMetrics();
+      drawGraph();
+      showToast(`Shelf S-${String(newId).padStart(2, '0')} placed at (${worldX}m, ${worldY}m).`, "success");
+    }
+
+    function deleteSelectedNode() {
+      if (selectedNodeId === 1) {
+        alert("Shelf 1 is the primary Packing & Dispatch Area and cannot be removed.");
+        return;
+      }
+      deleteNodeById(selectedNodeId);
+    }
+
+    function deleteNodeById(id) {
+      if (id === 1) return;
+      graphData.nodes = graphData.nodes.filter(n => n.id !== id);
+      graphData.edges = graphData.edges.filter(e => e.from_shelf_id !== id && e.to_shelf_id !== id);
+      markDirty();
+      selectNode(1);
+      updateTopologyMetrics();
+      drawGraph();
+      showToast(`Shelf ${id} deleted.`, "success");
+    }
+
+    function deleteEdge(fromId, toId) {
+      graphData.edges = graphData.edges.filter(e => 
+        !( (e.from_shelf_id === fromId && e.to_shelf_id === toId) || 
+           (e.from_shelf_id === toId && e.to_shelf_id === fromId) )
+      );
+      markDirty();
+      computeShortestPath();
+      updateInspector();
+      updateTopologyMetrics();
+      drawGraph();
+      showToast(`Corridor between Shelf ${fromId} and Shelf ${toId} removed.`, "success");
+    }
+
+    async function toggleBlockCorridor(u, v) {
+      const isBlocked = isCorridorBlocked(u, v);
+      const endpoint = isBlocked ? '/api/warehouse/corridor/unblock' : '/api/warehouse/corridor/block';
+      
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from_shelf: u, to_shelf: v })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Corridor update failed.");
+        
+        if (isBlocked) {
+          graphData.blocked_corridors = (graphData.blocked_corridors || []).filter(b => 
+            !( (b.from_shelf === u && b.to_shelf === v) || (b.from_shelf === v && b.to_shelf === u) )
+          );
+          showToast(`Corridor Shelf ${u} ⇄ Shelf ${v} is now clear and walkable.`, "success");
+        } else {
+          graphData.blocked_corridors = graphData.blocked_corridors || [];
+          graphData.blocked_corridors.push({ from_shelf: Math.min(u, v), to_shelf: Math.max(u, v), is_blocked: true });
+          showToast(`Corridor Shelf ${u} ⇄ Shelf ${v} marked as BLOCKED for maintenance.`, "success");
+        }
+        computeShortestPath();
+        updateInspector();
+        drawGraph();
+      } catch (err) {
+        showToast("Error toggling corridor: " + err.message, "error");
+      }
+    }
+
+    function isCorridorBlocked(u, v) {
+      if (!graphData.blocked_corridors) return false;
+      const minId = Math.min(u, v);
+      const maxId = Math.max(u, v);
+      return graphData.blocked_corridors.some(b => 
+        (b.from_shelf === minId && b.to_shelf === maxId) ||
+        (b.from_shelf === u && b.to_shelf === v) ||
+        (b.from_shelf === v && b.to_shelf === u)
+      );
+    }
+
+    function updateSelectedShelfProps() {
+      const n = graphData.nodes.find(node => node.id === selectedNodeId);
+      if (!n) return;
+
+      const newX = parseFloat(document.getElementById('input-shelf-x').value);
+      const newY = parseFloat(document.getElementById('input-shelf-y').value);
+      const newCap = parseInt(document.getElementById('input-shelf-cap').value, 10);
+
+      if (!isNaN(newX)) n.x = newX;
+      if (!isNaN(newY)) n.y = newY;
+      if (!isNaN(newCap) && newCap > 0) n.capacity = newCap;
+
+      if (autoCalcDistances) {
+        graphData.edges.forEach(e => {
+          if (e.from_shelf_id === n.id || e.to_shelf_id === n.id) {
+            const other = graphData.nodes.find(o => o.id === (e.from_shelf_id === n.id ? e.to_shelf_id : e.from_shelf_id));
+            if (other) {
+              e.distance = Math.max(1.0, Math.round(Math.hypot(n.x - other.x, n.y - other.y) * 0.1 * 10) / 10);
+            }
+          }
+        });
+      }
+
+      markDirty();
+      computeShortestPath();
+      updateInspector();
+      drawGraph();
+    }
+
+    // -------------------------------------------------------------
+    // Dijkstra Shortest Path Engine (Client-Side Quick Evaluation)
+    // -------------------------------------------------------------
+    function computeShortestPath() {
+      if (!graphData.nodes || graphData.nodes.length === 0) {
+        currentShortestPath = [];
+        return;
+      }
+      if (selectedNodeId === 1) {
+        currentShortestPath = [1];
+        return;
+      }
+
+      // Build adjacency list excluding blocked corridors
+      const adj = {};
+      graphData.nodes.forEach(n => { adj[n.id] = []; });
+      graphData.edges.forEach(e => {
+        if (!isCorridorBlocked(e.from_shelf_id, e.to_shelf_id)) {
+          if (adj[e.from_shelf_id]) adj[e.from_shelf_id].push({ neighbor: e.to_shelf_id, dist: e.distance });
+          if (adj[e.to_shelf_id]) adj[e.to_shelf_id].push({ neighbor: e.from_shelf_id, dist: e.distance });
+        }
+      });
+
+      const dist = {};
+      const prev = {};
+      const unvisited = new Set();
+
+      graphData.nodes.forEach(n => {
+        dist[n.id] = Infinity;
+        prev[n.id] = null;
+        unvisited.add(n.id);
+      });
+      dist[1] = 0;
+
+      while (unvisited.size > 0) {
+        let curr = null;
+        let smallest = Infinity;
+        for (const id of unvisited) {
+          if (dist[id] < smallest) {
+            smallest = dist[id];
+            curr = id;
+          }
+        }
+
+        if (curr === null || curr === selectedNodeId) break;
+        unvisited.delete(curr);
+
+        for (const edge of (adj[curr] || [])) {
+          if (unvisited.has(edge.neighbor)) {
+            const alt = dist[curr] + edge.dist;
+            if (alt < dist[edge.neighbor]) {
+              dist[edge.neighbor] = alt;
+              prev[edge.neighbor] = curr;
+            }
+          }
+        }
+      }
+
+      const path = [];
+      let step = selectedNodeId;
+      if (dist[step] !== Infinity) {
+        while (step !== null) {
+          path.unshift(step);
+          step = prev[step];
+        }
+      }
+      currentShortestPath = path;
+
+      const targetNode = graphData.nodes.find(n => n.id === selectedNodeId);
+      if (targetNode) {
+        targetNode.distance_to_packing = dist[selectedNodeId] !== Infinity ? Math.round(dist[selectedNodeId] * 10) / 10 : 999.0;
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Import & Export Handlers
+    // -------------------------------------------------------------
+    function exportGraphJson() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(graphData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `warehouse_topology_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast("Warehouse floorplan exported as JSON.", "success");
+    }
+
+    function handleImportFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (!parsed.nodes || !Array.isArray(parsed.nodes)) {
+            throw new Error("Invalid file format: 'nodes' array missing.");
+          }
+          graphData.nodes = parsed.nodes;
+          graphData.edges = parsed.edges || [];
+          graphData.blocked_corridors = parsed.blocked_corridors || [];
+          markDirty();
+          fitViewToScreen();
+          selectNode(1);
+          updateTopologyMetrics();
+          drawGraph();
+          showToast(`Imported ${graphData.nodes.length} shelves and ${graphData.edges.length} corridors. Remember to Save!`, "success");
+        } catch (err) {
+          showToast("Failed to parse JSON file: " + err.message, "error");
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    // -------------------------------------------------------------
+    // Edge Modal Actions
+    // -------------------------------------------------------------
+    function openEdgeModal(edge) {
+      selectedEdge = edge;
+      document.getElementById('edge-modal-title').textContent = `Corridor: Shelf ${edge.from_shelf_id} ⇄ Shelf ${edge.to_shelf_id}`;
+      document.getElementById('input-edge-distance').value = edge.distance;
+      document.getElementById('edge-modal').classList.add('open');
+    }
+
+    function closeEdgeModal() {
+      document.getElementById('edge-modal').classList.remove('open');
+      selectedEdge = null;
+    }
+
+    function saveEdgeModalDistance() {
+      if (!selectedEdge) return;
+      const val = parseFloat(document.getElementById('input-edge-distance').value);
+      if (isNaN(val) || val <= 0) {
+        alert("Please enter a valid positive distance in meters.");
+        return;
+      }
+      selectedEdge.distance = Math.round(val * 10) / 10;
+      markDirty();
+      closeEdgeModal();
+      computeShortestPath();
+      updateInspector();
+      drawGraph();
+      showToast("Corridor distance updated.", "success");
+    }
+
+    function deleteCurrentModalEdge() {
+      if (!selectedEdge) return;
+      deleteEdge(selectedEdge.from_shelf_id, selectedEdge.to_shelf_id);
+      closeEdgeModal();
+    }
+
+    // -------------------------------------------------------------
+    // Canvas Interactivity & Event Handlers
+    // -------------------------------------------------------------
     function setupCanvasInteractivity() {
       const canvas = document.getElementById('graph-canvas');
+      let didDrag = false;
 
       // Mouse Wheel Zoom centered at cursor
       canvas.addEventListener('wheel', (e) => {
@@ -247,23 +1019,86 @@
         zoomAt(mouseX, mouseY, zoomFactor);
       }, { passive: false });
 
-      // Click & Drag Panning
-      let didDrag = false;
+      // Mouse Down: Start Pan or Node Drag
       canvas.addEventListener('mousedown', (e) => {
-        if (e.button === 0) {
-          view.isDragging = true;
-          didDrag = false;
-          view.dragStartX = e.clientX - view.x;
-          view.dragStartY = e.clientY - view.y;
-          canvas.style.cursor = 'grabbing';
+        if (e.button !== 0) return;
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const worldX = (mouseX - view.x) / view.scale;
+        const worldY = (mouseY - view.y) / view.scale;
+
+        // Check if clicking minimap radar first
+        if (showMinimap && isPointInMinimap(mouseX, mouseY, rect.width, rect.height)) {
+          panFromMinimap(mouseX, mouseY, rect.width, rect.height);
+          return;
         }
+
+        // Check if clicking a node
+        const clickedNode = findNodeAt(worldX, worldY);
+
+        if (currentMode === 'move' && clickedNode) {
+          view.isDraggingNode = true;
+          view.draggedNodeId = clickedNode.id;
+          view.nodeOffsetX = clickedNode.x - worldX;
+          view.nodeOffsetY = clickedNode.y - worldY;
+          selectNode(clickedNode.id);
+          didDrag = false;
+          return;
+        }
+
+        // Standard Pan
+        view.isDragging = true;
+        didDrag = false;
+        view.dragStartX = e.clientX - view.x;
+        view.dragStartY = e.clientY - view.y;
+        canvas.style.cursor = 'grabbing';
       });
 
+      // Mouse Move: Pan or Drag Node
       window.addEventListener('mousemove', (e) => {
         const rect = canvas.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
+        const worldX = (mouseX - view.x) / view.scale;
+        const worldY = (mouseY - view.y) / view.scale;
 
+        // 1. Dragging Node in Move Mode
+        if (view.isDraggingNode) {
+          const n = graphData.nodes.find(node => node.id === view.draggedNodeId);
+          if (n) {
+            let targetX = worldX + view.nodeOffsetX;
+            let targetY = worldY + view.nodeOffsetY;
+            if (snapToGrid) {
+              targetX = Math.round(targetX / 20) * 20;
+              targetY = Math.round(targetY / 20) * 20;
+            }
+            if (n.x !== targetX || n.y !== targetY) {
+              n.x = targetX;
+              n.y = targetY;
+              didDrag = true;
+              markDirty();
+
+              // Auto update edge distances if enabled
+              if (autoCalcDistances) {
+                graphData.edges.forEach(edge => {
+                  if (edge.from_shelf_id === n.id || edge.to_shelf_id === n.id) {
+                    const other = graphData.nodes.find(o => o.id === (edge.from_shelf_id === n.id ? edge.to_shelf_id : edge.from_shelf_id));
+                    if (other) {
+                      edge.distance = Math.max(1.0, Math.round(Math.hypot(n.x - other.x, n.y - other.y) * 0.1 * 10) / 10);
+                    }
+                  }
+                });
+              }
+
+              updateInspector();
+              drawGraph();
+            }
+          }
+          return;
+        }
+
+        // 2. Dragging Pan Viewport
         if (view.isDragging) {
           view.x = e.clientX - view.dragStartX;
           view.y = e.clientY - view.dragStartY;
@@ -272,38 +1107,48 @@
           return;
         }
 
+        // 3. Hover Detection
         if (mouseX >= 0 && mouseX <= rect.width && mouseY >= 0 && mouseY <= rect.height) {
-          const worldX = (mouseX - view.x) / view.scale;
-          const worldY = (mouseY - view.y) / view.scale;
+          const hovered = findNodeAt(worldX, worldY);
+          const edgeHovered = findEdgeNear(worldX, worldY);
 
-          let hovered = null;
-          for (const n of graphData.nodes) {
-            const r = (n.id === 1) ? 30 : 28;
-            if (Math.hypot(n.x - worldX, n.y - worldY) <= r) {
-              hovered = n.id;
-              break;
-            }
+          let needsRedraw = false;
+          if ((hovered ? hovered.id : null) !== hoveredNodeId) {
+            hoveredNodeId = hovered ? hovered.id : null;
+            needsRedraw = true;
+          }
+          if (edgeHovered !== hoveredEdge) {
+            hoveredEdge = edgeHovered;
+            needsRedraw = true;
           }
 
-          if (hovered !== hoveredNodeId) {
-            hoveredNodeId = hovered;
-            canvas.style.cursor = hovered ? 'pointer' : 'grab';
+          if (needsRedraw) {
+            updateCanvasCursor();
             drawGraph();
           }
-        } else if (hoveredNodeId) {
+        } else if (hoveredNodeId || hoveredEdge) {
           hoveredNodeId = null;
+          hoveredEdge = null;
           drawGraph();
         }
       });
 
-      window.addEventListener('mouseup', (e) => {
+      // Mouse Up
+      window.addEventListener('mouseup', () => {
+        if (view.isDraggingNode) {
+          view.isDraggingNode = false;
+          view.draggedNodeId = null;
+          computeShortestPath();
+          updateInspector();
+          drawGraph();
+        }
         if (view.isDragging) {
           view.isDragging = false;
-          canvas.style.cursor = hoveredNodeId ? 'pointer' : 'grab';
+          updateCanvasCursor();
         }
       });
 
-      // Selection on click (only if not dragging)
+      // Canvas Click
       canvas.addEventListener('click', (e) => {
         if (didDrag) return;
         const rect = canvas.getBoundingClientRect();
@@ -312,38 +1157,106 @@
         const worldX = (mouseX - view.x) / view.scale;
         const worldY = (mouseY - view.y) / view.scale;
 
-        for (const n of graphData.nodes) {
-          const r = (n.id === 1) ? 30 : 28;
-          if (Math.hypot(n.x - worldX, n.y - worldY) <= r) {
-            selectNode(n.id);
+        const clickedNode = findNodeAt(worldX, worldY);
+        const clickedEdge = findEdgeNear(worldX, worldY);
+
+        switch (currentMode) {
+          case 'inspect':
+            if (clickedNode) {
+              selectNode(clickedNode.id);
+            } else if (clickedEdge) {
+              openEdgeModal(clickedEdge);
+            }
             break;
-          }
+
+          case 'move':
+            if (clickedNode) selectNode(clickedNode.id);
+            break;
+
+          case 'add':
+            if (!clickedNode) {
+              addShelfAt(worldX, worldY);
+            }
+            break;
+
+          case 'connect':
+            if (clickedNode) {
+              if (!connectStartNodeId) {
+                connectStartNodeId = clickedNode.id;
+                showToast(`Selected Shelf ${clickedNode.id}. Now click target shelf to connect corridor.`, "success");
+                drawGraph();
+              } else if (connectStartNodeId === clickedNode.id) {
+                connectStartNodeId = null;
+                showToast("Connection cancelled.", "success");
+                drawGraph();
+              } else {
+                // Connect connectStartNodeId <-> clickedNode.id
+                const u = connectStartNodeId;
+                const v = clickedNode.id;
+                const nodeU = graphData.nodes.find(n => n.id === u);
+                const nodeV = graphData.nodes.find(n => n.id === v);
+                const dist = Math.max(1.0, Math.round(Math.hypot(nodeU.x - nodeV.x, nodeU.y - nodeV.y) * 0.1 * 10) / 10);
+
+                // Check existing
+                const existing = graphData.edges.find(e => 
+                  (e.from_shelf_id === u && e.to_shelf_id === v) || (e.from_shelf_id === v && e.to_shelf_id === u)
+                );
+                if (existing) {
+                  existing.distance = dist;
+                  showToast(`Corridor between Shelf ${u} and Shelf ${v} updated to ${dist}m.`, "success");
+                } else {
+                  graphData.edges.push({ from_shelf_id: u, to_shelf_id: v, distance: dist });
+                  showToast(`New corridor established: Shelf ${u} ⇄ Shelf ${v} (${dist}m).`, "success");
+                }
+                connectStartNodeId = null;
+                markDirty();
+                computeShortestPath();
+                updateInspector();
+                updateTopologyMetrics();
+                drawGraph();
+              }
+            }
+            break;
+
+          case 'block':
+            if (clickedEdge) {
+              toggleBlockCorridor(clickedEdge.from_shelf_id, clickedEdge.to_shelf_id);
+            }
+            break;
+
+          case 'delete':
+            if (clickedNode) {
+              deleteNodeById(clickedNode.id);
+            } else if (clickedEdge) {
+              deleteEdge(clickedEdge.from_shelf_id, clickedEdge.to_shelf_id);
+            }
+            break;
         }
       });
 
-      // Double-click to reset view
-      canvas.addEventListener('dblclick', () => {
-        resetView();
-      });
+      // Double-click to auto fit view
+      canvas.addEventListener('dblclick', fitViewToScreen);
 
-      // Controls toolbar buttons
+      // Controls Toolbar
       document.getElementById('btn-zoom-in').addEventListener('click', () => zoomBy(1.2));
       document.getElementById('btn-zoom-out').addEventListener('click', () => zoomBy(1 / 1.2));
       document.getElementById('btn-zoom-reset').addEventListener('click', resetView);
       document.getElementById('btn-fullscreen-toggle').addEventListener('click', toggleFullscreen);
 
-      // Keyboard shortcuts
+      // Keyboard Shortcuts
       document.addEventListener('keydown', (e) => {
-        if ((e.key === 'f' || e.key === 'F') && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
-          toggleFullscreen();
-        } else if (e.key === 'Escape' && isFullscreen) {
-          toggleFullscreen();
-        }
-      });
-
-      document.addEventListener('fullscreenchange', () => {
-        if (!document.fullscreenElement && isFullscreen) {
-          exitFullscreenUI();
+        if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+        const key = e.key.toUpperCase();
+        if (key === 'V') setEditorMode('inspect');
+        else if (key === 'M') setEditorMode('move');
+        else if (key === 'A') setEditorMode('add');
+        else if (key === 'C') setEditorMode('connect');
+        else if (key === 'B') setEditorMode('block');
+        else if (key === 'D') setEditorMode('delete');
+        else if (key === 'F') toggleFullscreen();
+        else if (key === 'S' && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          saveGraphLayout();
         }
       });
 
@@ -352,14 +1265,65 @@
       });
     }
 
+    function updateCanvasCursor() {
+      const canvas = document.getElementById('graph-canvas');
+      if (currentMode === 'move') {
+        canvas.style.cursor = hoveredNodeId ? 'move' : 'grab';
+      } else if (currentMode === 'delete') {
+        canvas.style.cursor = (hoveredNodeId || hoveredEdge) ? 'not-allowed' : 'default';
+      } else if (currentMode === 'connect' || currentMode === 'add') {
+        canvas.style.cursor = 'crosshair';
+      } else if (currentMode === 'block') {
+        canvas.style.cursor = hoveredEdge ? 'pointer' : 'default';
+      } else {
+        canvas.style.cursor = (hoveredNodeId || hoveredEdge) ? 'pointer' : 'grab';
+      }
+    }
+
+    function findNodeAt(worldX, worldY) {
+      for (const n of graphData.nodes) {
+        const isPacking = n.id === 1;
+        const w = isPacking ? 84 : 58;
+        const h = isPacking ? 58 : 34;
+        if (Math.abs(n.x - worldX) <= w / 2 && Math.abs(n.y - worldY) <= h / 2) {
+          return n;
+        }
+      }
+      return null;
+    }
+
+    function findEdgeNear(worldX, worldY) {
+      const nodeMap = {};
+      graphData.nodes.forEach(n => { nodeMap[n.id] = n; });
+
+      for (const e of graphData.edges) {
+        const u = nodeMap[e.from_shelf_id];
+        const v = nodeMap[e.to_shelf_id];
+        if (u && v) {
+          const d = distToSegment(worldX, worldY, u.x, u.y, v.x, v.y);
+          if (d <= 14) return e;
+        }
+      }
+      return null;
+    }
+
+    function distToSegment(px, py, x1, y1, x2, y2) {
+      const l2 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+      if (l2 === 0) return Math.hypot(px - x1, py - y1);
+      let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+      t = Math.max(0, Math.min(1, t));
+      return Math.hypot(px - (x1 + t * (x2 - x1)), py - (y1 + t * (y2 - y1)));
+    }
+
+    // -------------------------------------------------------------
+    // Zoom, Pan & Screen Fitting Controls
+    // -------------------------------------------------------------
     function zoomAt(cx, cy, factor) {
       const newScale = Math.min(view.maxScale, Math.max(view.minScale, view.scale * factor));
       if (newScale === view.scale) return;
-
       view.x = cx - (cx - view.x) * (newScale / view.scale);
       view.y = cy - (cy - view.y) * (newScale / view.scale);
       view.scale = newScale;
-
       updateZoomLabel();
       drawGraph();
     }
@@ -378,11 +1342,38 @@
       drawGraph();
     }
 
+    function fitViewToScreen() {
+      if (!graphData.nodes || graphData.nodes.length === 0) return;
+      const canvas = document.getElementById('graph-canvas');
+      const rect = canvas.getBoundingClientRect();
+
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      graphData.nodes.forEach(n => {
+        minX = Math.min(minX, n.x - 50);
+        maxX = Math.max(maxX, n.x + 50);
+        minY = Math.min(minY, n.y - 45);
+        maxY = Math.max(maxY, n.y + 45);
+      });
+
+      const padding = 70;
+      const boundsW = (maxX - minX) + padding * 2;
+      const boundsH = (maxY - minY) + padding * 2;
+
+      const scaleX = rect.width / boundsW;
+      const scaleY = rect.height / boundsH;
+      const targetScale = Math.min(1.4, Math.max(view.minScale, Math.min(scaleX, scaleY)));
+
+      view.scale = targetScale;
+      view.x = (rect.width - (minX + maxX) * targetScale) / 2;
+      view.y = (rect.height - (minY + maxY) * targetScale) / 2;
+
+      updateZoomLabel();
+      drawGraph();
+    }
+
     function updateZoomLabel() {
       const label = document.getElementById('zoom-level-text');
-      if (label) {
-        label.textContent = `${Math.round(view.scale * 100)}%`;
-      }
+      if (label) label.textContent = `${Math.round(view.scale * 100)}%`;
     }
 
     function toggleFullscreen() {
@@ -392,26 +1383,18 @@
         isFullscreen = true;
         document.getElementById('fs-icon-expand').style.display = 'none';
         document.getElementById('fs-icon-compress').style.display = 'block';
-
-        if (card.requestFullscreen) {
-          card.requestFullscreen().catch(() => {});
-        }
+        if (card.requestFullscreen) card.requestFullscreen().catch(() => {});
       } else {
-        exitFullscreenUI();
-        if (document.fullscreenElement && document.exitFullscreen) {
-          document.exitFullscreen().catch(() => {});
-        }
+        card.classList.remove('card-fullscreen');
+        isFullscreen = false;
+        document.getElementById('fs-icon-expand').style.display = 'block';
+        document.getElementById('fs-icon-compress').style.display = 'none';
+        if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
       }
-      setTimeout(resizeCanvas, 60);
-    }
-
-    function exitFullscreenUI() {
-      const card = document.getElementById('graph-canvas-card');
-      card.classList.remove('card-fullscreen');
-      isFullscreen = false;
-      document.getElementById('fs-icon-expand').style.display = 'block';
-      document.getElementById('fs-icon-compress').style.display = 'none';
-      setTimeout(resizeCanvas, 60);
+      setTimeout(() => {
+        resizeCanvas();
+        fitViewToScreen();
+      }, 70);
     }
 
     function resizeCanvas() {
@@ -421,8 +1404,8 @@
       const rect = wrapper.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
 
-      const w = Math.floor(rect.width > 0 ? rect.width : 820);
-      const h = isFullscreen ? Math.floor(window.innerHeight - 90) : 520;
+      const w = Math.floor(rect.width > 0 ? rect.width : 860);
+      const h = isFullscreen ? Math.floor(window.innerHeight - 90) : 540;
 
       canvas.width = Math.floor(w * dpr);
       canvas.height = Math.floor(h * dpr);
@@ -432,105 +1415,120 @@
       drawGraph();
     }
 
-    function drawRealisticFloor(ctx) {
-      const dark = typeof isDarkMode === 'function' && isDarkMode();
-      ctx.save();
-      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.04)' : '#f1f5f9';
-      ctx.lineWidth = 1;
-      for (let x = 0; x <= 860; x += 25) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, 560);
-        ctx.stroke();
-      }
-      for (let y = 0; y <= 560; y += 25) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(860, y);
-        ctx.stroke();
-      }
-
-      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
-      ctx.lineWidth = 1.5;
-      for (let x = 0; x <= 860; x += 100) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, 560);
-        ctx.stroke();
-      }
-      for (let y = 0; y <= 560; y += 100) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(860, y);
-        ctx.stroke();
-      }
-
-      // Outer safety boundary
-      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.12)' : '#e2e8f0';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(30, 20, 755, 480);
-
-      // Central Corridor Lane Markings (y = 260)
-      ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([8, 8]);
-      ctx.beginPath();
-      ctx.moveTo(135, 246);
-      ctx.lineTo(760, 246);
-      ctx.moveTo(135, 274);
-      ctx.lineTo(760, 274);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
+    // -------------------------------------------------------------
+    // Node Selection & Inspector Updates
+    // -------------------------------------------------------------
+    function selectNode(id) {
+      selectedNodeId = id;
+      computeShortestPath();
+      updateInspector();
+      drawGraph();
     }
 
-    function drawAisleSignboards(ctx) {
-      const aisles = [
-        { label: 'AISLE 01', range: 'BAYS 02-07', x: 220 },
-        { label: 'AISLE 02', range: 'BAYS 08-13', x: 380 },
-        { label: 'AISLE 03', range: 'BAYS 14-19', x: 540 },
-        { label: 'AISLE 04', range: 'BAYS 20-25', x: 700 }
-      ];
+    function updateInspector() {
+      const n = graphData.nodes.find(node => node.id === selectedNodeId);
+      if (!n) return;
 
-      aisles.forEach(a => {
-        ctx.save();
-        const w = 82;
-        const h = 24;
-        const x = a.x - w / 2;
-        const y = 34;
+      const isPacking = n.id === 1;
+      document.getElementById('node-id').textContent = isPacking ? "Packing Hub #1" : `Storage Shelf S-${String(n.id).padStart(2, '0')}`;
+      document.getElementById('node-type').textContent = isPacking ? "Origin & Dispatch Fulfillment Dock" : `High-Density Pallet Storage Location`;
+      document.getElementById('selected-type-badge').textContent = isPacking ? "PACK DOCK" : "STORAGE BAY";
+      document.getElementById('selected-type-badge').className = isPacking ? "badge badge-success" : "badge badge-primary";
 
-        ctx.strokeStyle = '#94a3b8';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(x + 10, 20);
-        ctx.lineTo(x + 10, y);
-        ctx.moveTo(x + w - 10, 20);
-        ctx.lineTo(x + w - 10, y);
-        ctx.stroke();
+      document.getElementById('node-dist').textContent = `${n.distance_to_packing} m`;
+      document.getElementById('node-load').textContent = isPacking ? "Infinite" : `${n.current_load} / ${n.capacity}`;
 
-        ctx.fillStyle = '#0f172a';
-        ctx.beginPath();
-        ctx.roundRect(x, y, w, h, 4);
-        ctx.fill();
+      document.getElementById('shelf-coord-display').textContent = `(${Math.round(n.x)}m, ${Math.round(n.y)}m)`;
+      document.getElementById('input-shelf-x').value = Math.round(n.x);
+      document.getElementById('input-shelf-y').value = Math.round(n.y);
+      document.getElementById('input-shelf-cap').value = n.capacity;
 
-        ctx.fillStyle = '#f59e0b';
-        ctx.beginPath();
-        ctx.roundRect(x, y, w, 3, [4, 4, 0, 0]);
-        ctx.fill();
+      const delBtn = document.getElementById('btn-delete-selected-shelf');
+      if (delBtn) {
+        delBtn.disabled = isPacking;
+        delBtn.style.opacity = isPacking ? '0.4' : '1';
+        delBtn.title = isPacking ? "Packing Dock 1 cannot be deleted." : "Remove shelf";
+      }
 
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 9.5px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(a.label, a.x, y + 10);
+      // 1. Direct Corridors
+      const neighbors = graphData.edges.filter(e => e.from_shelf_id === n.id || e.to_shelf_id === n.id);
+      document.getElementById('corridors-count-badge').textContent = `${neighbors.length} links`;
+      const neighborDiv = document.getElementById('node-neighbors');
 
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '600 7px sans-serif';
-        ctx.fillText(a.range, a.x, y + 18);
-        ctx.restore();
+      if (neighbors.length === 0) {
+        neighborDiv.innerHTML = '<div style="color: #ef4444; padding: 0.4rem 0;">⚠️ No walkable corridor connections. Graph isolated.</div>';
+      } else {
+        neighborDiv.innerHTML = neighbors.map(e => {
+          const otherId = (e.from_shelf_id === n.id) ? e.to_shelf_id : e.from_shelf_id;
+          const otherLabel = (otherId === 1) ? 'Packing Dock #1' : `Shelf S-${String(otherId).padStart(2, '0')}`;
+          const blocked = isCorridorBlocked(e.from_shelf_id, e.to_shelf_id);
+
+          return `
+            <div class="corridor-item">
+              <div>
+                <span style="font-weight: 600;">${otherLabel}</span>
+                ${blocked ? '<span class="badge badge-warning" style="font-size:0.65rem; margin-left:4px;">BLOCKED</span>' : ''}
+              </div>
+              <div class="corridor-item-actions">
+                <span class="badge ${blocked ? 'badge-warning' : 'badge-primary'}">${e.distance}m</span>
+                <button class="btn-icon-xs" title="Jump to shelf" onclick="selectNode(${otherId})">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+                <button class="btn-icon-xs" title="Edit distance" onclick="openEdgeModal(${JSON.stringify(e).replace(/"/g, '&quot;')})">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                </button>
+                <button class="btn-icon-xs delete" title="Disconnect corridor" onclick="deleteEdge(${e.from_shelf_id}, ${e.to_shelf_id})">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+              </div>
+            </div>`;
+        }).join('');
+      }
+
+      // 2. Slotted Products
+      const productsList = document.getElementById('shelf-products-list');
+      const productsCount = document.getElementById('shelf-products-count');
+      const shelfProducts = (graphData.products_by_shelf && graphData.products_by_shelf[n.id]) ? graphData.products_by_shelf[n.id] : [];
+
+      productsCount.textContent = `${shelfProducts.length} items`;
+      if (shelfProducts.length === 0) {
+        productsList.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-muted); padding: 0.5rem 0;">No catalog items slotted on this shelf.</div>';
+      } else {
+        productsList.innerHTML = shelfProducts.map(p => `
+          <div class="product-slot-card">
+            <div class="product-slot-header">
+              <span class="product-slot-name">${p.name}</span>
+              <span class="badge badge-secondary" style="font-size:0.68rem;">${p.category}</span>
+            </div>
+            <div class="product-slot-meta">
+              <span>Stock: <strong>${p.stock_quantity || 50}</strong></span>
+              <span>&bull;</span>
+              <span>Velocity: <strong>${Math.round(p.pick_frequency || 0)} units/mo</strong></span>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    function updateTopologyMetrics() {
+      document.getElementById('metric-total-shelves').textContent = graphData.nodes.length;
+      document.getElementById('metric-total-edges').textContent = graphData.edges.length;
+      const reachable = (currentShortestPath.length > 0 || selectedNodeId === 1);
+      const connElem = document.getElementById('metric-is-connected');
+      connElem.textContent = reachable ? "Fully Connected" : "Isolated Nodes Detected";
+      connElem.style.color = reachable ? "#10b981" : "#ef4444";
+
+      // Compute max distance
+      let maxDist = 0;
+      graphData.nodes.forEach(n => {
+        if (n.distance_to_packing < 990 && n.distance_to_packing > maxDist) maxDist = n.distance_to_packing;
       });
+      document.getElementById('metric-diameter').textContent = `${maxDist} m`;
     }
 
+    // -------------------------------------------------------------
+    // Canvas 2D Floorplan Rendering Pipeline
+    // -------------------------------------------------------------
     function drawGraph() {
       const canvas = document.getElementById('graph-canvas');
       if (!canvas) return;
@@ -541,83 +1539,315 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       const dark = typeof isDarkMode === 'function' && isDarkMode();
-      ctx.fillStyle = dark ? '#161618' : '#F8F8FA';
+      ctx.fillStyle = dark ? '#0f172a' : '#f8fafc';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // World scale
+      // World scale transform
       ctx.save();
       ctx.scale(dpr, dpr);
       ctx.translate(view.x, view.y);
       ctx.scale(view.scale, view.scale);
 
-      drawRealisticFloor(ctx);
-      drawAisleSignboards(ctx);
+      // 1. Draw Architectural Floor & Zones
+      drawWarehouseFloor(ctx, dark);
+
+      // 2. Dynamic Aisle Gantries
+      drawAisleSignboards(ctx, dark);
 
       const nodeMap = {};
       graphData.nodes.forEach(n => { nodeMap[n.id] = n; });
 
-      // 1. Draw Corridors (Walkable Graph Edges)
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = dark ? '#334155' : '#cbd5e1';
+      // 3. Corridors & Edges
+      drawCorridors(ctx, nodeMap, dark);
 
+      // 4. Shortest Path Illumination
+      drawShortestPath(ctx, nodeMap);
+
+      // 5. Connect-tool active wire
+      if (currentMode === 'connect' && connectStartNodeId) {
+        const startNode = nodeMap[connectStartNodeId];
+        if (startNode) {
+          ctx.save();
+          ctx.strokeStyle = '#8b5cf6';
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([6, 6]);
+          ctx.beginPath();
+          ctx.moveTo(startNode.x, startNode.y);
+          // Draw to cursor or hovered node
+          if (hoveredNodeId && nodeMap[hoveredNodeId]) {
+            ctx.lineTo(nodeMap[hoveredNodeId].x, nodeMap[hoveredNodeId].y);
+          }
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      // 6. Pallet Racks & Packing Station
+      drawNodes(ctx, dark);
+
+      ctx.restore(); // Restore World Coordinates
+
+      // 7. Screen HUD (Fixed Overlays & Minimap Radar)
+      const logicalW = canvas.width / dpr;
+      const logicalH = canvas.height / dpr;
+      drawScreenHUD(ctx, logicalW, logicalH, dark);
+
+      if (showMinimap) {
+        drawMinimapRadar(ctx, logicalW, logicalH, dark);
+      }
+
+      ctx.restore(); // Restore DPR
+    }
+
+    function drawWarehouseFloor(ctx, dark) {
+      ctx.save();
+
+      // Expansion Joints / Micro Grid (20m / 200px)
+      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.04)';
+      ctx.lineWidth = 1;
+      for (let x = -200; x <= 1200; x += 20) {
+        ctx.beginPath();
+        ctx.moveTo(x, -200);
+        ctx.lineTo(x, 800);
+        ctx.stroke();
+      }
+      for (let y = -200; y <= 800; y += 20) {
+        ctx.beginPath();
+        ctx.moveTo(-200, y);
+        ctx.lineTo(1200, y);
+        ctx.stroke();
+      }
+
+      // Major Metric Grid (100m)
+      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.08)';
+      ctx.lineWidth = 1.5;
+      for (let x = -200; x <= 1200; x += 100) {
+        ctx.beginPath();
+        ctx.moveTo(x, -200);
+        ctx.lineTo(x, 800);
+        ctx.stroke();
+      }
+      for (let y = -200; y <= 800; y += 100) {
+        ctx.beginPath();
+        ctx.moveTo(-200, y);
+        ctx.lineTo(1200, y);
+        ctx.stroke();
+      }
+
+      // Inbound Staging Safety Zone (around packing dock at x=80, y=260)
+      ctx.fillStyle = dark ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.06)';
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.3)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(15, 170, 130, 180, 12);
+      ctx.fill();
+      ctx.stroke();
+
+      // Zone Label
+      ctx.fillStyle = dark ? '#6ee7b7' : '#059669';
+      ctx.font = 'bold 9px monospace';
+      ctx.fillText("INBOUND & PACKING DOCK", 25, 188);
+
+      // Central Express Corridor dividing lanes (y = 260)
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([8, 8]);
+      ctx.beginPath();
+      ctx.moveTo(145, 245);
+      ctx.lineTo(820, 245);
+      ctx.moveTo(145, 275);
+      ctx.lineTo(820, 275);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Pedestrian Crosswalk stripes at key intersections
+      ctx.fillStyle = dark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)';
+      const crosswalkXs = [220, 380, 540, 700];
+      crosswalkXs.forEach(cx => {
+        for (let py = 246; py < 274; py += 7) {
+          ctx.fillRect(cx - 16, py, 32, 3);
+        }
+      });
+
+      ctx.restore();
+    }
+
+    function drawAisleSignboards(ctx, dark) {
+      // Find distinct X clusters of shelves > 1
+      const xPositions = {};
+      graphData.nodes.forEach(n => {
+        if (n.id > 1) {
+          const clusterKey = Math.round(n.x / 40) * 40;
+          xPositions[clusterKey] = (xPositions[clusterKey] || []).concat(n);
+        }
+      });
+
+      const sortedClusters = Object.keys(xPositions).sort((a, b) => a - b);
+      sortedClusters.forEach((xKey, idx) => {
+        const nodesInCol = xPositions[xKey];
+        if (nodesInCol.length === 0) return;
+
+        const avgX = nodesInCol.reduce((s, n) => s + n.x, 0) / nodesInCol.length;
+        const minY = Math.min(...nodesInCol.map(n => n.y));
+
+        ctx.save();
+        const w = 84;
+        const h = 26;
+        const x = avgX - w / 2;
+        const y = minY - 50;
+
+        // Suspension brackets
+        ctx.strokeStyle = dark ? '#475569' : '#94a3b8';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x + 12, y - 10);
+        ctx.lineTo(x + 12, y);
+        ctx.moveTo(x + w - 12, y - 10);
+        ctx.lineTo(x + w - 12, y);
+        ctx.stroke();
+
+        // Signboard body
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, 5);
+        ctx.fill();
+
+        // Amber illuminated header strip
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, 3.5, [5, 5, 0, 0]);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 9.5px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`AISLE ${String(idx + 1).padStart(2, '0')}`, avgX, y + 11);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '700 7px sans-serif';
+        const ids = nodesInCol.map(n => n.id).sort((a,b) => a - b);
+        ctx.fillText(`BAYS ${ids[0]}-${ids[ids.length - 1]}`, avgX, y + 20);
+        ctx.restore();
+      });
+    }
+
+    function drawCorridors(ctx, nodeMap, dark) {
       graphData.edges.forEach(e => {
         const u = nodeMap[e.from_shelf_id];
         const v = nodeMap[e.to_shelf_id];
-        if (u && v) {
+        if (!u || !v) return;
+
+        const blocked = isCorridorBlocked(e.from_shelf_id, e.to_shelf_id);
+        const isHovered = (hoveredEdge === e);
+
+        ctx.save();
+
+        if (blocked) {
+          // Blocked Hazard Corridor
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 4;
           ctx.beginPath();
           ctx.moveTo(u.x, u.y);
           ctx.lineTo(v.x, v.y);
           ctx.stroke();
 
-          // Distance Pill along corridor
-          const midX = (u.x + v.x) / 2;
-          const midY = (u.y + v.y) / 2;
-          ctx.save();
-          ctx.fillStyle = dark ? '#1e293b' : '#ffffff';
+          // Yellow/Black diagonal hazard dashes
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([8, 8]);
           ctx.beginPath();
-          ctx.roundRect(midX - 15, midY - 9, 30, 18, 4);
-          ctx.fill();
-          ctx.strokeStyle = dark ? '#334155' : '#cbd5e1';
-          ctx.lineWidth = 1;
+          ctx.moveTo(u.x, u.y);
+          ctx.lineTo(v.x, v.y);
           ctx.stroke();
-
-          ctx.fillStyle = dark ? '#cbd5e1' : '#475569';
-          ctx.font = 'bold 9px monospace';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(`${e.distance}m`, midX, midY);
-          ctx.restore();
+        } else {
+          // Standard Walkable Corridor
+          ctx.lineWidth = isHovered ? 4 : 2.5;
+          ctx.strokeStyle = isHovered ? '#38bdf8' : (dark ? '#334155' : '#cbd5e1');
+          ctx.beginPath();
+          ctx.moveTo(u.x, u.y);
+          ctx.lineTo(v.x, v.y);
+          ctx.stroke();
         }
-      });
 
-      // 2. Draw Nodes (Packing Hub & Heavy-Duty Pallet Racks)
+        // Distance Tag Pill
+        const midX = (u.x + v.x) / 2;
+        const midY = (u.y + v.y) / 2;
+
+        ctx.fillStyle = blocked ? '#7f1d1d' : (dark ? '#1e293b' : '#ffffff');
+        ctx.beginPath();
+        const pillW = blocked ? 42 : 32;
+        ctx.roundRect(midX - pillW / 2, midY - 9, pillW, 18, 5);
+        ctx.fill();
+
+        ctx.strokeStyle = blocked ? '#ef4444' : (isHovered ? '#38bdf8' : (dark ? '#475569' : '#cbd5e1'));
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.fillStyle = blocked ? '#fca5a5' : (dark ? '#cbd5e1' : '#475569');
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(blocked ? "BLOCK" : `${e.distance}m`, midX, midY);
+
+        ctx.restore();
+      });
+    }
+
+    function drawShortestPath(ctx, nodeMap) {
+      if (!currentShortestPath || currentShortestPath.length < 2) return;
+
+      ctx.save();
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 4.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.shadowColor = 'rgba(6, 182, 212, 0.8)';
+      ctx.shadowBlur = 12;
+
+      ctx.beginPath();
+      for (let i = 0; i < currentShortestPath.length; i++) {
+        const n = nodeMap[currentShortestPath[i]];
+        if (!n) continue;
+        if (i === 0) ctx.moveTo(n.x, n.y);
+        else ctx.lineTo(n.x, n.y);
+      }
+      ctx.stroke();
+
+      // Flow pulse markers
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 12]);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function drawNodes(ctx, dark) {
       graphData.nodes.forEach(n => {
         const isPacking = n.id === 1;
         const isSelected = n.id === selectedNodeId;
         const isHovered = n.id === hoveredNodeId;
 
         if (isPacking) {
+          // --- PACKING & FULFILLMENT DOCK ---
           ctx.save();
-          const pw = 74;
-          const ph = 54;
+          const pw = 84;
+          const ph = 58;
           const px = n.x - pw / 2;
           const py = n.y - ph / 2;
 
-          ctx.strokeStyle = '#f59e0b';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(px - 4, py - 4, pw + 8, ph + 8);
-
-          // Hub aura
+          // Selection Glow
           if (isSelected) {
-            ctx.shadowColor = 'rgba(16, 185, 129, 0.7)';
-            ctx.shadowBlur = 16;
+            ctx.shadowColor = 'rgba(16, 185, 129, 0.8)';
+            ctx.shadowBlur = 20;
           }
 
-          const grad = ctx.createLinearGradient(px, py, px, py + ph);
-          grad.addColorStop(0, isSelected ? '#059669' : '#10b981');
-          grad.addColorStop(1, '#047857');
-
-          ctx.fillStyle = grad;
+          // Main Dock Chassis
+          const dockGrad = ctx.createLinearGradient(px, py, px, py + ph);
+          dockGrad.addColorStop(0, isSelected ? '#059669' : '#10b981');
+          dockGrad.addColorStop(1, '#047857');
+          ctx.fillStyle = dockGrad;
           ctx.beginPath();
           ctx.roundRect(px, py, pw, ph, 8);
           ctx.fill();
@@ -625,105 +1855,125 @@
           ctx.strokeStyle = isSelected ? '#a7f3d0' : '#ffffff';
           ctx.lineWidth = isSelected ? 3 : 2;
           ctx.stroke();
+          ctx.shadowBlur = 0;
 
-          // Conveyor rollers lines
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+          // Conveyor Roller Tracks
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
           ctx.lineWidth = 1.5;
           for (let ly = py + 12; ly <= py + ph - 12; ly += 7) {
             ctx.beginPath();
-            ctx.moveTo(px + 8, ly);
+            ctx.moveTo(px + 7, ly);
             ctx.lineTo(px + 20, ly);
             ctx.stroke();
           }
 
+          // Active Green Status Beacon
+          ctx.fillStyle = '#34d399';
+          ctx.beginPath();
+          ctx.arc(px + pw - 12, py + 12, 4, 0, 2 * Math.PI);
+          ctx.fill();
+
+          // Labels
           ctx.fillStyle = '#ffffff';
           ctx.font = 'bold 11px monospace';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText("PACK DOCK", n.x + 8, n.y - 6);
+          ctx.fillText("PACK DOCK #1", n.x + 8, n.y - 6);
 
-          ctx.font = '700 8px sans-serif';
+          ctx.font = '700 7.5px sans-serif';
           ctx.fillStyle = '#ecfdf5';
-          ctx.fillText("ORIGIN / STAGING", n.x + 8, n.y + 8);
+          ctx.fillText("ORIGIN & DISPATCH", n.x + 8, n.y + 8);
 
           ctx.restore();
         } else {
-          // Heavy-duty pallet rack
+          // --- INDUSTRIAL PALLET STORAGE RACK ---
           ctx.save();
-          const w = 54;
-          const h = 32;
+          const w = 58;
+          const h = 34;
           const x = n.x - w / 2;
           const y = n.y - h / 2;
 
           if (isSelected) {
-            ctx.shadowColor = 'rgba(37, 99, 235, 0.6)';
-            ctx.shadowBlur = 14;
+            ctx.shadowColor = 'rgba(37, 99, 235, 0.8)';
+            ctx.shadowBlur = 18;
           } else if (isHovered) {
-            ctx.shadowColor = 'rgba(192, 192, 192, 0.4)';
+            ctx.shadowColor = 'rgba(148, 163, 184, 0.5)';
             ctx.shadowBlur = 10;
           }
 
+          // Rack Body Gradient
           const rackGrad = ctx.createLinearGradient(x, y, x, y + h);
           if (isSelected) {
-            rackGrad.addColorStop(0, '#707070');
-            rackGrad.addColorStop(1, '#555555');
-          } else {
             rackGrad.addColorStop(0, '#475569');
-            rackGrad.addColorStop(1, '#334155');
+            rackGrad.addColorStop(1, '#1e293b');
+          } else {
+            rackGrad.addColorStop(0, dark ? '#334155' : '#475569');
+            rackGrad.addColorStop(1, dark ? '#1e293b' : '#334155');
           }
 
           ctx.fillStyle = rackGrad;
           ctx.beginPath();
-          ctx.roundRect(x, y, w, h, 5);
+          ctx.roundRect(x, y, w, h, 6);
           ctx.fill();
 
-          ctx.strokeStyle = isSelected ? '#C0C0C0' : (isHovered ? '#A0A0A0' : '#64748b');
+          ctx.strokeStyle = isSelected ? '#60a5fa' : (isHovered ? '#94a3b8' : (dark ? '#64748b' : '#94a3b8'));
           ctx.lineWidth = isSelected ? 2.5 : 1.2;
           ctx.stroke();
-
-          // Reset shadow
-          ctx.shadowColor = 'transparent';
           ctx.shadowBlur = 0;
 
-          // Uprights
-          ctx.fillStyle = isSelected ? '#333333' : '#1e293b';
-          ctx.fillRect(x, y, 4, h);
-          ctx.fillRect(x + w - 4, y, 4, h);
+          // Upright Frame Posts (Safety Orange Accents)
+          ctx.fillStyle = '#f97316';
+          ctx.fillRect(x, y, 3.5, h);
+          ctx.fillRect(x + w - 3.5, y, 3.5, h);
 
-          // Bay divider
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+          // Horizontal Beam Center Divider
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
           ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.moveTo(n.x, y + 3);
-          ctx.lineTo(n.x, y + h - 3);
+          ctx.moveTo(n.x, y + 2);
+          ctx.lineTo(n.x, y + h - 2);
           ctx.stroke();
 
           // Shelf Label
           ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 11px monospace';
+          ctx.font = 'bold 10.5px monospace';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(`S-${String(n.id).padStart(2, '0')}`, n.x, n.y - 1);
+          ctx.fillText(`S-${String(n.id).padStart(2, '0')}`, n.x, n.y - (showHeatmap ? 4 : 0));
+
+          // Heatmap Capacity Utilization Bar
+          if (showHeatmap) {
+            const ratio = Math.min(1.0, Math.max(0.0, (n.current_load || 0) / (n.capacity || 5)));
+            const barW = w - 16;
+            const barH = 3;
+            const barX = x + 8;
+            const barY = y + h - 7;
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(barX, barY, barW, barH);
+
+            let heatColor = '#10b981';
+            if (ratio > 0.8) heatColor = '#ef4444';
+            else if (ratio > 0.5) heatColor = '#f59e0b';
+
+            ctx.fillStyle = heatColor;
+            ctx.fillRect(barX, barY, barW * (ratio || 0.15), barH);
+          }
 
           ctx.restore();
         }
       });
-
-      ctx.restore(); // Restore world scale
-
-      // Fixed HUD Overlays in Screen Coordinates
-      const logicalWidth = canvas.width / dpr;
-      const logicalHeight = canvas.height / dpr;
-      drawScreenHUD(ctx, logicalWidth, logicalHeight);
-
-      ctx.restore(); // Restore DPR
     }
 
-    function drawScreenHUD(ctx, width, height) {
+    // -------------------------------------------------------------
+    // HUD & Interactive Minimap Radar
+    // -------------------------------------------------------------
+    function drawScreenHUD(ctx, width, height, dark) {
       ctx.save();
       const cx = 35;
       const cy = 35;
 
+      // Compass Rose
       ctx.beginPath();
       ctx.arc(cx, cy, 14, 0, 2 * Math.PI);
       ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
@@ -732,8 +1982,7 @@
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      const dark = typeof isDarkMode === 'function' && isDarkMode();
-      ctx.fillStyle = dark ? '#E5E5EA' : '#2C2C2E';
+      ctx.fillStyle = '#ef4444';
       ctx.beginPath();
       ctx.moveTo(cx, cy - 10);
       ctx.lineTo(cx - 4, cy + 3);
@@ -755,20 +2004,22 @@
       ctx.textBaseline = 'middle';
       ctx.fillText('N', cx, cy - 11);
 
+      // Facility Title
       ctx.fillStyle = dark ? '#F2F2F7' : '#1C1C1E';
       ctx.font = 'bold 11px sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText('FACILITY MDC-01 • TOPOLOGY MAP', cx + 22, cy - 2);
+      ctx.fillText('FACILITY MDC-01 • FLOORPLAN CAD STUDIO', cx + 22, cy - 2);
+
       ctx.fillStyle = dark ? '#94a3b8' : '#64748b';
       ctx.font = '600 8.5px sans-serif';
-      ctx.fillText('AISLE CORRIDORS & METRIC DISTANCE MATRIX', cx + 22, cy + 9);
+      ctx.fillText('DISCRETE METRIC GRAPH MODEL & TSP ROUTING MATRIX', cx + 22, cy + 9);
 
-      // Scale Bar
+      // Metric Dynamic Scale Bar
       const scaleX = 35;
       const scaleY = height - 25;
-      const scaleMetersWidth = 50 * view.scale;
+      const scaleMetersWidth = 100 * view.scale * 0.1; // 10 meters in pixels
 
-      ctx.strokeStyle = dark ? '#64748b' : '#475569';
+      ctx.strokeStyle = dark ? '#94a3b8' : '#475569';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(scaleX, scaleY - 4);
@@ -778,46 +2029,117 @@
       ctx.stroke();
 
       ctx.fillStyle = dark ? '#cbd5e1' : '#475569';
-      ctx.font = 'bold 9px monospace';
+      ctx.font = 'bold 8.5px monospace';
       ctx.textAlign = 'center';
       ctx.fillText('10 METERS', scaleX + scaleMetersWidth / 2, scaleY - 5);
+
       ctx.restore();
     }
 
-    function selectNode(id) {
-      selectedNodeId = id;
-      drawGraph();
-
-      const n = graphData.nodes.find(node => node.id === id);
-      if (!n) return;
-
-      const isPacking = n.id === 1;
-      document.getElementById('node-id').textContent = isPacking ? "Packing Hub" : `Shelf ${n.id}`;
-      document.getElementById('node-type').textContent = isPacking ? "Dispatch & Origin Station" : `Aisle Storage Location`;
-      document.getElementById('node-dist').textContent = `${n.distance_to_packing} m`;
-      document.getElementById('node-load').textContent = isPacking ? "Infinite" : `${n.current_load} / ${n.capacity}`;
-
-      const neighbors = graphData.edges.filter(e => e.from_shelf_id === id || e.to_shelf_id === id);
-      const neighborDiv = document.getElementById('node-neighbors');
-      if (neighbors.length === 0) {
-        neighborDiv.innerHTML = '<em>No direct edges</em>';
-      } else {
-        neighborDiv.innerHTML = '<ul style="list-style: none; padding: 0;">' + 
-          neighbors.map(e => {
-            const other = (e.from_shelf_id === id) ? e.to_shelf_id : e.from_shelf_id;
-            const otherLabel = (other === 1) ? 'Packing Area (Shelf 1)' : `Shelf ${other}`;
-            return `<li style="padding: 0.4rem 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;">
-              <span>&bull; Direct corridor to <strong>${otherLabel}</strong></span>
-              <span class="badge badge-primary">${e.distance}m</span>
-            </li>`;
-          }).join('') + '</ul>';
-      }
+    function isPointInMinimap(mx, my, cw, ch) {
+      const mw = 140;
+      const mh = 90;
+      const mx0 = cw - mw - 15;
+      const my0 = ch - mh - 15;
+      return (mx >= mx0 && mx <= mx0 + mw && my >= my0 && my <= my0 + mh);
     }
 
+    function panFromMinimap(mx, my, cw, ch) {
+      const mw = 140;
+      const mh = 90;
+      const mx0 = cw - mw - 15;
+      const my0 = ch - mh - 15;
+
+      const normX = (mx - mx0) / mw;
+      const normY = (my - my0) / mh;
+
+      // World bounds
+      const minX = -100, maxX = 900, minY = -50, maxY = 650;
+      const worldW = maxX - minX;
+      const worldH = maxY - minY;
+
+      const targetWorldX = minX + normX * worldW;
+      const targetWorldY = minY + normY * worldH;
+
+      view.x = cw / 2 - targetWorldX * view.scale;
+      view.y = ch / 2 - targetWorldY * view.scale;
+      drawGraph();
+    }
+
+    function drawMinimapRadar(ctx, cw, ch, dark) {
+      ctx.save();
+      const mw = 140;
+      const mh = 90;
+      const mx0 = cw - mw - 15;
+      const my0 = ch - mh - 15;
+
+      // Radar Box
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.beginPath();
+      ctx.roundRect(mx0, my0, mw, mh, 8);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // World bounds mapping
+      const minX = -100, maxX = 900, minY = -50, maxY = 650;
+      const worldW = maxX - minX;
+      const worldH = maxY - minY;
+
+      const toMiniX = (wx) => mx0 + ((wx - minX) / worldW) * mw;
+      const toMiniY = (wy) => my0 + ((wy - minY) / worldH) * mh;
+
+      // Draw Mini Edges
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1;
+      graphData.edges.forEach(e => {
+        const u = graphData.nodes.find(n => n.id === e.from_shelf_id);
+        const v = graphData.nodes.find(n => n.id === e.to_shelf_id);
+        if (u && v) {
+          ctx.beginPath();
+          ctx.moveTo(toMiniX(u.x), toMiniY(u.y));
+          ctx.lineTo(toMiniX(v.x), toMiniY(v.y));
+          ctx.stroke();
+        }
+      });
+
+      // Draw Mini Nodes
+      graphData.nodes.forEach(n => {
+        ctx.fillStyle = (n.id === 1) ? '#10b981' : (n.id === selectedNodeId ? '#38bdf8' : '#94a3b8');
+        ctx.fillRect(toMiniX(n.x) - 2, toMiniY(n.y) - 1.5, 4, 3);
+      });
+
+      // Draw Viewport Rectangle
+      const vpLeft = -view.x / view.scale;
+      const vpTop = -view.y / view.scale;
+      const vpRight = (cw - view.x) / view.scale;
+      const vpBottom = (ch - view.y) / view.scale;
+
+      const rx = toMiniX(vpLeft);
+      const ry = toMiniY(vpTop);
+      const rw = toMiniX(vpRight) - rx;
+      const rh = toMiniY(vpBottom) - ry;
+
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(
+        Math.max(mx0, rx), 
+        Math.max(my0, ry), 
+        Math.min(mw - (Math.max(mx0, rx) - mx0), rw), 
+        Math.min(mh - (Math.max(my0, ry) - my0), rh)
+      );
+
+      ctx.restore();
+    }
+
+    // -------------------------------------------------------------
+    // Lifecycle & Theme Synchronization
+    // -------------------------------------------------------------
     window.addEventListener('themechange', () => {
       const canvas = document.getElementById('graph-canvas');
       if (canvas) {
-        canvas.style.background = isDarkMode() ? '#161618' : '#F8F8FA';
+        canvas.style.background = isDarkMode() ? '#0f172a' : '#f8fafc';
         drawGraph();
       }
     });
