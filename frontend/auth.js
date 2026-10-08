@@ -507,7 +507,7 @@ function updateNavRoleVisibility() {
 
   navLinks.forEach(link => {
     const href = link.getAttribute('href') || '';
-    if (href.startsWith('#') || href.includes('login.html')) {
+    if (href.startsWith('#') || href.includes('login.html') || href.startsWith('javascript:')) {
       return;
     }
     const pageName = href.split('?')[0].split('#')[0].split('/').pop();
@@ -550,6 +550,14 @@ function renderNavAuth() {
     const pill = document.createElement('div');
     pill.className = 'nav-user-pill';
     pill.id = 'nav-user-pill';
+    pill.style.cursor = 'pointer';
+    pill.title = 'Click to view Profile Settings & Earnings';
+    pill.onclick = (e) => {
+      if (e.target.closest('.nav-user-logout')) return;
+      if (typeof openProfileSettingsModal === 'function') {
+        openProfileSettingsModal();
+      }
+    };
     pill.innerHTML = `
       <div class="nav-user-avatar" title="${user.role}">${user.initials || 'U'}</div>
       <div class="nav-user-info">

@@ -1082,8 +1082,44 @@ kbd {
 }
 
 /* ==========================================================================
-   Authentication & Login Page Styles
+   Authentication & Login Page Styles (Warehouse Industrial Glassmorphism)
    ========================================================================== */
+
+body.login-page {
+  min-height: 100vh;
+  background-color: #0b0d13;
+  background-image: 
+    radial-gradient(circle at 50% 25%, rgba(242, 200, 17, 0.09) 0%, transparent 60%),
+    radial-gradient(circle at 85% 75%, rgba(17, 141, 255, 0.08) 0%, transparent 50%),
+    linear-gradient(180deg, rgba(11, 13, 19, 0.72) 0%, rgba(11, 13, 19, 0.88) 100%),
+    url('images/warehouse_auth_bg.jpg');
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  display: flex;
+  flex-direction: column;
+}
+
+[data-theme="light"] body.login-page {
+  background-color: #f0f2f6;
+  background-image: 
+    radial-gradient(circle at 50% 25%, rgba(242, 200, 17, 0.12) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(240, 242, 246, 0.76) 0%, rgba(240, 242, 246, 0.90) 100%),
+    url('images/warehouse_auth_bg.jpg');
+}
+
+body.login-page .navbar {
+  background: rgba(11, 13, 19, 0.55);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] body.login-page .navbar {
+  background: rgba(255, 255, 255, 0.65);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
 
 .auth-container {
   flex: 1;
@@ -1092,7 +1128,8 @@ kbd {
   justify-content: center;
   padding: 2.5rem 1.25rem;
   position: relative;
-  min-height: calc(100vh - 138px);
+  min-height: calc(100vh - 68px);
+  overflow: hidden;
 }
 
 .auth-glow-bg {
@@ -1100,26 +1137,40 @@ kbd {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 580px;
-  height: 580px;
-  background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
+  width: 660px;
+  height: 660px;
+  background: radial-gradient(circle, rgba(242, 200, 17, 0.16) 0%, rgba(17, 141, 255, 0.1) 40%, transparent 70%);
   pointer-events: none;
   z-index: 0;
-  opacity: 0.75;
+  opacity: 0.95;
+  filter: blur(50px);
 }
 
 .auth-card {
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 480px;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  max-width: 490px;
+  background: rgba(20, 22, 30, 0.64);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 20px;
   padding: 2.5rem 2.25rem;
-  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255, 255, 255, 0.05);
-  transition: all 0.25s ease;
-  backdrop-filter: blur(8px);
+  box-shadow: 
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="light"] .auth-card {
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 
+    0 24px 60px rgba(0, 0, 0, 0.14),
+    0 0 0 1px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .auth-card::before {
@@ -1128,10 +1179,10 @@ kbd {
   top: 0;
   left: 0;
   right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #3A3A3C, #7A7A7E, #D8D8DC);
-  border-top-left-radius: var(--radius-lg);
-  border-top-right-radius: var(--radius-lg);
+  height: 3px;
+  background: linear-gradient(90deg, #F2C811 0%, #118DFF 50%, #107C41 100%);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
 }
 
 .auth-header {
@@ -1165,13 +1216,20 @@ kbd {
   line-height: 1.45;
 }
 
-/* Quick Fill Preset Pills */
+/* Quick Fill Preset Pills (Glassmorphic) */
 .demo-accounts {
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--radius);
   padding: 0.85rem 1rem;
   margin-bottom: 1.5rem;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+[data-theme="light"] .demo-accounts {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .demo-accounts-title {
@@ -1195,31 +1253,45 @@ kbd {
 .demo-chip {
   flex: 1;
   min-width: 120px;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  padding: 0.45rem 0.65rem;
-  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-main);
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .demo-chip:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
   transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .demo-chip.active {
-  border-color: var(--primary);
-  background: var(--primary-light);
-  color: var(--primary);
+  border-color: #F2C811;
+  background: rgba(242, 200, 17, 0.16);
+  color: #FFFFFF;
+  box-shadow: 0 0 12px rgba(242, 200, 17, 0.2);
+}
+
+[data-theme="light"] .demo-chip {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .demo-chip.active {
+  color: #111827;
+  border-color: #F2C811;
+  background: #FFF9DB;
 }
 
 .demo-chip-role {
@@ -1332,15 +1404,22 @@ kbd {
   display: flex;
 }
 
-/* Auth Mode Segmented Control Tabs */
+/* Auth Mode Segmented Control Tabs (Glassmorphic) */
 .auth-tabs {
   display: flex;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
   padding: 4px;
   margin-bottom: 1.25rem;
   gap: 4px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+[data-theme="light"] .auth-tabs {
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .auth-tab-btn {
@@ -1348,10 +1427,10 @@ kbd {
   padding: 0.6rem 0.75rem;
   font-size: 0.88rem;
   font-weight: 600;
-  border-radius: 6px;
-  border: none;
+  border-radius: 7px;
+  border: 1px solid transparent;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-dim, #9AA0AC);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1362,18 +1441,48 @@ kbd {
 
 .auth-tab-btn:hover {
   color: var(--text-main);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .auth-tab-btn.active {
-  background: var(--card-bg);
-  color: var(--text-main);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.14);
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-[data-theme="dark"] .auth-tab-btn.active {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.15);
+[data-theme="light"] .auth-tab-btn.active {
+  background: #FFFFFF;
+  color: var(--text-main);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* Glassmorphic Form Inputs in Auth Card */
+.auth-card .form-input {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #FFFFFF;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 9px;
+  transition: all 0.2s ease;
+}
+
+[data-theme="light"] .auth-card .form-input {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: #111827;
+}
+
+.auth-card .form-input:focus {
+  background: rgba(0, 0, 0, 0.45);
+  border-color: #F2C811;
+  box-shadow: 0 0 0 3px rgba(242, 200, 17, 0.25);
+}
+
+[data-theme="light"] .auth-card .form-input:focus {
+  background: #FFFFFF;
 }
 
 .auth-toggle-prompt {

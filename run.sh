@@ -232,6 +232,38 @@ clean_cache() {
     echo -e "${GREEN}✔ Caches cleaned successfully!${RESET}"
 }
 
+open_in_chrome() {
+    local url="http://127.0.0.1:${PORT}"
+    (
+        # Wait up to 6 seconds for Flask server to start responding
+        for i in {1..20}; do
+            if curl -s -o /dev/null "$url" 2>/dev/null; then
+                break
+            fi
+            sleep 0.3
+        done
+
+        # Open in Chrome directly
+        if [ "$(uname)" = "Darwin" ]; then
+            if open -a "Google Chrome" "$url" 2>/dev/null; then
+                :
+            else
+                open "$url" 2>/dev/null || true
+            fi
+        elif command -v google-chrome >/dev/null 2>&1; then
+            google-chrome "$url" >/dev/null 2>&1 &
+        elif command -v google-chrome-stable >/dev/null 2>&1; then
+            google-chrome-stable "$url" >/dev/null 2>&1 &
+        elif command -v chromium >/dev/null 2>&1; then
+            chromium "$url" >/dev/null 2>&1 &
+        elif command -v chromium-browser >/dev/null 2>&1; then
+            chromium-browser "$url" >/dev/null 2>&1 &
+        elif command -v xdg-open >/dev/null 2>&1; then
+            xdg-open "$url" >/dev/null 2>&1 &
+        fi
+    ) >/dev/null 2>&1 &
+}
+
 start_server() {
     print_banner
     echo -e "${GREEN}✔ Python environment ready!${RESET}"
@@ -246,10 +278,12 @@ start_server() {
     echo -e "  • Warehouse Graph:  ${CYAN}http://127.0.0.1:${PORT}/graph.html${RESET}"
     echo -e "  • Order Picking:    ${CYAN}http://127.0.0.1:${PORT}/order-picking.html${RESET}"
     echo ""
+    echo -e "${GREEN}🚀 Opening application in Google Chrome...${RESET}"
     echo -e "${YELLOW}Press Ctrl+C to stop the server.${RESET}"
     echo "------------------------------------------------------------------"
 
     export PORT="$PORT"
+    open_in_chrome
     "$PYTHON_BIN" backend/app.py
 }
 

@@ -178,6 +178,7 @@ def require_role(*allowed_roles):
 # -------------------------------------------------------------
 
 @app.route("/api/auth/register", methods=["POST"])
+@app.route("/api/register", methods=["POST"])
 def auth_register():
     """
     Registers a new user account into the database with cryptographic salt + PBKDF2 hash.
@@ -268,6 +269,7 @@ def auth_register():
 
 
 @app.route("/api/auth/login", methods=["POST"])
+@app.route("/api/login", methods=["POST"])
 def auth_login():
     """
     Authenticates user credentials against PBKDF2 cryptographic hash & salt.

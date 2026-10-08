@@ -1,0 +1,1046 @@
+/*
+  frontend/powerbi.css
+  Power BI Executive Enterprise Dashboard Styling & Profile/Earnings Modal System
+  Features:
+  - Microsoft Power BI executive report aesthetic (clean dark/light canvas, crisp borders, signature accent colors)
+  - Interactive slicers / filter bar
+  - Multi-row KPI cards with variance badges, target indicators, and sparklines
+  - Power BI visual containers with action header toolbars (focus, filter, export)
+  - Clustered column & trendline SVG visuals
+  - Category velocity donut & radial breakdown
+  - Corridor travel heatmap
+  - Matrix table with in-cell conditional formatting data bars
+  - Comprehensive Profile Settings & Manager Earnings Modal
+*/
+
+/* ========================================================================== */
+/* 1. POWER BI CANVAS TOKENS & REPORT HEADER                                  */
+/* ========================================================================== */
+
+:root {
+  --pbi-canvas-bg: #0f1015;
+  --pbi-tile-bg: #181a22;
+  --pbi-tile-hover: #1f222d;
+  --pbi-border: rgba(255, 255, 255, 0.08);
+  --pbi-border-highlight: rgba(255, 255, 255, 0.16);
+  --pbi-gold: #F2C811;
+  --pbi-gold-glow: rgba(242, 200, 17, 0.2);
+  --pbi-blue: #118DFF;
+  --pbi-teal: #00BFA5;
+  --pbi-green: #107C41;
+  --pbi-green-light: #22c55e;
+  --pbi-red: #D83B01;
+  --pbi-purple: #B146C2;
+  --pbi-slate: #8B95A5;
+  --pbi-text-header: #FFFFFF;
+  --pbi-text-body: #E1E4EA;
+  --pbi-text-dim: #9AA0AC;
+  --pbi-header-ribbon: #14161f;
+  --pbi-card-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] {
+  --pbi-canvas-bg: #F0F2F6;
+  --pbi-tile-bg: #FFFFFF;
+  --pbi-tile-hover: #F8F9FB;
+  --pbi-border: #D8DCE3;
+  --pbi-border-highlight: #B0B7C3;
+  --pbi-text-header: #111827;
+  --pbi-text-body: #1F2937;
+  --pbi-text-dim: #64748B;
+  --pbi-header-ribbon: #FFFFFF;
+  --pbi-card-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* Power BI Top Ribbon / Command Bar */
+.pbi-report-ribbon {
+  background: var(--pbi-header-ribbon);
+  border: 1px solid var(--pbi-border);
+  border-radius: 12px;
+  padding: 0.85rem 1.25rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  box-shadow: var(--pbi-card-shadow);
+}
+
+.pbi-report-info {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.pbi-logo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: linear-gradient(135deg, #F2C811 0%, #D99B00 100%);
+  color: #111827;
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.pbi-report-title-group h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--pbi-text-header);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.pbi-report-meta {
+  font-size: 0.78rem;
+  color: var(--pbi-text-dim);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 3px;
+}
+
+.pbi-live-dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--pbi-green-light);
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 8px var(--pbi-green-light);
+  animation: pbiPulse 2s infinite;
+}
+
+@keyframes pbiPulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.pbi-ribbon-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.pbi-btn {
+  background: var(--pbi-tile-bg);
+  border: 1px solid var(--pbi-border);
+  color: var(--pbi-text-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pbi-btn:hover {
+  background: var(--pbi-tile-hover);
+  border-color: var(--pbi-border-highlight);
+  color: var(--pbi-text-header);
+}
+
+.pbi-btn-primary {
+  background: #F2C811;
+  border-color: #D99B00;
+  color: #111827;
+  font-weight: 700;
+}
+
+.pbi-btn-primary:hover {
+  background: #FFE052;
+  color: #000000;
+}
+
+/* ========================================================================== */
+/* 2. POWER BI SLICERS / INTERACTIVE FILTER BAR                              */
+/* ========================================================================== */
+
+.pbi-slicers-bar {
+  background: var(--pbi-tile-bg);
+  border: 1px solid var(--pbi-border);
+  border-radius: 10px;
+  padding: 0.75rem 1.15rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.pbi-slicer-group {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.pbi-slicer-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--pbi-text-dim);
+}
+
+.pbi-slicer-pills {
+  display: flex;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--pbi-border);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+[data-theme="light"] .pbi-slicer-pills {
+  background: #E5E7EB;
+}
+
+.pbi-slicer-btn {
+  background: transparent;
+  border: none;
+  color: var(--pbi-text-dim);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pbi-slicer-btn:hover {
+  color: var(--pbi-text-header);
+}
+
+.pbi-slicer-btn.active {
+  background: var(--pbi-tile-bg);
+  color: var(--pbi-text-header);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  border: 1px solid var(--pbi-border);
+}
+
+[data-theme="light"] .pbi-slicer-btn.active {
+  background: #FFFFFF;
+}
+
+.pbi-slicer-select {
+  background: var(--pbi-tile-bg);
+  border: 1px solid var(--pbi-border);
+  color: var(--pbi-text-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* ========================================================================== */
+/* 3. MULTI-ROW KPI CARDS WITH SPARKLINES & VARIANCE                         */
+/* ========================================================================== */
+
+.pbi-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.pbi-kpi-card {
+  background: var(--pbi-tile-bg);
+  border: 1px solid var(--pbi-border);
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+  box-shadow: var(--pbi-card-shadow);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.pbi-kpi-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--pbi-border-highlight);
+}
+
+.pbi-kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--pbi-accent, #F2C811);
+}
+
+.pbi-kpi-card.gold::before { background: #F2C811; }
+.pbi-kpi-card.green::before { background: #107C41; }
+.pbi-kpi-card.blue::before { background: #118DFF; }
+.pbi-kpi-card.purple::before { background: #B146C2; }
+
+.pbi-kpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.pbi-kpi-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--pbi-text-dim);
+}
+
+.pbi-kpi-icon {
+  font-size: 1.1rem;
+  opacity: 0.85;
+}
+
+.pbi-kpi-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+  margin-bottom: 0.4rem;
+}
+
+.pbi-kpi-value {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--pbi-text-header);
+  font-family: var(--font-mono, monospace);
+  line-height: 1.1;
+}
+
+.pbi-variance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+}
+
+.pbi-variance-up {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.pbi-variance-down {
+  background: rgba(17, 141, 255, 0.15);
+  color: #118DFF;
+  border: 1px solid rgba(17, 141, 255, 0.3);
+}
+
+.pbi-kpi-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--pbi-border);
+  font-size: 0.75rem;
+  color: var(--pbi-text-dim);
+}
+
+.pbi-sparkline-svg {
+  width: 90px;
+  height: 24px;
+  overflow: visible;
+}
+
+/* ========================================================================== */
+/* 4. POWER BI VISUAL CONTAINERS (TILES)                                     */
+/* ========================================================================== */
+
+.pbi-visual-grid-2x2 {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+@media (max-width: 992px) {
+  .pbi-visual-grid-2x2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pbi-visual-tile {
+  background: var(--pbi-tile-bg);
+  border: 1px solid var(--pbi-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: var(--pbi-card-shadow);
+  display: flex;
+  flex-direction: column;
+}
+
+.pbi-tile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--pbi-border);
+}
+
+.pbi-tile-title-group h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--pbi-text-header);
+  margin: 0;
+}
+
+.pbi-tile-subtitle {
+  font-size: 0.74rem;
+  color: var(--pbi-text-dim);
+  margin-top: 2px;
+}
+
+.pbi-tile-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pbi-tile-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--pbi-text-dim);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pbi-tile-btn:hover {
+  background: var(--pbi-tile-hover);
+  color: var(--pbi-text-header);
+  border-color: var(--pbi-border);
+}
+
+/* ========================================================================== */
+/* 5. CLUSTERED COLUMN & TREND CHART (SVG)                                   */
+/* ========================================================================== */
+
+.pbi-chart-container {
+  width: 100%;
+  position: relative;
+  min-height: 240px;
+}
+
+.pbi-legend {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  font-size: 0.75rem;
+  color: var(--pbi-text-dim);
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.pbi-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pbi-legend-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.pbi-bar-baseline { background: #636366; }
+.pbi-bar-optimized { background: #107C41; }
+.pbi-line-trend { background: #F2C811; }
+
+.pbi-chart-svg {
+  width: 100%;
+  height: 230px;
+}
+
+.pbi-chart-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(15, 16, 21, 0.95);
+  border: 1px solid var(--pbi-border-highlight);
+  color: #FFFFFF;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  z-index: 50;
+  display: none;
+}
+
+/* ========================================================================== */
+/* 6. CORRIDOR TRAVEL HEATMAP BARS                                            */
+/* ========================================================================== */
+
+.pbi-corridor-heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pbi-heatmap-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pbi-heatmap-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--pbi-text-body);
+}
+
+.pbi-heatmap-bar-bg {
+  width: 100%;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+[data-theme="light"] .pbi-heatmap-bar-bg {
+  background: #E5E7EB;
+}
+
+.pbi-heatmap-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+/* ========================================================================== */
+/* 7. POWER BI MATRIX TABLE WITH CONDITIONAL FORMATTING                       */
+/* ========================================================================== */
+
+.pbi-matrix-container {
+  background: var(--pbi-tile-bg);
+  border: 1px solid var(--pbi-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: var(--pbi-card-shadow);
+  margin-bottom: 1.5rem;
+}
+
+.pbi-matrix-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.pbi-matrix-search {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--pbi-border);
+  border-radius: 8px;
+  padding: 0.45rem 0.85rem;
+  color: var(--pbi-text-body);
+  font-size: 0.82rem;
+  min-width: 240px;
+}
+
+[data-theme="light"] .pbi-matrix-search {
+  background: #FFFFFF;
+}
+
+.pbi-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.pbi-matrix-table th {
+  background: rgba(0, 0, 0, 0.15);
+  color: var(--pbi-text-dim);
+  font-weight: 700;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.75rem 0.85rem;
+  border-bottom: 1px solid var(--pbi-border);
+  text-align: left;
+}
+
+[data-theme="light"] .pbi-matrix-table th {
+  background: #F3F4F6;
+}
+
+.pbi-matrix-table td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--pbi-border);
+  color: var(--pbi-text-body);
+}
+
+.pbi-matrix-table tr:hover td {
+  background: var(--pbi-tile-hover);
+}
+
+/* In-Cell Conditional Data Bar (Signature Power BI Feature) */
+.pbi-data-bar-cell {
+  position: relative;
+  min-width: 110px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pbi-data-bar-fill {
+  height: 14px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(16, 124, 65, 0.75) 0%, rgba(34, 197, 94, 0.95) 100%);
+  transition: width 0.4s ease;
+}
+
+.pbi-data-bar-num {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #10b981;
+  min-width: 48px;
+}
+
+/* ========================================================================== */
+/* 8. PROFILE SETTINGS & MANAGER EARNINGS MODAL                                */
+/* ========================================================================== */
+
+.profile-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.profile-modal-backdrop.active {
+  display: flex;
+  opacity: 1;
+}
+
+.profile-modal-window {
+  background: var(--pbi-tile-bg);
+  border: 1px solid var(--pbi-border-highlight);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 860px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  animation: pbiModalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pbiModalSlideUp {
+  from { transform: translateY(20px) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.profile-modal-header {
+  padding: 1.25rem 1.75rem;
+  border-bottom: 1px solid var(--pbi-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--pbi-header-ribbon);
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+}
+
+.profile-modal-user-identity {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.profile-modal-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #F2C811 0%, #D99B00 100%);
+  color: #111827;
+  font-weight: 800;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(242, 200, 17, 0.3);
+}
+
+.profile-modal-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--pbi-text-header);
+}
+
+.profile-modal-role-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(242, 200, 17, 0.15);
+  color: #F2C811;
+  border: 1px solid rgba(242, 200, 17, 0.3);
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  margin-left: 0.5rem;
+}
+
+.profile-modal-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--pbi-text-dim);
+  font-size: 1.35rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.profile-modal-close-btn:hover {
+  color: var(--pbi-text-header);
+  background: var(--pbi-tile-hover);
+}
+
+/* Modal Tab Bar */
+.profile-modal-tabs {
+  display: flex;
+  padding: 0 1.75rem;
+  border-bottom: 1px solid var(--pbi-border);
+  background: var(--pbi-header-ribbon);
+  gap: 1.5rem;
+}
+
+.profile-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--pbi-text-dim);
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0.85rem 0;
+  cursor: pointer;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: color 0.2s ease;
+}
+
+.profile-tab-btn:hover {
+  color: var(--pbi-text-header);
+}
+
+.profile-tab-btn.active {
+  color: #F2C811;
+  font-weight: 700;
+}
+
+.profile-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #F2C811;
+  box-shadow: 0 0 8px #F2C811;
+}
+
+/* Modal Body */
+.profile-modal-body {
+  padding: 1.75rem;
+  overflow-y: auto;
+}
+
+/* Manager Earnings Visual Cards */
+.earnings-scorecard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.earnings-card {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--pbi-border);
+  border-radius: 12px;
+  padding: 1.1rem;
+  position: relative;
+}
+
+[data-theme="light"] .earnings-card {
+  background: #F9FAFB;
+}
+
+.earnings-card-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--pbi-text-dim);
+  letter-spacing: 0.05em;
+  margin-bottom: 0.35rem;
+}
+
+.earnings-card-amount {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--pbi-text-header);
+  font-family: var(--font-mono, monospace);
+  line-height: 1.1;
+}
+
+.earnings-card.highlight {
+  border-color: rgba(242, 200, 17, 0.4);
+  background: linear-gradient(135deg, rgba(242, 200, 17, 0.08) 0%, rgba(0, 0, 0, 0.2) 100%);
+}
+
+.earnings-card.highlight .earnings-card-amount {
+  color: #F2C811;
+}
+
+/* Incentive Breakdown List */
+.incentive-breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.incentive-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--pbi-border);
+  border-radius: 10px;
+}
+
+[data-theme="light"] .incentive-item {
+  background: #FFFFFF;
+}
+
+.incentive-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.incentive-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--pbi-text-header);
+}
+
+.incentive-desc {
+  font-size: 0.75rem;
+  color: var(--pbi-text-dim);
+  margin-top: 2px;
+}
+
+.incentive-amount {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #10b981;
+  font-family: var(--font-mono, monospace);
+}
+
+/* Interactive Earnings Simulator */
+.earnings-simulator-box {
+  background: linear-gradient(135deg, rgba(17, 141, 255, 0.08) 0%, rgba(0, 0, 0, 0.25) 100%);
+  border: 1px solid rgba(17, 141, 255, 0.25);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.simulator-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.simulator-slider-group {
+  margin-bottom: 1rem;
+}
+
+.simulator-slider-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--pbi-text-body);
+  margin-bottom: 0.4rem;
+}
+
+.simulator-slider {
+  width: 100%;
+  accent-color: #F2C811;
+  cursor: pointer;
+}
+
+/* Paystub Table */
+.paystub-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+}
+
+.paystub-table th {
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  background: rgba(0, 0, 0, 0.15);
+  color: var(--pbi-text-dim);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--pbi-border);
+}
+
+.paystub-table td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--pbi-border);
+  color: var(--pbi-text-body);
+}
+
+/* Profile Form Elements */
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.15rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .profile-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.profile-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.profile-field-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--pbi-text-dim);
+}
+
+.profile-field-input {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--pbi-border);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  color: var(--pbi-text-header);
+  font-size: 0.88rem;
+  transition: border-color 0.15s ease;
+}
+
+[data-theme="light"] .profile-field-input {
+  background: #FFFFFF;
+}
+
+.profile-field-input:focus {
+  outline: none;
+  border-color: #F2C811;
+  box-shadow: 0 0 0 2px var(--pbi-gold-glow);
+}
+
+.toggle-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--pbi-border);
+}
+
+.toggle-switch-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--pbi-text-header);
+}
+
+.toggle-switch-desc {
+  font-size: 0.74rem;
+  color: var(--pbi-text-dim);
+}
+
+.profile-modal-footer {
+  padding: 1.15rem 1.75rem;
+  border-top: 1px solid var(--pbi-border);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  background: var(--pbi-header-ribbon);
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+}
+
+.pbi-toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background: #107C41;
+  color: #FFFFFF;
+  padding: 0.85rem 1.35rem;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  z-index: 2000;
+  animation: pbiToastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pbiToastIn {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

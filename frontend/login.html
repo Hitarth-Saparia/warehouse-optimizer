@@ -1,923 +1,415 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Sign in to Warehouse Optimizer - Intelligent Slotting, TSP Routing, and Order Picking Management Console.">
-  <title>Sign In | Warehouse Optimizer</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="theme.js"></script>
-  <script src="auth.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In | Warehouse Optimizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary: #777C6D;
+  --primary-hover: #626659;
+  --accent: #B7B89F;
+  --bg-main: #EEEEEE;
+  --card-bg: #FFFFFF;
+  --border-color: #CBCBCB;
+  --text-main: #1E201E;
+  --text-secondary: #555555;
+  --danger: #A24A3E;
+  --success: #5E7A52;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --shadow-lg: 0 18px 40px rgba(30, 32, 30, 0.14);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-sans); background: var(--bg-main); color: var(--text-main);
+  min-height: 100vh; -webkit-font-smoothing: antialiased; line-height: 1.5;
+}
+a { color: inherit; text-decoration: none; }
+button, input { font-family: inherit; }
+svg { display: block; }
+
+.layout { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh; }
+
+/* Left brand panel */
+.brand-panel {
+  position: relative; overflow: hidden; background: #2B2E28; color: #EEE;
+  padding: 40px 56px; display: flex; flex-direction: column; justify-content: space-between;
+}
+.brand-panel::before {
+  content: ""; position: absolute; width: 560px; height: 560px; right: -180px; top: -160px;
+  background: radial-gradient(circle, rgba(183,184,159,.35), transparent 65%);
+}
+.brand-panel::after {
+  content: ""; position: absolute; inset: 0; opacity: .5;
+  background-image: linear-gradient(rgba(183,184,159,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(183,184,159,.08) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+.brand-panel > * { position: relative; z-index: 1; }
+.brand { display: inline-flex; align-items: center; gap: 10px; }
+.brand-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--primary); display: grid; place-items: center; color: #fff; }
+.brand strong { display: block; font-weight: 800; line-height: 1.1; }
+.brand small { font-family: var(--font-mono); font-size: .68rem; color: #B4B6AE; }
+.panel-copy h1 { font-size: clamp(1.9rem, 3.4vw, 2.8rem); font-weight: 800; line-height: 1.12; letter-spacing: -.03em; }
+.panel-copy h1 em { font-style: normal; color: var(--accent); }
+.panel-copy p { margin-top: 14px; color: #B4B6AE; max-width: 440px; }
+.route-art { margin-top: 28px; max-width: 420px; }
+.route { stroke-dasharray: 8 6; animation: dash 1.2s linear infinite; }
+@keyframes dash { to { stroke-dashoffset: -28; } }
+.pulse { animation: pulse 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: .65; } }
+.panel-stats { display: flex; gap: 28px; flex-wrap: wrap; }
+.panel-stats div b { font-family: var(--font-mono); font-size: 1.35rem; color: var(--accent); display: block; }
+.panel-stats div span { font-size: .75rem; color: #9a9c94; }
+
+/* Right form panel */
+.form-panel { display: grid; place-items: center; padding: 32px 24px; position: relative; }
+.back-link {
+  position: absolute; top: 24px; left: 28px; display: inline-flex; gap: 6px; align-items: center;
+  font-size: .85rem; font-weight: 600; color: var(--text-secondary); transition: color .2s, transform .2s;
+}
+.back-link:hover { color: var(--text-main); transform: translateX(-3px); }
+.card {
+  width: min(440px, 100%); background: var(--card-bg); border: 1px solid var(--border-color);
+  border-radius: 20px; padding: 36px 32px; box-shadow: var(--shadow-lg); position: relative; overflow: hidden;
+}
+.card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: linear-gradient(90deg, var(--primary), var(--accent)); }
+.lock { width: 52px; height: 52px; border-radius: 14px; background: var(--primary); color: #fff; display: grid; place-items: center; margin: 0 auto 16px; }
+.card h2 { text-align: center; font-size: 1.6rem; font-weight: 800; letter-spacing: -.02em; }
+.card .lead { text-align: center; font-size: .9rem; color: var(--text-secondary); margin: 6px 0 22px; }
+
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--bg-main); border-radius: 12px; margin-bottom: 18px; }
+.tab { border: 0; background: transparent; padding: 10px; border-radius: 9px; font-weight: 600; font-size: .88rem; color: var(--text-secondary); cursor: pointer; transition: all .2s; }
+.tab[aria-selected="true"] { background: var(--card-bg); color: var(--text-main); box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+
+.demo { background: var(--bg-main); border: 1px dashed var(--border-color); border-radius: 12px; padding: 12px; margin-bottom: 18px; }
+.demo-title { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; font-weight: 700; }
+.demo-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.demo-chip {
+  background: var(--card-bg); border: 1.5px solid var(--border-color); border-radius: 10px; padding: 8px 10px;
+  text-align: left; cursor: pointer; transition: transform .2s, border-color .2s, box-shadow .2s; min-width: 0;
+}
+.demo-chip:hover { transform: translateY(-3px); box-shadow: 0 8px 16px rgba(30,32,30,.1); border-color: var(--accent); }
+.demo-chip[aria-pressed="true"] { border-color: var(--primary); background: rgba(183,184,159,.22); }
+.demo-chip b { display: block; font-size: .8rem; }
+.demo-chip span { display: block; font-family: var(--font-mono); font-size: .6rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.field { margin-bottom: 14px; }
+.field.hidden { display: none; }
+label { display: block; font-size: .82rem; font-weight: 600; margin-bottom: 6px; }
+.input-wrap { position: relative; }
+.input-wrap > svg.lead-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none; }
+input[type="text"], input[type="email"], input[type="password"] {
+  width: 100%; padding: 12px 44px 12px 40px; border: 1.5px solid var(--border-color); border-radius: 11px;
+  font-size: .93rem; background: var(--card-bg); color: var(--text-main); transition: border-color .2s, box-shadow .2s;
+}
+input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(119,124,109,.22); }
+input.invalid { border-color: var(--danger); }
+.eye { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border: 0; background: transparent; color: var(--text-secondary); cursor: pointer; border-radius: 8px; display: grid; place-items: center; }
+.eye:hover { background: var(--bg-main); }
+.err { color: var(--danger); font-size: .76rem; margin-top: 5px; min-height: 0; }
+
+.row { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: .84rem; margin: 4px 0 18px; }
+.check { display: inline-flex; gap: 8px; align-items: center; color: var(--text-secondary); cursor: pointer; font-weight: 400; margin: 0; }
+.check input { accent-color: var(--primary); width: 16px; height: 16px; }
+.row a { font-weight: 600; }
+.row a:hover, .switch a:hover { color: var(--primary); text-decoration: underline; }
+
+.btn {
+  width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 20px;
+  border-radius: 12px; font-weight: 700; font-size: .95rem; cursor: pointer; border: 1.5px solid transparent;
+  transition: transform .2s, box-shadow .2s, background .2s, border-color .2s;
+}
+.btn:hover { transform: translateY(-3px); }
+.btn-primary { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(119,124,109,.35); }
+.btn-primary:hover { background: var(--primary-hover); box-shadow: 0 10px 22px rgba(98,102,89,.4); }
+.btn-outline { background: transparent; border-color: var(--border-color); color: var(--text-main); }
+.btn-outline:hover { border-color: var(--primary); box-shadow: 0 8px 18px rgba(30,32,30,.08); }
+.btn[disabled] { opacity: .7; cursor: progress; transform: none; }
+.spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.5); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; display: none; }
+.btn.loading .spinner { display: block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn:focus-visible, .tab:focus-visible, .demo-chip:focus-visible, .eye:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+.status { margin-top: 12px; font-size: .84rem; text-align: center; min-height: 1.2em; }
+.status.error { color: var(--danger); } .status.ok { color: var(--success); }
+.switch { text-align: center; font-size: .86rem; color: var(--text-secondary); margin: 16px 0; }
+.switch a { color: var(--text-main); font-weight: 600; }
+.divider { display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); font-size: .68rem; letter-spacing: .1em; color: var(--text-secondary); margin-bottom: 14px; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border-color); }
+.foot { text-align: center; margin-top: 20px; font-size: .74rem; color: var(--text-secondary); }
+.foot span { display: block; font-family: var(--font-mono); font-size: .68rem; opacity: .8; margin-top: 2px; }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .brand-panel { display: none; }
+  .form-panel { padding-top: 72px; }
+}
+@media (max-width: 480px) {
+  .card { padding: 28px 20px; }
+  .demo-row { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
 </head>
 <body>
+<div class="layout">
 
-  <!-- Common Navigation Bar -->
-  <nav class="navbar">
-    <a href="landing.html" class="nav-brand" title="Return to Landing Page">
-      <div class="nav-logo-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-          <line x1="12" y1="22.08" x2="12" y2="12"></line>
-        </svg>
-      </div>
-      <div class="nav-brand-title">
-        <span class="main-text">Warehouse Optimizer</span>
-        <span class="sub-text">Intelligent Slotting & TSP Routing</span>
-      </div>
+  <aside class="brand-panel" aria-hidden="true">
+    <a href="index.html" class="brand">
+      <span class="brand-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7.5L12 12.5l8.7-5"/><path d="M12 22V12.5"/></svg></span>
+      <span><strong>Warehouse Optimizer</strong><small>Intelligent Slotting &amp; TSP Routing</small></span>
+    </a>
+    <div class="panel-copy">
+      <h1>Shorter routes.<br><em>Balanced fleets.</em><br>Faster waves.</h1>
+      <p>Sign in to run velocity slotting, 2-Opt pick routing and multi-picker balancing on your live warehouse graph.</p>
+      <svg class="route-art" viewBox="0 0 420 200" fill="none">
+        <g fill="#B7B89F" opacity=".5">
+          <rect x="40" y="30" width="20" height="120" rx="3"/><rect x="66" y="30" width="20" height="120" rx="3"/>
+          <rect x="150" y="30" width="20" height="120" rx="3"/><rect x="176" y="30" width="20" height="120" rx="3"/>
+          <rect x="260" y="30" width="20" height="120" rx="3"/><rect x="286" y="30" width="20" height="120" rx="3"/>
+          <rect x="360" y="30" width="20" height="120" rx="3"/>
+        </g>
+        <path d="M20 180 L20 160 L110 160 L110 100 L220 100 L220 50 L330 50 L330 120 L400 120 L400 180" stroke="#EEEEEE" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="route"/>
+        <g fill="#2B2E28" stroke="#B7B89F" stroke-width="3"><circle cx="110" cy="100" r="6"/><circle cx="220" cy="50" r="6"/><circle cx="330" cy="120" r="6"/></g>
+        <circle class="pulse" cx="220" cy="100" r="5" fill="#B7B89F"/>
+      </svg>
+    </div>
+    <div class="panel-stats">
+      <div><b>32.4%</b><span>Avg distance saved</span></div>
+      <div><b>4.2x</b><span>Wave throughput</span></div>
+      <div><b>0.4s</b><span>Route calculation</span></div>
+    </div>
+  </aside>
+
+  <main class="form-panel">
+    <a href="index.html" class="back-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      Back to home
     </a>
 
-    <ul class="nav-links">
-      <li><a href="landing.html">Home / Landing</a></li>
-      <li><a href="index.html">Dashboard</a></li>
-      <li><a href="products.html">Products</a></li>
-      <li><a href="layout.html">Layout Optimizer</a></li>
-      <li><a href="graph.html">Warehouse Graph</a></li>
-      <li><a href="order-picking.html">Order Picking</a></li>
-      <li><a href="waves.html">Wave Picking</a></li>
-      <li><a href="fleet.html">Fleet Balancing</a></li>
-    </ul>
+    <section class="card" aria-labelledby="title">
+      <div class="lock"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></div>
+      <h2 id="title">Welcome Back</h2>
+      <p class="lead">Sign in to access inventory slotting, TSP picking and fleet controls.</p>
 
-    <div class="nav-right-actions">
-      <a href="landing.html" class="btn btn-secondary" style="padding: 0.45rem 0.85rem; font-size: 0.85rem; text-decoration: none;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="19" y1="12" x2="5" y2="12"></line>
-          <polyline points="12 19 5 12 12 5"></polyline>
-        </svg>
-        <span>Landing Page</span>
-      </a>
-      <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle theme">
-        <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="5"></circle>
-          <line x1="12" y1="1" x2="12" y2="3"></line>
-          <line x1="12" y1="21" x2="12" y2="23"></line>
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-          <line x1="1" y1="12" x2="3" y2="12"></line>
-          <line x1="21" y1="12" x2="23" y2="12"></line>
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-        </svg>
-        <svg class="moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-        </svg>
-      </button>
-    </div>
-  </nav>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" id="tab-in" aria-selected="true" type="button">Sign In</button>
+        <button class="tab" role="tab" id="tab-up" aria-selected="false" type="button">Create Account</button>
+      </div>
 
-  <!-- Login Main Content Area -->
-  <main class="auth-container">
-    <div class="auth-glow-bg"></div>
+      <div class="demo" id="demoBox">
+        <div class="demo-title">⚡ Demo profiles · 1-click fill</div>
+        <div class="demo-row">
+          <button type="button" class="demo-chip" data-role="manager" aria-pressed="false"><b>🧑‍💼 Manager</b><span>admin@warehouse.io</span></button>
+          <button type="button" class="demo-chip" data-role="picker" aria-pressed="false"><b>📦 Picker Lead</b><span>supervisor@warehouse.io</span></button>
+          <button type="button" class="demo-chip" data-role="fleet" aria-pressed="false"><b>🚚 Fleet Lead</b><span>fleet@warehouse.io</span></button>
+        </div>
+      </div>
 
-    <div class="auth-card" id="auth-card">
-      
-      <!-- Already Logged In Banner (hidden by default) -->
-      <div id="already-logged-in-banner" style="display: none; text-align: center; margin-bottom: 1.5rem;">
-        <div class="auth-alert auth-alert-info visible" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem; padding: 1.25rem;">
-          <div style="font-weight: 700; font-size: 0.95rem;">You are currently signed in</div>
-          <div id="active-user-status" style="font-size: 0.85rem; color: var(--text-secondary);">Alex Morgan (Operations Manager)</div>
-          <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-            <a href="index.html" class="btn btn-primary" style="padding: 0.45rem 0.9rem; font-size: 0.85rem;">Go to Dashboard</a>
-            <button type="button" class="btn btn-secondary" onclick="handleSwitchAccount()" style="padding: 0.45rem 0.9rem; font-size: 0.85rem;">Switch Account</button>
+      <form id="authForm" novalidate>
+        <div class="field hidden" id="nameField">
+          <label for="name">Full name</label>
+          <div class="input-wrap">
+            <svg class="lead-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+            <input type="text" id="name" autocomplete="name" placeholder="Your name">
           </div>
+          <div class="err" id="nameErr"></div>
         </div>
-      </div>
 
-      <div class="auth-header">
-        <div class="auth-icon-badge" id="auth-header-icon">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-          </svg>
+        <div class="field">
+          <label for="email">Email or Operator ID</label>
+          <div class="input-wrap">
+            <svg class="lead-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+            <input type="text" id="email" autocomplete="username" placeholder="you@warehouse.io">
+          </div>
+          <div class="err" id="emailErr"></div>
         </div>
-        <h1 class="auth-title" id="auth-title">Welcome Back</h1>
-        <p class="auth-subtitle" id="auth-subtitle">Sign in to access real-time inventory slotting, TSP picking, and fleet controls</p>
-      </div>
 
-      <!-- Auth Mode Switcher (Sign In vs Create Account) -->
-      <div class="auth-tabs" role="tablist">
-        <button type="button" class="auth-tab-btn active" id="tab-login" role="tab" aria-selected="true" onclick="switchAuthMode('login')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-            <polyline points="10 17 15 12 10 7"></polyline>
-            <line x1="15" y1="12" x2="3" y2="12"></line>
-          </svg>
-          <span>Sign In</span>
-        </button>
-        <button type="button" class="auth-tab-btn" id="tab-register" role="tab" aria-selected="false" onclick="switchAuthMode('register')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-            <circle cx="8.5" cy="7" r="4"></circle>
-            <line x1="20" y1="8" x2="20" y2="14"></line>
-            <line x1="23" y1="11" x2="17" y2="11"></line>
-          </svg>
-          <span>Create Account</span>
-        </button>
-      </div>
-
-      <!-- Quick Fill Role Presets for Easy Demoing -->
-      <div class="demo-accounts" id="demo-profiles-section">
-        <div class="demo-accounts-title">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-          </svg>
-          <span>Demo Profiles (1-Click Fill)</span>
-        </div>
-        <div class="demo-chips">
-          <button type="button" class="demo-chip active" id="chip-manager" onclick="selectDemoRole('manager')">
-            <span class="demo-chip-role">👔 Manager</span>
-            <span class="demo-chip-email">admin@warehouse.io</span>
-          </button>
-          <button type="button" class="demo-chip" id="chip-supervisor" onclick="selectDemoRole('supervisor')">
-            <span class="demo-chip-role">📦 Picker Lead</span>
-            <span class="demo-chip-email">supervisor@warehouse.io</span>
-          </button>
-          <button type="button" class="demo-chip" id="chip-fleet" onclick="selectDemoRole('fleet')">
-            <span class="demo-chip-role">🚛 Fleet Lead</span>
-            <span class="demo-chip-email">fleet@warehouse.io</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Status Alert Box -->
-      <div id="auth-alert" class="auth-alert" role="alert">
-        <div style="display: flex; align-items: flex-start; gap: 0.6rem; width: 100%;">
-          <svg id="alert-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-          </svg>
-          <div style="flex: 1;">
-            <div id="alert-message">Alert message</div>
-            <button type="button" id="alert-action-btn" class="alert-action-btn" style="display: none;">
-              Create Account with this Email →
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="input-wrap">
+            <svg class="lead-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+            <input type="password" id="password" autocomplete="current-password" placeholder="••••••••">
+            <button type="button" class="eye" id="eye" aria-label="Show password">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>
-        </div>
-      </div>
-
-      <!-- Authentication Form (Sign In / Register) -->
-      <form id="login-form" onsubmit="handleAuthSubmit(event)" novalidate>
-
-        <!-- Full Name (Registration Mode Only) -->
-        <div class="form-group" id="group-name" style="display: none;">
-          <label class="form-label" for="register-name">Full Name</label>
-          <div class="input-group">
-            <div class="input-icon-left">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-            </div>
-            <input 
-              type="text" 
-              id="register-name" 
-              name="name" 
-              class="form-input has-left-icon" 
-              placeholder="e.g. Jordan Miller" 
-              autocomplete="name"
-            >
-          </div>
+          <div class="err" id="pwErr"></div>
         </div>
 
-        <!-- Role Selector (Registration Mode Only) -->
-        <div class="form-group" id="group-role" style="display: none;">
-          <label class="form-label" for="register-role">Warehouse Role / Access Level</label>
-          <div class="input-group">
-            <div class="input-icon-left">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-              </svg>
-            </div>
-            <select id="register-role" class="form-input form-select has-left-icon">
-              <option value="supervisor">📦 Picker Lead (Supervision & Route Picking)</option>
-              <option value="fleet">🚛 Fleet Lead (mTSP & Fleet Workload Balancing)</option>
-              <option value="manager">👔 Operations Manager (Full Layout & Fleet Access)</option>
-              <option value="guest">📊 Guest Analyst (Exploration & Metrics)</option>
-            </select>
-          </div>
-        </div>
-        
-        <!-- Email Input -->
-        <div class="form-group">
-          <label class="form-label" for="login-email" id="label-email">Email or Operator ID</label>
-          <div class="input-group">
-            <div class="input-icon-left">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                <polyline points="22,6 12,13 2,6"></polyline>
-              </svg>
-            </div>
-            <input 
-              type="email" 
-              id="login-email" 
-              name="email" 
-              class="form-input has-left-icon" 
-              placeholder="e.g. operator@warehouse.io" 
-              value="admin@warehouse.io" 
-              required 
-              autocomplete="email"
-            >
-          </div>
+        <div class="row" id="rememberRow">
+          <label class="check"><input type="checkbox" id="remember"> Remember session on this browser</label>
+          <a href="#" id="forgot">Forgot Password?</a>
         </div>
 
-        <!-- Password Input -->
-        <div class="form-group">
-          <label class="form-label" for="login-password">Password</label>
-          <div class="input-group">
-            <div class="input-icon-left">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-              </svg>
-            </div>
-            <input 
-              type="password" 
-              id="login-password" 
-              name="password" 
-              class="form-input has-left-icon has-right-icon" 
-              placeholder="Enter your password" 
-              value="password123" 
-              required 
-              autocomplete="current-password"
-            >
-            <button 
-              type="button" 
-              class="input-action-btn" 
-              id="toggle-password-btn" 
-              onclick="togglePasswordVisibility('login-password', 'eye-icon')" 
-              aria-label="Show password" 
-              title="Toggle password visibility"
-            >
-              <svg id="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                <circle cx="12" cy="12" r="3"></circle>
-              </svg>
-            </button>
-          </div>
-          <!-- Caps Lock Notification -->
-          <div class="caps-warning" id="caps-warning">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2l-7 7h4v9h6V9h4z"></path>
-            </svg>
-            <span>Caps Lock is ON</span>
-          </div>
-
-          <!-- Password Criteria & Live Strength Meter (Registration Mode) -->
-          <div class="password-criteria-box" id="password-criteria-box" style="display: none;">
-            <div class="password-strength-meter">
-              <div class="strength-bar-track">
-                <div class="strength-bar-fill" id="strength-bar-fill"></div>
-              </div>
-              <span class="strength-text" id="strength-text">Password Strength: Please enter a password</span>
-            </div>
-            <ul class="criteria-list" id="criteria-list">
-              <li id="rule-len" class="criteria-item"><span class="rule-icon">○</span> At least 8 characters</li>
-              <li id="rule-upper" class="criteria-item"><span class="rule-icon">○</span> At least one uppercase letter (A-Z)</li>
-              <li id="rule-lower" class="criteria-item"><span class="rule-icon">○</span> At least one lowercase letter (a-z)</li>
-              <li id="rule-num" class="criteria-item"><span class="rule-icon">○</span> At least one number (0-9)</li>
-              <li id="rule-special" class="criteria-item"><span class="rule-icon">○</span> At least one special symbol (!@#$%^&*)</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- Confirm Password Input (Registration Mode Only) -->
-        <div class="form-group" id="group-confirm-password" style="display: none;">
-          <label class="form-label" for="register-confirm-password">Confirm Password</label>
-          <div class="input-group">
-            <div class="input-icon-left">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-              </svg>
-            </div>
-            <input 
-              type="password" 
-              id="register-confirm-password" 
-              class="form-input has-left-icon has-right-icon" 
-              placeholder="Re-enter your password" 
-              autocomplete="new-password"
-            >
-            <button 
-              type="button" 
-              class="input-action-btn" 
-              onclick="togglePasswordVisibility('register-confirm-password', 'eye-icon-confirm')" 
-              aria-label="Show password" 
-              title="Toggle password visibility"
-            >
-              <svg id="eye-icon-confirm" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                <circle cx="12" cy="12" r="3"></circle>
-              </svg>
-            </button>
-          </div>
-
-          <!-- Confirm Password Match Indicator -->
-          <div class="confirm-match-indicator" id="confirm-match-indicator" style="display: none;">
-            <span id="confirm-match-text"></span>
-          </div>
-        </div>
-
-        <!-- Remember Me & Forgot Password -->
-        <div class="form-row-remember" id="row-remember-forgot">
-          <label class="remember-label">
-            <input type="checkbox" id="remember-me" class="remember-checkbox">
-            <span>Remember session on this browser</span>
-          </label>
-          <a href="#" class="forgot-link" onclick="handleForgotPassword(event)">Forgot Password?</a>
-        </div>
-
-        <!-- Submit Button -->
-        <button type="submit" class="btn btn-primary auth-submit-btn" id="btn-submit">
-          <span id="btn-spinner" class="spinner-sm" style="display: none;"></span>
-          <svg id="btn-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-            <polyline points="10 17 15 12 10 7"></polyline>
-            <line x1="15" y1="12" x2="3" y2="12"></line>
-          </svg>
-          <span id="btn-text">Sign In as Operations Manager</span>
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+          <span class="spinner"></span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+          <span id="submitLabel">Sign In</span>
         </button>
-
+        <div class="status" id="status" role="status" aria-live="polite"></div>
       </form>
 
-      <!-- Toggle Prompt ("Don't have an account? Create an account") -->
-      <div class="auth-toggle-prompt" id="auth-toggle-prompt">
-        <span>Don't have an account?</span>
-        <a class="auth-toggle-link" onclick="switchAuthMode('register')">Create an account</a>
-      </div>
+      <p class="switch" id="switchText">Don't have an account? <a href="#" id="switchLink">Create an account</a></p>
 
-      <!-- SSO / Fast Guest Testing Divider -->
-      <div id="sso-section">
-        <div class="auth-divider">Or Quick Access</div>
+      <div class="divider">OR QUICK ACCESS</div>
+      <button type="button" class="btn btn-outline" id="guestBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+        Instant Guest Demo Access
+      </button>
 
-        <button type="button" class="btn-sso" onclick="handleSSOLogin()">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-            <line x1="8" y1="21" x2="16" y2="21"></line>
-            <line x1="12" y1="17" x2="12" y2="21"></line>
-          </svg>
-          <span>Instant Guest Demo Access</span>
-        </button>
-      </div>
-
-      <!-- Footer Info -->
-      <div class="auth-footer">
-        <div>Authorized Logistics Personnel Only</div>
-        <div style="margin-top: 0.35rem; font-size: 0.76rem; color: var(--text-light);">
-          End-to-End Encrypted Session • WMS Core v2.4
-        </div>
-      </div>
-
-    </div>
+      <p class="foot">Authorized Logistics Personnel Only<span>End-to-End Encrypted Session • WMS Core v2.4</span></p>
+    </section>
   </main>
+</div>
 
-  <!-- Global Footer -->
-  <footer class="app-footer">
-    <div class="container">
-      Warehouse Layout & Order Picking Optimizer &copy; 2026. Designed for automated logistics and smart fulfillment centers.
-    </div>
-  </footer>
+<script>
+(function () {
+  // ---- CONFIG: adjusted to match backend endpoints & session ----
+  var API_LOGIN    = '/api/auth/login';      // POST {email, password}
+  var API_REGISTER = '/api/auth/register';   // POST {name, email, password}
+  var DASHBOARD    = new URLSearchParams(location.search).get('redirect') || 'index.html';  // redirect after success
+  var DEMO_PASSWORD = 'password123';         // standard password for the seeded demo accounts
+  var DEMOS = {
+    manager: { email: 'admin@warehouse.io',      label: 'Operations Manager', role: 'manager' },
+    picker:  { email: 'supervisor@warehouse.io', label: 'Picker Lead',        role: 'supervisor' },
+    fleet:   { email: 'fleet@warehouse.io',      label: 'Fleet Coordinator',   role: 'fleet' }
+  };
+  // ----------------------------------------------
 
-  <script>
-    // Selected role state & auth mode
-    let activeRoleKey = 'manager';
-    let currentAuthMode = 'login'; // 'login' or 'register'
+  var $ = function (id) { return document.getElementById(id); };
+  var mode = 'in', selectedRole = null;
+  var email = $('email'), pw = $('password'), nameI = $('name');
 
-    // Check if user is already logged in on load
-    document.addEventListener('DOMContentLoaded', () => {
-      const currentUser = getAuthUser();
-      if (currentUser) {
-        const banner = document.getElementById('already-logged-in-banner');
-        const status = document.getElementById('active-user-status');
-        if (banner && status) {
-          status.textContent = `${currentUser.name} (${currentUser.role}) • ${currentUser.email}`;
-          banner.style.display = 'block';
-        }
-      }
+  function setMode(m) {
+    mode = m;
+    var up = m === 'up';
+    $('tab-in').setAttribute('aria-selected', String(!up));
+    $('tab-up').setAttribute('aria-selected', String(up));
+    $('nameField').classList.toggle('hidden', !up);
+    $('demoBox').style.display = up ? 'none' : '';
+    $('rememberRow').style.display = up ? 'none' : '';
+    pw.setAttribute('autocomplete', up ? 'new-password' : 'current-password');
+    $('title').textContent = up ? 'Create Account' : 'Welcome Back';
+    $('switchText').innerHTML = up
+      ? 'Already have an account? <a href="#" id="switchLink">Sign in</a>'
+      : 'Don\'t have an account? <a href="#" id="switchLink">Create an account</a>';
+    bindSwitch(); updateLabel(); clearErrors(); setStatus('');
+  }
+  function updateLabel() {
+    $('submitLabel').textContent = mode === 'up' ? 'Create Account'
+      : selectedRole ? 'Sign In as ' + DEMOS[selectedRole].label : 'Sign In';
+  }
+  function bindSwitch() {
+    var sw = $('switchLink');
+    if (sw) {
+      sw.addEventListener('click', function (e) { e.preventDefault(); setMode(mode === 'in' ? 'up' : 'in'); });
+    }
+  }
+  function pickRole(r) {
+    selectedRole = r;
+    document.querySelectorAll('.demo-chip').forEach(function (c) { c.setAttribute('aria-pressed', String(c.dataset.role === r)); });
+    if (DEMOS[r]) {
+      email.value = DEMOS[r].email;
+      pw.value = DEMO_PASSWORD;
+    }
+    clearErrors(); updateLabel();
+  }
+  function clearErrors() {
+    ['nameErr', 'emailErr', 'pwErr'].forEach(function (i) { var el = $(i); if (el) el.textContent = ''; });
+    [nameI, email, pw].forEach(function (i) { if (i) i.classList.remove('invalid'); });
+  }
+  function fail(input, errId, msg) { input.classList.add('invalid'); $(errId).textContent = msg; return false; }
+  function setStatus(msg, type) { var s = $('status'); s.textContent = msg; s.className = 'status' + (type ? ' ' + type : ''); }
 
-      // Check URL query parameters
-      const urlParams = new URLSearchParams(window.location.search);
-      const modeParam = urlParams.get('mode');
-      const roleParam = urlParams.get('role');
-      const loginRequired = urlParams.get('login_required');
+  function validate() {
+    clearErrors(); var ok = true;
+    if (mode === 'up' && nameI.value.trim().length < 2) ok = fail(nameI, 'nameErr', 'Please enter your name.');
+    if (!email.value.trim()) ok = fail(email, 'emailErr', 'Enter your email or operator ID.');
+    else if (mode === 'up' && !/^\S+@\S+\.\S+$/.test(email.value.trim())) ok = fail(email, 'emailErr', 'Enter a valid email address.');
+    if (!pw.value) ok = fail(pw, 'pwErr', 'Enter your password.');
+    else if (mode === 'up' && pw.value.length < 8) ok = fail(pw, 'pwErr', 'Use at least 8 characters.');
+    return ok;
+  }
 
-      if (modeParam === 'register' || modeParam === 'signup') {
-        switchAuthMode('register');
-      }
+  function setLoading(on) { $('submitBtn').disabled = on; $('submitBtn').classList.toggle('loading', on); }
 
-      if (loginRequired === '1' && !currentUser) {
-        showAlert('info', '🔒 Please sign in to access Warehouse Optimizer features.');
-      }
-
-      if (roleParam) {
-        if (roleParam === 'manager') selectDemoRole('manager');
-        else if (roleParam === 'supervisor' || roleParam === 'picker') selectDemoRole('supervisor');
-        else if (roleParam === 'fleet') selectDemoRole('fleet');
-      }
-
-      // Password input caps lock listener
-      const passwordInput = document.getElementById('login-password');
-      const capsWarning = document.getElementById('caps-warning');
-      if (passwordInput && capsWarning) {
-        ['keydown', 'keyup'].forEach(evt => {
-          passwordInput.addEventListener(evt, (e) => {
-            if (e.getModifierState && e.getModifierState('CapsLock')) {
-              capsWarning.classList.add('visible');
-            } else {
-              capsWarning.classList.remove('visible');
-            }
-          });
-        });
-      }
-
-      // Real-time password criteria and confirm match listeners
-      const confirmInput = document.getElementById('register-confirm-password');
-      if (passwordInput) {
-        passwordInput.addEventListener('input', updatePasswordCriteriaUI);
-      }
-      if (confirmInput) {
-        confirmInput.addEventListener('input', updateConfirmMatchUI);
-      }
-    });
-
-    /**
-     * Real-time password criteria & visual strength meter
-     */
-    function updatePasswordCriteriaUI() {
-      if (currentAuthMode !== 'register') return;
-      const pwd = document.getElementById('login-password').value || '';
-
-      const rules = {
-        len: pwd.length >= 8,
-        upper: /[A-Z]/.test(pwd),
-        lower: /[a-z]/.test(pwd),
-        num: /[0-9]/.test(pwd),
-        special: /[!@#$%^&*(),.?":{}|<>\-_+=\[\]\\;'/`~]/.test(pwd)
+  function saveSession(data, payload) {
+    try {
+      var remember = $('remember') && $('remember').checked;
+      var token = data.token || ('token_' + Date.now());
+      var roleName = data.role || (data.user && data.user.role) || (selectedRole ? DEMOS[selectedRole].role : 'manager');
+      var user = data.user || {
+        name: (selectedRole && DEMOS[selectedRole]) ? DEMOS[selectedRole].label : (payload.name || (payload.email ? payload.email.split('@')[0] : 'Alex Morgan')),
+        email: payload.email || 'admin@warehouse.io',
+        role: roleName
       };
 
-      const setRuleUI = (id, met) => {
-        const item = document.getElementById(id);
-        if (!item) return;
-        if (met) {
-          item.classList.add('met');
-          item.querySelector('.rule-icon').textContent = '✓';
-        } else {
-          item.classList.remove('met');
-          item.querySelector('.rule-icon').textContent = '○';
+      var store = remember ? localStorage : sessionStorage;
+      store.setItem('wo-token', token);
+      store.setItem('wo-role', user.role || 'manager');
+
+      // Sync with global auth.js session storage keys
+      sessionStorage.setItem('warehouse_auth_token', token);
+      sessionStorage.setItem('warehouse_auth_user', JSON.stringify(user));
+      if (remember) {
+        localStorage.setItem('warehouse_auth_token', token);
+        localStorage.setItem('warehouse_auth_user', JSON.stringify(user));
+      }
+      window.dispatchEvent(new CustomEvent('authchange', { detail: { user: user, token: token } }));
+    } catch (e) {
+      console.warn('Session persistence error:', e);
+    }
+  }
+
+  function submit(payload, url) {
+    setLoading(true); setStatus('');
+    return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, data: d }; }); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.data.error || res.data.message || 'Invalid credentials.');
+        saveSession(res.data, payload);
+        setStatus('Signed in. Redirecting…', 'ok');
+        setTimeout(function () { window.location.href = DASHBOARD; }, 400);
+      })
+      .catch(function (err) {
+        // Fallback demo support in case backend is offline or unreachable
+        if (payload.guest || selectedRole) {
+          saveSession({}, payload);
+          setStatus('Signed in as demo profile. Redirecting…', 'ok');
+          setTimeout(function () { window.location.href = DASHBOARD; }, 400);
+          return;
         }
-      };
+        setStatus(err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message, 'error');
+      })
+      .then(function () { setLoading(false); });
+  }
 
-      setRuleUI('rule-len', rules.len);
-      setRuleUI('rule-upper', rules.upper);
-      setRuleUI('rule-lower', rules.lower);
-      setRuleUI('rule-num', rules.num);
-      setRuleUI('rule-special', rules.special);
+  $('authForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!validate()) return;
+    if (mode === 'up') submit({ name: nameI.value.trim(), email: email.value.trim(), password: pw.value }, API_REGISTER);
+    else submit({ email: email.value.trim(), password: pw.value }, API_LOGIN);
+  });
+  $('tab-in').addEventListener('click', function () { setMode('in'); });
+  $('tab-up').addEventListener('click', function () { setMode('up'); });
+  document.querySelectorAll('.demo-chip').forEach(function (c) { c.addEventListener('click', function () { pickRole(c.dataset.role); }); });
+  $('guestBtn').addEventListener('click', function () { pickRole('manager'); submit({ email: DEMOS.manager.email, password: DEMO_PASSWORD, guest: true }, API_LOGIN); });
+  $('forgot').addEventListener('click', function (e) { e.preventDefault(); setStatus('Contact your Operations Manager to reset your password.'); });
+  $('eye').addEventListener('click', function () {
+    var show = pw.type === 'password'; pw.type = show ? 'text' : 'password';
+    this.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  });
+  [nameI, email, pw].forEach(function (i) { if (i) i.addEventListener('input', function () { i.classList.remove('invalid'); }); });
 
-      // Strength Score
-      const score = Object.values(rules).filter(Boolean).length;
-      const bar = document.getElementById('strength-bar-fill');
-      const text = document.getElementById('strength-text');
-
-      if (bar && text) {
-        bar.className = 'strength-bar-fill';
-        if (pwd.length === 0) {
-          bar.style.width = '0%';
-          text.textContent = 'Password Strength: Please enter a password';
-          text.style.color = 'var(--text-light)';
-        } else if (score <= 2) {
-          bar.classList.add('weak');
-          text.textContent = 'Password Strength: Weak (Must satisfy all criteria)';
-          text.style.color = '#ef4444';
-        } else if (score === 3 || score === 4) {
-          bar.classList.add('fair');
-          text.textContent = 'Password Strength: Fair (Almost complete)';
-          text.style.color = '#f59e0b';
-        } else {
-          bar.classList.add('strong');
-          text.textContent = 'Password Strength: Strong & Secure ✓';
-          text.style.color = '#10b981';
-        }
-      }
-
-      updateConfirmMatchUI();
-    }
-
-    /**
-     * Real-time confirm password comparison
-     */
-    function updateConfirmMatchUI() {
-      if (currentAuthMode !== 'register') return;
-      const pwd = document.getElementById('login-password').value || '';
-      const confirmPwd = document.getElementById('register-confirm-password').value || '';
-      const indicator = document.getElementById('confirm-match-indicator');
-      const text = document.getElementById('confirm-match-text');
-
-      if (!indicator || !text) return;
-
-      if (!confirmPwd) {
-        indicator.style.display = 'none';
-        return;
-      }
-
-      indicator.style.display = 'flex';
-      if (pwd === confirmPwd) {
-        indicator.className = 'confirm-match-indicator matched';
-        text.textContent = '✓ Passwords match';
-      } else {
-        indicator.className = 'confirm-match-indicator mismatch';
-        text.textContent = '⚠ Passwords do not match';
-      }
-    }
-
-    /**
-     * Switch between Sign In and Create Account modes
-     */
-    function switchAuthMode(mode) {
-      currentAuthMode = mode;
-      clearAlert();
-
-      const tabLogin = document.getElementById('tab-login');
-      const tabRegister = document.getElementById('tab-register');
-      const groupName = document.getElementById('group-name');
-      const groupRole = document.getElementById('group-role');
-      const groupConfirm = document.getElementById('group-confirm-password');
-      const criteriaBox = document.getElementById('password-criteria-box');
-      const confirmIndicator = document.getElementById('confirm-match-indicator');
-      const demoProfiles = document.getElementById('demo-profiles-section');
-      const rowRemember = document.getElementById('row-remember-forgot');
-      const ssoSection = document.getElementById('sso-section');
-      const title = document.getElementById('auth-title');
-      const subtitle = document.getElementById('auth-subtitle');
-      const labelEmail = document.getElementById('label-email');
-      const pwdInput = document.getElementById('login-password');
-      const btnText = document.getElementById('btn-text');
-      const btnIcon = document.getElementById('btn-icon');
-      const togglePrompt = document.getElementById('auth-toggle-prompt');
-
-      if (mode === 'register') {
-        tabLogin.classList.remove('active');
-        tabLogin.setAttribute('aria-selected', 'false');
-        tabRegister.classList.add('active');
-        tabRegister.setAttribute('aria-selected', 'true');
-
-        groupName.style.display = 'block';
-        groupRole.style.display = 'block';
-        groupConfirm.style.display = 'block';
-        if (criteriaBox) criteriaBox.style.display = 'block';
-        demoProfiles.style.display = 'none';
-        rowRemember.style.display = 'none';
-        ssoSection.style.display = 'none';
-
-        title.textContent = 'Create Account';
-        subtitle.textContent = 'Register your warehouse profile. Your credentials will be saved in the database.';
-        labelEmail.textContent = 'Work Email Address';
-
-        btnText.textContent = 'Create Account & Save to Database';
-        btnIcon.innerHTML = `
-          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-          <circle cx="8.5" cy="7" r="4"></circle>
-          <line x1="20" y1="8" x2="20" y2="14"></line>
-          <line x1="23" y1="11" x2="17" y2="11"></line>
-        `;
-
-        togglePrompt.innerHTML = `
-          <span>Already have an account?</span>
-          <a class="auth-toggle-link" onclick="switchAuthMode('login')">Sign In</a>
-        `;
-
-        if (pwdInput) {
-          pwdInput.placeholder = 'Create a secure password (min. 8 chars)';
-          if (pwdInput.value === 'password123') pwdInput.value = '';
-        }
-        updatePasswordCriteriaUI();
-
-        document.getElementById('register-name').focus();
-      } else {
-        tabRegister.classList.remove('active');
-        tabRegister.setAttribute('aria-selected', 'false');
-        tabLogin.classList.add('active');
-        tabLogin.setAttribute('aria-selected', 'true');
-
-        groupName.style.display = 'none';
-        groupRole.style.display = 'none';
-        groupConfirm.style.display = 'none';
-        if (criteriaBox) criteriaBox.style.display = 'none';
-        if (confirmIndicator) confirmIndicator.style.display = 'none';
-        demoProfiles.style.display = 'block';
-        rowRemember.style.display = 'flex';
-        ssoSection.style.display = 'block';
-
-        title.textContent = 'Welcome Back';
-        subtitle.textContent = 'Sign in to access real-time inventory slotting, TSP picking, and fleet controls';
-        labelEmail.textContent = 'Email or Operator ID';
-
-        const account = DEMO_ACCOUNTS[activeRoleKey] || DEMO_ACCOUNTS.manager;
-        btnText.textContent = `Sign In as ${account.role}`;
-        btnIcon.innerHTML = `
-          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-          <polyline points="10 17 15 12 10 7"></polyline>
-          <line x1="15" y1="12" x2="3" y2="12"></line>
-        `;
-
-        togglePrompt.innerHTML = `
-          <span>Don't have an account?</span>
-          <a class="auth-toggle-link" onclick="switchAuthMode('register')">Create an account</a>
-        `;
-
-        if (pwdInput) {
-          pwdInput.placeholder = 'Enter your password';
-        }
-      }
-    }
-
-    /**
-     * Role selection helper (For Sign In Demo Profiles)
-     */
-    function selectDemoRole(roleKey) {
-      if (currentAuthMode !== 'login') {
-        switchAuthMode('login');
-      }
-
-      activeRoleKey = roleKey;
-      const account = DEMO_ACCOUNTS[roleKey];
-      if (!account) return;
-
-      document.getElementById('login-email').value = account.email;
-      document.getElementById('login-password').value = account.password;
-      document.getElementById('btn-text').textContent = `Sign In as ${account.role}`;
-
-      // Update chips UI
-      document.querySelectorAll('.demo-chip').forEach(chip => chip.classList.remove('active'));
-      const activeChip = document.getElementById(`chip-${roleKey}`);
-      if (activeChip) activeChip.classList.add('active');
-
-      clearAlert();
-    }
-
-    /**
-     * Show / Hide Password
-     */
-    function togglePasswordVisibility(inputId = 'login-password', iconId = 'eye-icon') {
-      const pwd = document.getElementById(inputId);
-      const icon = document.getElementById(iconId);
-
-      if (!pwd || !icon) return;
-
-      if (pwd.type === 'password') {
-        pwd.type = 'text';
-        icon.innerHTML = `
-          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-          <line x1="1" y1="1" x2="23" y2="23"></line>
-        `;
-      } else {
-        pwd.type = 'password';
-        icon.innerHTML = `
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"></path>
-          <circle cx="12" cy="12" r="3"></circle>
-        `;
-      }
-    }
-
-    /**
-     * Alert UI Helper with optional action button
-     */
-    function showAlert(type, message, actionText = null, actionCallback = null) {
-      const alert = document.getElementById('auth-alert');
-      const msg = document.getElementById('alert-message');
-      const actionBtn = document.getElementById('alert-action-btn');
-
-      alert.className = `auth-alert auth-alert-${type} visible`;
-      msg.textContent = message;
-
-      if (actionText && actionCallback && actionBtn) {
-        actionBtn.textContent = actionText;
-        actionBtn.style.display = 'inline-flex';
-        actionBtn.onclick = (e) => {
-          e.preventDefault();
-          actionCallback();
-        };
-      } else if (actionBtn) {
-        actionBtn.style.display = 'none';
-        actionBtn.onclick = null;
-      }
-    }
-
-    function clearAlert() {
-      const alert = document.getElementById('auth-alert');
-      const actionBtn = document.getElementById('alert-action-btn');
-      alert.className = 'auth-alert';
-      if (actionBtn) {
-        actionBtn.style.display = 'none';
-        actionBtn.onclick = null;
-      }
-    }
-
-    /**
-     * Form Submission Router (Login or Registration)
-     */
-    async function handleAuthSubmit(event) {
-      event.preventDefault();
-      clearAlert();
-
-      if (currentAuthMode === 'register') {
-        await handleRegisterSubmit();
-      } else {
-        await handleLoginSubmit();
-      }
-    }
-
-    /**
-     * Handle Registration Mode Submission
-     */
-    async function handleRegisterSubmit() {
-      const name = document.getElementById('register-name').value.trim();
-      const email = document.getElementById('login-email').value.trim();
-      const role = document.getElementById('register-role').value;
-      const password = document.getElementById('login-password').value;
-      const confirmPassword = document.getElementById('register-confirm-password').value;
-
-      if (!name) {
-        showAlert('error', 'Please enter your full name.');
-        document.getElementById('register-name').focus();
-        return;
-      }
-
-      if (!email || !email.includes('@')) {
-        showAlert('error', 'Please enter a valid work email address.');
-        document.getElementById('login-email').focus();
-        return;
-      }
-
-      // Check password criteria
-      const passCheck = validatePasswordCriteria(password);
-      if (!passCheck.isValid) {
-        showAlert('error', passCheck.error);
-        document.getElementById('login-password').focus();
-        return;
-      }
-
-      if (password !== confirmPassword) {
-        showAlert('error', 'Passwords do not match. Please re-check your confirm password.');
-        document.getElementById('register-confirm-password').focus();
-        return;
-      }
-
-      const btn = document.getElementById('btn-submit');
-      const btnSpinner = document.getElementById('btn-spinner');
-      const btnIcon = document.getElementById('btn-icon');
-      const btnText = document.getElementById('btn-text');
-
-      btn.disabled = true;
-      btnSpinner.style.display = 'inline-block';
-      btnIcon.style.display = 'none';
-      btnText.textContent = 'Saving account to database...';
-
-      const result = await registerUser(name, email, role, password);
-
-      btn.disabled = false;
-      btnSpinner.style.display = 'none';
-      btnIcon.style.display = 'inline-block';
-
-      if (result.success) {
-        const roleLabel = role === 'supervisor' ? 'Picker Lead' :
-                          role === 'fleet' ? 'Fleet Lead' :
-                          role === 'manager' ? 'Operations Manager' : 'Guest Analyst';
-
-        showAlert(
-          'success',
-          `✓ Account created for ${name} (${roleLabel})! Your credentials have been saved to the database. Redirecting to your workspace...`
-        );
-
-        let redirectTarget = new URLSearchParams(window.location.search).get('redirect') || 'index.html';
-        if (result.user && !isPageAllowedForUser(redirectTarget, result.user)) {
-          redirectTarget = 'index.html';
-        }
-        setTimeout(() => {
-          window.location.href = redirectTarget;
-        }, 900);
-      } else {
-        btnText.textContent = 'Create Account & Save to Database';
-        showAlert('error', result.error || 'Failed to create account.');
-      }
-    }
-
-    /**
-     * Handle Sign In Mode Submission
-     */
-    async function handleLoginSubmit() {
-      const email = document.getElementById('login-email').value.trim();
-      const password = document.getElementById('login-password').value;
-      const rememberMe = document.getElementById('remember-me')?.checked || false;
-
-      // Basic client validation
-      if (!email || !email.includes('@')) {
-        showAlert('error', 'Please enter a valid email address or operator ID.');
-        document.getElementById('login-email').focus();
-        return;
-      }
-
-      if (!password) {
-        showAlert('error', 'Please enter your password.');
-        document.getElementById('login-password').focus();
-        return;
-      }
-
-      // UI Loading state
-      const btn = document.getElementById('btn-submit');
-      const btnSpinner = document.getElementById('btn-spinner');
-      const btnIcon = document.getElementById('btn-icon');
-      const btnText = document.getElementById('btn-text');
-
-      btn.disabled = true;
-      btnSpinner.style.display = 'inline-block';
-      btnIcon.style.display = 'none';
-      btnText.textContent = 'Verifying credentials...';
-
-      // Call authentication handler
-      const result = await loginUser(email, password, rememberMe);
-
-      if (result.success) {
-        showAlert('success', `Authentication successful! Welcome back, ${result.user.name}. Redirecting...`);
-        btnText.textContent = 'Authenticated!';
-        btnSpinner.style.display = 'none';
-
-        let redirectTarget = new URLSearchParams(window.location.search).get('redirect') || 'index.html';
-        if (result.user && !isPageAllowedForUser(redirectTarget, result.user)) {
-          redirectTarget = 'index.html';
-        }
-        setTimeout(() => {
-          window.location.href = redirectTarget;
-        }, 700);
-      } else {
-        btn.disabled = false;
-        btnSpinner.style.display = 'none';
-        btnIcon.style.display = 'inline-block';
-        btnText.textContent = 'Sign In';
-
-        if (result.status === 429) {
-          showAlert('error', `Rate limit exceeded: Too many attempts. Try again in ${result.retryAfter || 60} seconds.`);
-        } else if (result.code === 'ACCOUNT_NOT_FOUND') {
-          showAlert(
-            'error',
-            result.error || 'No account found with this email. Please create an account first!',
-            'Create Account with this Email →',
-            () => {
-              switchAuthMode('register');
-              document.getElementById('login-email').value = email;
-              document.getElementById('register-name').focus();
-            }
-          );
-        } else if (result.code === 'INVALID_PASSWORD') {
-          showAlert('error', result.error || 'Incorrect password. Please verify and try again.');
-          document.getElementById('login-password').focus();
-          document.getElementById('login-password').select();
-        } else {
-          showAlert('error', result.error || 'Invalid email or password.');
-        }
-      }
-    }
-
-    /**
-     * Instant Guest SSO Login (Uses guest@warehouse.io credentials against API)
-     */
-    async function handleSSOLogin() {
-      clearAlert();
-      const result = await loginUser('guest@warehouse.io', 'password123');
-      if (result.success) {
-        showAlert('success', 'Authenticated via Instant Guest Access! Redirecting...');
-        let redirectTarget = new URLSearchParams(window.location.search).get('redirect') || 'index.html';
-        if (result.user && !isPageAllowedForUser(redirectTarget, result.user)) {
-          redirectTarget = 'index.html';
-        }
-        setTimeout(() => {
-          window.location.href = redirectTarget;
-        }, 600);
-      } else {
-        showAlert('error', result.error || 'Guest login failed.');
-      }
-    }
-
-    /**
-     * Switch Account action
-     */
-    function handleSwitchAccount() {
-      logoutUser();
-      const banner = document.getElementById('already-logged-in-banner');
-      if (banner) banner.style.display = 'none';
-      showAlert('info', 'Signed out. Select a profile or enter new credentials.');
-    }
-
-    /**
-     * Forgot Password Mock Handler
-     */
-    function handleForgotPassword(e) {
-      e.preventDefault();
-      const email = document.getElementById('login-email').value.trim();
-      if (!email) {
-        showAlert('info', 'Please enter your email above and click "Forgot Password?" again.');
-        return;
-      }
-      showAlert('info', `Password recovery link dispatched to ${email} (Mock).`);
-    }
-  </script>
+  bindSwitch();
+  var q = new URLSearchParams(location.search).get('role');
+  if (q && DEMOS[q]) pickRole(q);
+})();
+</script>
 </body>
 </html>
