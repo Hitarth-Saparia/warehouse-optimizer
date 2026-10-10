@@ -1,4 +1,3 @@
-"""
 backend/layout_optimizer.py
 Operations Research & Greedy Heuristic Slotting Optimization:
 ============================================================
