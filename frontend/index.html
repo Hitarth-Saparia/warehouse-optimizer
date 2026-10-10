@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="powerbi.css">
+<script src="theme.js"></script>
+<script src="auth.js"></script>
 <style>
 :root {
   --primary: #777C6D; --primary-hover: #626659; --accent: #B7B89F;
@@ -42,8 +44,9 @@ svg { display: block; }
 /* Top nav */
 .topbar { background: var(--nav-bg); color: #EEE; position: sticky; top: 0; z-index: 50; }
 .topbar .wrap { display: flex; align-items: center; gap: 20px; height: 66px; width: min(1400px, 100% - 32px); }
-.brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.brand-icon { width: 36px; height: 36px; border-radius: 9px; background: var(--primary); display: grid; place-items: center; color: #fff; }
+.brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; color: inherit; }
+.brand-icon { width: 36px; height: 36px; border-radius: 9px; background: var(--primary); display: grid; place-items: center; color: #fff; text-decoration: none; cursor: pointer; transition: transform .2s, background .2s, box-shadow .2s; }
+.brand-icon:hover { transform: translateY(-2px); background: var(--accent); box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 .brand strong { display: block; font-size: .95rem; font-weight: 800; line-height: 1.1; }
 .brand small { font-family: var(--font-mono); font-size: .6rem; color: #9a9c94; letter-spacing: .04em; }
 .nav { display: flex; gap: 4px; flex: 1; overflow-x: auto; scrollbar-width: none; }
@@ -165,10 +168,12 @@ tbody tr { transition: background .15s; } tbody tr:hover { background: var(--sof
 
 <header class="topbar">
   <div class="wrap">
-    <a href="index.html" class="brand" aria-label="Warehouse Optimizer home">
-      <span class="brand-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7.5L12 12.5l8.7-5"/><path d="M12 22V12.5"/></svg></span>
+    <div class="brand">
+      <a href="landing.html" class="brand-icon" title="Landing Page" aria-label="Warehouse Optimizer home">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7.5L12 12.5l8.7-5"/><path d="M12 22V12.5"/></svg>
+      </a>
       <span><strong>Warehouse Optimizer</strong><small>INTELLIGENT SLOTTING &amp; TSP ROUTING</small></span>
-    </a>
+    </div>
     <nav class="nav" aria-label="Manager navigation">
       <a href="index.html" class="active">Dashboard</a>
       <a href="products.html">Products</a>
@@ -761,20 +766,8 @@ tbody tr { transition: background .15s; } tbody tr:hover { background: var(--sof
     });
   }
 
-  $('logout').addEventListener('click', function () {
-    try {
-      ['wo-token', 'wo-role', 'wo-name', 'warehouse_auth_token', 'warehouse_auth_user'].forEach(function (k) {
-        sessionStorage.removeItem(k); localStorage.removeItem(k);
-      });
-    } catch (e) {}
-    window.location.href = 'login.html';
-  });
-
-  var root = document.documentElement;
-  try { var th = localStorage.getItem('wo-theme'); if (th) root.setAttribute('data-theme', th); } catch (e) {}
-  $('theme').addEventListener('click', function () {
-    var n = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    root.setAttribute('data-theme', n); try { localStorage.setItem('wo-theme', n); } catch (e) {}
+  window.addEventListener('themechange', function () {
+    render();
   });
 
   // URL hash/query auto-open modal if requested

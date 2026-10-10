@@ -328,13 +328,17 @@ async function logoutUser() {
     }
   }
 
+  try {
+    ['wo-token', 'wo-role', 'wo-name', 'warehouse_auth_token', 'warehouse_auth_user'].forEach(k => {
+      sessionStorage.removeItem(k);
+      localStorage.removeItem(k);
+    });
+  } catch (e) {}
+
   clearAuthSession();
 
-  // If on login page, re-render; otherwise refresh auth components
-  if (window.location.pathname.endsWith('login.html')) {
-    window.location.reload();
-  } else {
-    renderNavAuth();
+  if (typeof window !== 'undefined' && window.location) {
+    window.location.href = 'login.html';
   }
 }
 
@@ -503,7 +507,7 @@ function shouldShowFleetNav(user) {
  */
 function updateNavRoleVisibility() {
   const user = getAuthUser();
-  const navLinks = document.querySelectorAll('.nav-links a');
+  const navLinks = document.querySelectorAll('.nav a, .nav-links a');
 
   navLinks.forEach(link => {
     const href = link.getAttribute('href') || '';
@@ -527,11 +531,75 @@ function updateNavRoleVisibility() {
 }
 
 /**
- * Dynamically render login button or user profile pill in the navbar
+ * Dynamically render login button or user profile pill in the navbar and synchronize .topbar
  */
 function renderNavAuth() {
   // Synchronize role navigation links
   updateNavRoleVisibility();
+
+  const user = getAuthUser() || (function() {
+    try {
+      const u = sessionStorage.getItem('warehouse_auth_user') || localStorage.getItem('warehouse_auth_user');
+      return u ? JSON.parse(u) : null;
+    } catch(e) { return null; }
+  })();
+
+  // 1. Synchronize Executive Topbar (.topbar) if present
+  const topbar = document.querySelector('.topbar');
+  if (topbar) {
+    const avatarEl = document.getElementById('avatar');
+    const unameEl = document.getElementById('uname');
+    const userMetaSpan = document.querySelector('.user-meta span');
+    
+    if (user) {
+      const initials = user.initials || (user.name ? user.name.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase() : 'AM');
+      if (avatarEl) avatarEl.textContent = initials;
+      if (unameEl) unameEl.textContent = user.name || 'Alex Morgan';
+      if (userMetaSpan) userMetaSpan.textContent = user.role || 'Operations Manager';
+    }
+
+    const logoutBtn = document.getElementById('logout');
+    if (logoutBtn && !logoutBtn._bound) {
+      logoutBtn._bound = true;
+      logoutBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        logoutUser();
+      });
+    }
+
+    const themeBtn = document.getElementById('theme');
+    if (themeBtn && !themeBtn._themeInitialized && !themeBtn._bound) {
+      themeBtn._bound = true;
+      themeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (typeof toggleTheme === 'function') toggleTheme();
+        else {
+          const root = document.documentElement;
+          const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+          root.setAttribute('data-theme', next);
+          try {
+            localStorage.setItem('wo-theme', next);
+            localStorage.setItem('warehouse_optimizer_theme', next);
+          } catch(err){}
+        }
+      });
+    }
+
+    const userMeta = document.getElementById('userMeta');
+    if (userMeta && !userMeta._bound) {
+      userMeta._bound = true;
+      userMeta.addEventListener('click', () => {
+        if (typeof openProfileSettingsModal === 'function') openProfileSettingsModal('settings');
+      });
+    }
+
+    if (avatarEl && !avatarEl._bound) {
+      avatarEl._bound = true;
+      avatarEl.addEventListener('click', () => {
+        if (typeof openProfileSettingsModal === 'function') openProfileSettingsModal('settings');
+      });
+    }
+  }
 
   const rightActions = document.querySelector('.nav-right-actions');
   if (!rightActions) return;
@@ -540,9 +608,6 @@ function renderNavAuth() {
   const existingBtn = rightActions.querySelector('#nav-auth-link');
   const existingPill = rightActions.querySelector('#nav-user-pill');
   if (existingBtn) existingBtn.remove();
-  if (existingPill) existingPill.remove();
-
-  const user = getAuthUser();
   const isLoginPage = window.location.pathname.endsWith('login.html');
 
   if (user) {

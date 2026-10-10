@@ -19,9 +19,284 @@ let currentEarningsState = {
 };
 
 /**
+ * Ensure Profile Settings Modal DOM exists on the page
+ */
+function ensureProfileSettingsModal() {
+  if (document.getElementById('profile-settings-modal')) return;
+  const container = document.createElement('div');
+  container.innerHTML = `
+<div class="profile-modal-backdrop" id="profile-settings-modal" onclick="if(event.target === this) closeProfileSettingsModal()">
+  <div class="profile-modal-window">
+    
+    <!-- Modal Header -->
+    <div class="profile-modal-header">
+      <div class="profile-modal-user-identity">
+        <div class="profile-modal-avatar" id="modal-user-avatar">AM</div>
+        <div>
+          <div style="display: flex; align-items: center;">
+            <span class="profile-modal-name" id="modal-user-name">Alex Morgan</span>
+            <span class="profile-modal-role-pill" id="modal-user-role">OPERATIONS MANAGER</span>
+          </div>
+          <div style="font-size: 0.74rem; color: var(--text-secondary); margin-top: 2px;">
+            <span>ID: WMS-MGR-0841</span> • <span>Facility: MegaHub Alpha (SFO-01)</span> • <span>Department: Logistics Operations</span>
+          </div>
+        </div>
+      </div>
+      <button type="button" class="profile-modal-close-btn" onclick="closeProfileSettingsModal()" aria-label="Close modal" title="Close">
+        ✕
+      </button>
+    </div>
+
+    <!-- Modal Tabs -->
+    <div class="profile-modal-tabs" role="tablist">
+      <button type="button" class="profile-tab-btn active" data-tab="earnings" onclick="switchProfileModalTab('earnings')">
+        💼 Compensation &amp; Live Earnings
+      </button>
+      <button type="button" class="profile-tab-btn" data-tab="settings" onclick="switchProfileModalTab('settings')">
+        ⚙️ Profile &amp; Notification Settings
+      </button>
+      <button type="button" class="profile-tab-btn" data-tab="security" onclick="switchProfileModalTab('security')">
+        🔒 Security &amp; Credentials
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="profile-modal-body">
+
+      <!-- TAB 1: MANAGER COMPENSATION & LIVE EARNINGS -->
+      <div id="tab-content-earnings" style="display: block;">
+        <div style="margin-bottom: 1.25rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0;">
+                Manager Compensation &amp; Performance Dividend
+              </h3>
+              <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px;">
+                Real-time earnings synchronized with warehouse distance reduction and fulfillment ROI
+              </div>
+            </div>
+            <span class="tag" style="background: rgba(94,122,82,0.18); color: var(--good); font-size: 0.75rem; padding: 0.35rem 0.65rem;">
+              Tier 1 Multiplier (1.42x)
+            </span>
+          </div>
+        </div>
+
+        <!-- Earnings Summary Scorecard -->
+        <div class="earnings-scorecard-grid">
+          <div class="earnings-card highlight">
+            <div class="earnings-card-label">Current Month Gross (MTD)</div>
+            <div class="earnings-card-amount" id="earnings-mtd-gross" style="color: var(--warn);">$10,615.00</div>
+            <div style="font-size: 0.72rem; color: var(--warn); margin-top: 4px;">Base Salary + Optimization Bonus</div>
+          </div>
+
+          <div class="earnings-card">
+            <div class="earnings-card-label">Base Monthly Salary</div>
+            <div class="earnings-card-amount" id="earnings-base-salary">$8,750.00</div>
+            <div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 4px;">$105,000 / yr contract</div>
+          </div>
+
+          <div class="earnings-card">
+            <div class="earnings-card-label">Optimization Bonus (MTD)</div>
+            <div class="earnings-card-amount" id="earnings-mtd-bonus" style="color: var(--good);">+$1,865.00</div>
+            <div style="font-size: 0.72rem; color: var(--good); margin-top: 4px;">Tied to 39.1% distance saved</div>
+          </div>
+
+          <div class="earnings-card">
+            <div class="earnings-card-label">Year-to-Date (YTD) Total</div>
+            <div class="earnings-card-amount" id="earnings-ytd-total">$94,850.00</div>
+            <div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 4px;">9 pay cycles completed</div>
+          </div>
+        </div>
+
+        <!-- Incentive Breakdown -->
+        <div style="margin-bottom: 1.25rem;">
+          <h4 style="font-size: 0.88rem; font-weight: 700; margin-bottom: 0.75rem;">
+            Monthly Incentive &amp; Performance Commission Breakdown
+          </h4>
+          <div class="incentive-breakdown-list">
+            <div class="incentive-item">
+              <div class="incentive-info">
+                <span class="incentive-title">📦 Slotting Walking Distance Reduction Bonus</span>
+                <span class="incentive-desc">Earned for surpassing enterprise 20% walking reduction benchmark (Current: 39.1% saved = +19.1% surplus)</span>
+              </div>
+              <span class="incentive-amount" id="incentive-slotting-amount">+$650.00</span>
+            </div>
+
+            <div class="incentive-item">
+              <div class="incentive-info">
+                <span class="incentive-title">⏱️ Order Dispatch SLA On-Time Fulfillment Multiplier</span>
+                <span class="incentive-desc">99.4% orders dispatched within same-shift SLA target (Exceeds 98% tier requirement)</span>
+              </div>
+              <span class="incentive-amount">+$480.00</span>
+            </div>
+
+            <div class="incentive-item">
+              <div class="incentive-info">
+                <span class="incentive-title">🚜 Multi-Picker Fleet Workload Equalization (mTSP)</span>
+                <span class="incentive-desc">Greedy wave balancing maintained picker tour variance under 15% across all shifts</span>
+              </div>
+              <span class="incentive-amount">+$420.00</span>
+            </div>
+
+            <div class="incentive-item">
+              <div class="incentive-info">
+                <span class="incentive-title">🛡️ Safety &amp; Zero Corridor Incident Compliance</span>
+                <span class="incentive-desc">Zero safety violations, clear corridor operations, and instant obstacle rerouting</span>
+              </div>
+              <span class="incentive-amount">+$315.00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Bonus Simulator -->
+        <div class="earnings-simulator-box" style="background: var(--soft); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem;">
+          <div class="simulator-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <div>
+              <strong style="font-size: 0.92rem;">⚡ Live Bonus Simulator</strong>
+              <div style="font-size: 0.75rem; color: var(--text-secondary);">Adjust warehouse optimization performance to project next payout:</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Projected Total Gross</div>
+              <div style="font-size: 1.25rem; font-weight: 800; color: var(--warn); font-family: var(--font-mono);" id="sim-projected-gross">$10,615.00</div>
+            </div>
+          </div>
+
+          <div class="simulator-slider-group" style="margin-bottom: 0.75rem;">
+            <div class="simulator-slider-label" style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.35rem;">
+              <span>Warehouse Walking Distance Saved (%)</span>
+              <span id="sim-dist-val" style="font-weight: 700; color: var(--good);">39.1% Distance Saved</span>
+            </div>
+            <input type="range" class="simulator-slider" id="sim-dist-slider" min="15" max="55" step="0.5" value="39.1" oninput="updateBonusSimulator()" style="width: 100%; accent-color: var(--primary);">
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; padding-top: 0.5rem; border-top: 1px solid var(--border-color);">
+            <span>Projected Optimization Incentive: <strong id="sim-projected-bonus" style="color: var(--good);">+$1,865.00</strong></span>
+            <span style="color: var(--text-secondary);">Tied to WMS Pareto Slotting Algorithms</span>
+          </div>
+        </div>
+
+        <!-- Payout History -->
+        <div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.65rem;">
+            <h4 style="font-size: 0.88rem; font-weight: 700; margin: 0;">Recent Paystubs &amp; Payout History</h4>
+            <span style="font-size: 0.74rem; color: var(--text-secondary);">Next Deposit: Oct 15, 2026 (Chase •••• 4821)</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="paystub-table" style="width: 100%; font-size: 0.82rem;">
+              <thead>
+                <tr>
+                  <th>Pay Period</th>
+                  <th>Base Salary</th>
+                  <th>Bonus</th>
+                  <th>Gross Pay</th>
+                  <th>Net Deposited</th>
+                  <th>Status</th>
+                  <th>Receipt</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Sep 1 – Sep 30, 2026</strong></td>
+                  <td>$8,750.00</td>
+                  <td style="color: var(--good);">+$1,865.00</td>
+                  <td style="font-weight: 700;">$10,615.00</td>
+                  <td>$8,280.00</td>
+                  <td><span class="st" style="--c:var(--good)">✓ Paid</span></td>
+                  <td><button type="button" class="btn" style="padding: 3px 8px; font-size: 0.72rem;" onclick="downloadPaystub('Sep 2026')">PDF</button></td>
+                </tr>
+                <tr>
+                  <td><strong>Aug 1 – Aug 31, 2026</strong></td>
+                  <td>$8,750.00</td>
+                  <td style="color: var(--good);">+$1,720.00</td>
+                  <td style="font-weight: 700;">$10,470.00</td>
+                  <td>$8,166.00</td>
+                  <td><span class="st" style="--c:var(--good)">✓ Paid</span></td>
+                  <td><button type="button" class="btn" style="padding: 3px 8px; font-size: 0.72rem;" onclick="downloadPaystub('Aug 2026')">PDF</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: PROFILE & NOTIFICATION SETTINGS -->
+      <div id="tab-content-settings" style="display: none;">
+        <form id="profile-settings-form" onsubmit="saveManagerProfileSettings(event)">
+          <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem;">
+            Personal &amp; Facility Operational Information
+          </h4>
+
+          <div class="profile-form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+            <div class="profile-field-group">
+              <label class="profile-field-label" for="profile-input-name" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 4px;">Full Name</label>
+              <input type="text" id="profile-input-name" class="profile-field-input" value="Alex Morgan" required style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--border-color); background: var(--card-bg); color: var(--text-main);">
+            </div>
+
+            <div class="profile-field-group">
+              <label class="profile-field-label" for="profile-input-email" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 4px;">Email Address</label>
+              <input type="email" id="profile-input-email" class="profile-field-input" value="admin@warehouse.io" required style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--border-color); background: var(--card-bg); color: var(--text-main);">
+            </div>
+
+            <div class="profile-field-group">
+              <label class="profile-field-label" for="profile-input-phone" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 4px;">Phone Number</label>
+              <input type="tel" id="profile-input-phone" class="profile-field-input" value="+1 (555) 392-8411" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--border-color); background: var(--card-bg); color: var(--text-main);">
+            </div>
+
+            <div class="profile-field-group">
+              <label class="profile-field-label" for="profile-input-facility" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 4px;">Assigned Distribution Facility</label>
+              <input type="text" id="profile-input-facility" class="profile-field-input" value="MegaHub Alpha (SFO-01)" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--border-color); background: var(--card-bg); color: var(--text-main);">
+            </div>
+
+            <div class="profile-field-group" style="grid-column: 1 / -1;">
+              <label class="profile-field-label" for="profile-input-shift" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 4px;">Preferred Operational Shift</label>
+              <select id="profile-input-shift" class="profile-field-input" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--border-color); background: var(--card-bg); color: var(--text-main);">
+                <option value="Day Shift (07:00 - 15:30 PST)" selected>Day Shift (07:00 – 15:30 PST) — Core Slotting &amp; Picking</option>
+                <option value="Evening Shift (15:30 - 23:30 PST)">Evening Shift (15:30 – 23:30 PST) — Fleet Wave Allocation</option>
+                <option value="Night Shift (23:30 - 07:30 PST)">Night Shift (23:30 – 07:30 PST) — Restocking &amp; Heavy Transit</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+            <button type="button" class="btn" onclick="closeProfileSettingsModal()">Cancel</button>
+            <button type="submit" class="btn primary">💾 Save Profile Changes</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- TAB 3: SECURITY & ACCESS CREDENTIALS -->
+      <div id="tab-content-security" style="display: none;">
+        <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem;">
+          Security &amp; Password Settings
+        </h4>
+        <div class="profile-form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+          <div class="profile-field-group">
+            <label class="profile-field-label" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 4px;">Current Password</label>
+            <input type="password" class="profile-field-input" placeholder="••••••••••••" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--border-color); background: var(--card-bg); color: var(--text-main);">
+          </div>
+          <div class="profile-field-group">
+            <label class="profile-field-label" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 4px;">New Password</label>
+            <input type="password" class="profile-field-input" placeholder="Min. 8 chars, 1 uppercase, 1 symbol" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--border-color); background: var(--card-bg); color: var(--text-main);">
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end;">
+          <button type="button" class="btn primary" onclick="showToastNotification('✓ Password successfully updated!')">🔒 Update Credentials</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`;
+  if (document.body) {
+    document.body.appendChild(container.firstElementChild);
+  }
+}
+
+/**
  * Open the Profile Settings & Earnings modal
  */
 function openProfileSettingsModal(initialTab = 'earnings') {
+  ensureProfileSettingsModal();
   const modal = document.getElementById('profile-settings-modal');
   if (!modal) return;
 

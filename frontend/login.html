@@ -50,7 +50,8 @@ svg { display: block; }
 }
 .brand-panel > * { position: relative; z-index: 1; }
 .brand { display: inline-flex; align-items: center; gap: 10px; }
-.brand-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--primary); display: grid; place-items: center; color: #fff; }
+.brand-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--primary); display: grid; place-items: center; color: #fff; text-decoration: none; cursor: pointer; transition: transform .2s, background .2s, box-shadow .2s; }
+.brand-icon:hover { transform: translateY(-2px); background: var(--accent); box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 .brand strong { display: block; font-weight: 800; line-height: 1.1; }
 .brand small { font-family: var(--font-mono); font-size: .68rem; color: #B4B6AE; }
 .panel-copy h1 { font-size: clamp(1.9rem, 3.4vw, 2.8rem); font-weight: 800; line-height: 1.12; letter-spacing: -.03em; }
@@ -159,10 +160,10 @@ input.invalid { border-color: var(--danger); }
 <div class="layout">
 
   <aside class="brand-panel" aria-hidden="true">
-    <a href="index.html" class="brand">
-      <span class="brand-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7.5L12 12.5l8.7-5"/><path d="M12 22V12.5"/></svg></span>
+    <div class="brand">
+      <a href="landing.html" class="brand-icon" title="Landing Page" aria-label="Warehouse Optimizer Landing Page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7.5L12 12.5l8.7-5"/><path d="M12 22V12.5"/></svg></a>
       <span><strong>Warehouse Optimizer</strong><small>Intelligent Slotting &amp; TSP Routing</small></span>
-    </a>
+    </div>
     <div class="panel-copy">
       <h1>Shorter routes.<br><em>Balanced fleets.</em><br>Faster waves.</h1>
       <p>Sign in to run velocity slotting, 2-Opt pick routing and multi-picker balancing on your live warehouse graph.</p>
@@ -186,7 +187,7 @@ input.invalid { border-color: var(--danger); }
   </aside>
 
   <main class="form-panel">
-    <a href="index.html" class="back-link">
+    <a href="landing.html" class="back-link">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
       Back to home
     </a>
@@ -349,9 +350,15 @@ input.invalid { border-color: var(--danger); }
         role: roleName
       };
 
+      if (!user.initials) {
+        var parts = (user.name || '').trim().split(/\s+/);
+        user.initials = parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : (user.name || 'AM').slice(0, 2).toUpperCase();
+      }
+
       var store = remember ? localStorage : sessionStorage;
       store.setItem('wo-token', token);
       store.setItem('wo-role', user.role || 'manager');
+      store.setItem('wo-name', user.name || 'Alex Morgan');
 
       // Sync with global auth.js session storage keys
       sessionStorage.setItem('warehouse_auth_token', token);

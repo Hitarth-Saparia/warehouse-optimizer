@@ -5,64 +5,240 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Warehouse Product Catalog. Item master with shelf assignments, categories, and Pareto pick velocity.">
   <title>Products Catalog | Warehouse Optimizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="powerbi.css">
   <link rel="stylesheet" href="style.css">
   <script src="theme.js"></script>
   <script src="auth.js"></script>
+  <script src="profile-settings.js"></script>
+  <style>
+    /* Product Tiles Grid System */
+    .product-tiles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(295px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .product-tile {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+      position: relative;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .product-tile:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg);
+      border-color: var(--accent);
+    }
+
+    .product-tile-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .product-tile-id {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--primary);
+      background: rgba(119, 124, 109, 0.12);
+      border: 1px solid rgba(119, 124, 109, 0.2);
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    .product-tile-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-main);
+      line-height: 1.35;
+      margin-bottom: 0.85rem;
+      min-height: 2.85rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .product-tile-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .product-tile-shelf {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.65rem 0.85rem;
+      background: var(--bg);
+      border-radius: 9px;
+      border: 1px solid var(--border-color);
+      margin-bottom: 1.1rem;
+    }
+
+    .product-tile-shelf-info {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .product-tile-shelf-icon {
+      color: var(--primary);
+      flex-shrink: 0;
+    }
+
+    .product-tile-velocity-card {
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 0.85rem;
+      border: 1px solid var(--border-color);
+    }
+
+    .product-tile-velocity-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.45rem;
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+    }
+
+    .product-tile-velocity-number {
+      font-family: var(--font-mono);
+      font-size: 0.98rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .product-tile-progress-track {
+      width: 100%;
+      height: 7px;
+      background: rgba(0, 0, 0, 0.08);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 0.45rem;
+    }
+
+    [data-theme="dark"] .product-tile-progress-track {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .product-tile-progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+
+    .product-tile-progress-fill.high {
+      background: linear-gradient(90deg, #5E7A52, #729464);
+    }
+
+    .product-tile-progress-fill.medium {
+      background: linear-gradient(90deg, #777C6D, #B7B89F);
+    }
+
+    .product-tile-progress-fill.low {
+      background: #8E8E93;
+    }
+
+    .product-tile-velocity-sub {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    /* View Switcher Controls */
+    .view-toggle {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    .view-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .view-btn:hover {
+      color: var(--text-main);
+    }
+
+    .view-btn.active {
+      background: var(--card-bg);
+      color: var(--text-main);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      font-weight: 700;
+    }
+
+    [data-theme="dark"] .view-btn.active {
+      background: var(--card-hover, #2D312B);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    }
+  </style>
 </head>
 <body>
 
-  <!-- Common Navigation Bar -->
-  <nav class="navbar">
-    <a href="landing.html" class="nav-brand" title="Return to Landing Page">
-      <div class="nav-logo-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-          <line x1="12" y1="22.08" x2="12" y2="12"></line>
-        </svg>
-      </div>
-      <div class="nav-brand-title">
-        <span class="main-text">Warehouse Optimizer</span>
-        <span class="sub-text">Intelligent Slotting & TSP Routing</span>
-      </div>
-    </a>
-    <ul class="nav-links">
-      <li>
-        <a href="index.html?modal=profile" class="nav-profile-btn" id="nav-profile-settings" title="Manager Profile Settings & Earnings">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-            <circle cx="12" cy="7" r="4"></circle>
-          </svg>
-          Profile Settings &amp; Earnings
+  <!-- Executive Topbar Navigation (Dashboard UI) -->
+  <header class="topbar">
+    <div class="wrap">
+      <div class="brand">
+        <a href="landing.html" class="brand-icon" title="Landing Page" aria-label="Warehouse Optimizer home">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7.5L12 12.5l8.7-5"/><path d="M12 22V12.5"/></svg>
         </a>
-      </li>
-      <li><a href="index.html">Dashboard</a></li>
-      <li><a href="products.html" class="active">Products</a></li>
-      <li><a href="layout.html">Layout Optimizer</a></li>
-      <li><a href="graph.html">Warehouse Graph</a></li>
-      <li><a href="order-picking.html">Order Picking</a></li>
-      <li><a href="waves.html">Wave Picking</a></li>
-      <li><a href="fleet.html">Fleet Balancing</a></li>
-    </ul>
-    <div class="nav-right-actions">
-      <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle theme">
-        <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="5"></circle>
-          <line x1="12" y1="1" x2="12" y2="3"></line>
-          <line x1="12" y1="21" x2="12" y2="23"></line>
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-          <line x1="1" y1="12" x2="3" y2="12"></line>
-          <line x1="21" y1="12" x2="23" y2="12"></line>
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-        </svg>
-        <svg class="moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-        </svg>
-      </button>
+        <span><strong>Warehouse Optimizer</strong><small>INTELLIGENT SLOTTING &amp; TSP ROUTING</small></span>
+      </div>
+      <nav class="nav" aria-label="Manager navigation">
+        <a href="index.html">Dashboard</a>
+        <a href="products.html" class="active">Products</a>
+        <a href="layout.html">Layout Optimizer</a>
+        <a href="graph.html">Warehouse Graph</a>
+        <a href="order-picking.html">Order Picking</a>
+        <a href="waves.html">Wave Picking</a>
+        <a href="fleet.html">Fleet Balancing</a>
+      </nav>
+      <div class="user">
+        <span class="avatar" id="avatar" title="Manager Profile &amp; Settings">AM</span>
+        <span class="user-meta" id="userMeta" title="Manager Profile &amp; Settings"><b id="uname">Alex Morgan</b><span>Operations Manager</span></span>
+        <button class="ib" id="logout" aria-label="Sign out" title="Sign out"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+        <button class="ib" id="theme" aria-label="Toggle theme"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></button>
+      </div>
     </div>
-  </nav>
+  </header>
 
   <div class="container">
     <div class="page-header">
@@ -88,7 +264,7 @@
         <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
       </svg>
       <div>
-        <strong>DBMS & Catalog Concept:</strong> Products are mapped to storage shelves in MySQL (<code>products.assigned_shelf_id</code>). The pick frequency is dynamically computed via <code>SUM(sales.units_sold)</code> across historical transactions to drive greedy slotting.
+        <strong>DBMS &amp; Catalog Concept:</strong> Products are mapped to storage shelves in MySQL (<code>products.assigned_shelf_id</code>). The pick frequency is dynamically computed via <code>SUM(sales.units_sold)</code> across historical transactions to drive greedy slotting.
       </div>
     </div>
 
@@ -119,13 +295,31 @@
       </div>
     </div>
 
-    <!-- Products Table -->
-    <div class="card">
-      <div class="card-title">
-        <span>Product Inventory & Pick Velocity</span>
+    <!-- View Switcher & Catalog Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <h2 style="font-size: 1.25rem; font-weight: 800; margin: 0; color: var(--text-main);">Product Inventory &amp; Pick Velocity</h2>
         <span class="badge badge-primary">Catalog Master</span>
       </div>
+      <div class="view-toggle">
+        <button type="button" class="view-btn active" id="btn-view-tiles" title="Tiles View" onclick="switchView('tiles')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Tiles View
+        </button>
+        <button type="button" class="view-btn" id="btn-view-table" title="Table View" onclick="switchView('table')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Table View
+        </button>
+      </div>
+    </div>
 
+    <!-- Products Tiles Grid (Primary Default Format) -->
+    <div class="product-tiles-grid" id="products-tiles-grid">
+      <!-- Injected tiles -->
+    </div>
+
+    <!-- Products Table (Optional Alternate View) -->
+    <div class="card" id="products-table-card" style="display: none; margin-bottom: 2.5rem;">
       <div class="table-responsive">
         <table>
           <thead>
@@ -152,7 +346,7 @@
 
   <footer class="app-footer">
     <div class="container" style="margin: 0 auto;">
-      Warehouse Layout & Order Picking Optimizer &bull; High-Performance Graph Routing Engine
+      Warehouse Layout &amp; Order Picking Optimizer &bull; High-Performance Graph Routing Engine
     </div>
   </footer>
 
@@ -169,25 +363,56 @@
         maxUnits = Math.max(...allProducts.map(p => p.pick_frequency || 0), 1);
         
         renderProducts(allProducts);
+
+        // Restore user view preference if present
+        const savedView = localStorage.getItem('wo-products-view') || 'tiles';
+        switchView(savedView);
       } catch (err) {
         console.error("Failed to load products:", err);
       }
     }
 
+    function switchView(view) {
+      const tilesGrid = document.getElementById('products-tiles-grid');
+      const tableCard = document.getElementById('products-table-card');
+      const btnTiles = document.getElementById('btn-view-tiles');
+      const btnTable = document.getElementById('btn-view-table');
+
+      if (view === 'table') {
+        tilesGrid.style.display = 'none';
+        tableCard.style.display = 'block';
+        btnTiles.classList.remove('active');
+        btnTable.classList.add('active');
+        localStorage.setItem('wo-products-view', 'table');
+      } else {
+        tilesGrid.style.display = 'grid';
+        tableCard.style.display = 'none';
+        btnTiles.classList.add('active');
+        btnTable.classList.remove('active');
+        localStorage.setItem('wo-products-view', 'tiles');
+      }
+    }
+
     function renderProducts(items) {
+      const tilesContainer = document.getElementById('products-tiles-grid');
       const tbody = document.getElementById('products-table-body');
+      tilesContainer.innerHTML = '';
       tbody.innerHTML = '';
 
       document.getElementById('product-count-label').textContent = `Showing ${items.length} of ${allProducts.length} items`;
 
       if (items.length === 0) {
+        tilesContainer.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 3.5rem 1.5rem; background: var(--card-bg); border-radius: 14px; border: 1px solid var(--border-color); color: var(--text-muted);">
+            <p style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.35rem; color: var(--text-main);">No matching products found</p>
+            <p style="font-size: 0.85rem;">Try adjusting your search query or category filter.</p>
+          </div>
+        `;
         tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">No matching products found.</td></tr>';
         return;
       }
 
       items.forEach(p => {
-        const tr = document.createElement('tr');
-
         // Dynamic category badges
         let catBadge = 'badge-primary';
         if (p.category === 'Fragile') catBadge = 'badge-warning';
@@ -201,17 +426,65 @@
         const pct = Math.min(100, Math.round((freq / maxUnits) * 100));
         let meterClass = 'low';
         let tierBadge = '<span class="badge">Tier C (Low)</span>';
+        let throughputText = 'Standard velocity';
 
         if (pct >= 65) {
           meterClass = 'high';
           tierBadge = '<span class="badge badge-success">★ Tier A (High)</span>';
+          throughputText = 'High throughput';
         } else if (pct >= 35) {
           meterClass = 'medium';
           tierBadge = '<span class="badge badge-primary">Tier B (Medium)</span>';
+          throughputText = 'Moderate flow';
         }
 
-        const shelfLabel = p.shelf_id ? `Shelf ${p.shelf_id}` : '<span style="color:#ef4444;">Unassigned</span>';
+        const shelfId = p.assigned_shelf_id || p.shelf_id;
+        const shelfLabel = shelfId ? `Shelf ${shelfId}` : '<span style="color:#ef4444;">Unassigned</span>';
+        const shelfBadgeHtml = shelfId 
+          ? `<span class="badge badge-primary" style="font-weight: 700; font-size: 0.8rem;">Shelf ${shelfId}</span>`
+          : `<span class="badge" style="background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25); font-weight: 700; font-size: 0.8rem;">Unassigned</span>`;
+        const stockQty = p.stock_quantity !== undefined ? p.stock_quantity : 50;
 
+        // 1. Tile card rendering
+        const tile = document.createElement('div');
+        tile.className = 'product-tile';
+        tile.innerHTML = `
+          <div>
+            <div class="product-tile-header">
+              <span class="product-tile-id">#${p.id}</span>
+              ${tierBadge}
+            </div>
+            <div class="product-tile-name" title="${p.name}">${p.name}</div>
+            <div class="product-tile-meta">
+              <span class="badge ${catBadge}">${p.category}</span>
+              <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); font-family: var(--font-mono);">${stockQty} in stock</span>
+            </div>
+            <div class="product-tile-shelf">
+              <div class="product-tile-shelf-info">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="product-tile-shelf-icon"><path d="M3 3h18v18H3zM3 9h18M3 15h18M9 3v18"/></svg>
+                <span>Storage Location:</span>
+              </div>
+              ${shelfBadgeHtml}
+            </div>
+          </div>
+          <div class="product-tile-velocity-card">
+            <div class="product-tile-velocity-header">
+              <span>Pick Velocity</span>
+              <span class="product-tile-velocity-number">${freq.toLocaleString()} units</span>
+            </div>
+            <div class="product-tile-progress-track">
+              <div class="product-tile-progress-fill ${meterClass}" style="width: ${pct}%;"></div>
+            </div>
+            <div class="product-tile-velocity-sub">
+              <span>Demand: ${pct}%</span>
+              <span>${throughputText}</span>
+            </div>
+          </div>
+        `;
+        tilesContainer.appendChild(tile);
+
+        // 2. Table row rendering (for alternate table view)
+        const tr = document.createElement('tr');
         tr.innerHTML = `
           <td><strong>#${p.id}</strong></td>
           <td style="font-weight: 600; color: var(--text-main);">${p.name}</td>

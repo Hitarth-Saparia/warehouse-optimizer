@@ -5,64 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Order Picking Route Optimizer. Traveling Salesperson Problem (TSP) solver with interactive floorplan route visualization and simulated picker tour.">
   <title>Order Picking Route Optimizer | Warehouse Optimizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="powerbi.css">
   <link rel="stylesheet" href="style.css">
   <script src="theme.js"></script>
   <script src="auth.js"></script>
+  <script src="profile-settings.js"></script>
 </head>
 <body>
 
-  <!-- Common Navigation Bar -->
-  <nav class="navbar">
-    <a href="landing.html" class="nav-brand" title="Return to Landing Page">
-      <div class="nav-logo-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-          <line x1="12" y1="22.08" x2="12" y2="12"></line>
-        </svg>
-      </div>
-      <div class="nav-brand-title">
-        <span class="main-text">Warehouse Optimizer</span>
-        <span class="sub-text">Intelligent Slotting & TSP Routing</span>
-      </div>
-    </a>
-    <ul class="nav-links">
-      <li>
-        <a href="index.html?modal=profile" class="nav-profile-btn" id="nav-profile-settings" title="Manager Profile Settings & Earnings">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-            <circle cx="12" cy="7" r="4"></circle>
-          </svg>
-          Profile Settings &amp; Earnings
+  <!-- Executive Topbar Navigation (Dashboard UI) -->
+  <header class="topbar">
+    <div class="wrap">
+      <div class="brand">
+        <a href="landing.html" class="brand-icon" title="Landing Page" aria-label="Warehouse Optimizer home">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7.5L12 12.5l8.7-5"/><path d="M12 22V12.5"/></svg>
         </a>
-      </li>
-      <li><a href="index.html">Dashboard</a></li>
-      <li><a href="products.html">Products</a></li>
-      <li><a href="layout.html">Layout Optimizer</a></li>
-      <li><a href="graph.html">Warehouse Graph</a></li>
-      <li><a href="order-picking.html" class="active">Order Picking</a></li>
-      <li><a href="waves.html">Wave Picking</a></li>
-      <li><a href="fleet.html">Fleet Balancing</a></li>
-    </ul>
-    <div class="nav-right-actions">
-      <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle theme">
-        <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="5"></circle>
-          <line x1="12" y1="1" x2="12" y2="3"></line>
-          <line x1="12" y1="21" x2="12" y2="23"></line>
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-          <line x1="1" y1="12" x2="3" y2="12"></line>
-          <line x1="21" y1="12" x2="23" y2="12"></line>
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-        </svg>
-        <svg class="moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-        </svg>
-      </button>
+        <span><strong>Warehouse Optimizer</strong><small>INTELLIGENT SLOTTING &amp; TSP ROUTING</small></span>
+      </div>
+      <nav class="nav" aria-label="Manager navigation">
+        <a href="index.html">Dashboard</a>
+        <a href="products.html">Products</a>
+        <a href="layout.html">Layout Optimizer</a>
+        <a href="graph.html">Warehouse Graph</a>
+        <a href="order-picking.html" class="active">Order Picking</a>
+        <a href="waves.html">Wave Picking</a>
+        <a href="fleet.html">Fleet Balancing</a>
+      </nav>
+      <div class="user">
+        <span class="avatar" id="avatar" title="Manager Profile &amp; Settings">AM</span>
+        <span class="user-meta" id="userMeta" title="Manager Profile &amp; Settings"><b id="uname">Alex Morgan</b><span>Operations Manager</span></span>
+        <button class="ib" id="logout" aria-label="Sign out" title="Sign out"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+        <button class="ib" id="theme" aria-label="Toggle theme"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></button>
+      </div>
     </div>
-  </nav>
+  </header>
 
   <div class="container">
     <div class="page-header">
