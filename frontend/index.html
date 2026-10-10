@@ -554,7 +554,7 @@ tbody tr { transition: background .15s; } tbody tr:hover { background: var(--sof
 (function () {
   var $ = function (id) { return document.getElementById(id); };
 
-  /* ---- Manager-only guard (strictly enforces manager access) ---- */
+  /* ---- Auth guard: require any authenticated session ---- */
   try {
     var role = sessionStorage.getItem('wo-role') || localStorage.getItem('wo-role');
     if (!role) {
@@ -569,9 +569,9 @@ tbody tr { transition: background .15s; } tbody tr:hover { background: var(--sof
         } catch (err) {}
       }
     }
-    // Strict guard: ONLY manager (or admin) can view this dashboard!
-    if (!role || !/manager|admin/i.test(role)) {
-      window.location.replace('login.html?role=manager');
+    // Redirect only if completely unauthenticated (no role = no session)
+    if (!role) {
+      window.location.replace('login.html?redirect=index.html&login_required=1');
       return;
     }
     var nm = sessionStorage.getItem('wo-name') || localStorage.getItem('wo-name');
@@ -588,11 +588,17 @@ tbody tr { transition: background .15s; } tbody tr:hover { background: var(--sof
       $('uname').textContent = nm;
       $('wname').textContent = nm;
     }
+    // Hide manager-only sections for non-manager roles
+    var isManager = /manager|admin/i.test(role);
+    document.querySelectorAll('[data-manager-only]').forEach(function(el) {
+      el.style.display = isManager ? '' : 'none';
+    });
   } catch (e) {}
 
   var initials = ($('uname').textContent || 'Alex Morgan').split(' ').map(function (s) { return s[0]; }).join('').slice(0, 2).toUpperCase();
   $('avatar').textContent = initials;
   $('wAvatar').textContent = initials;
+
 
   /* ---- Demo data ---- */
   var TOURS = {

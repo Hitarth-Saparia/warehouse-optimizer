@@ -273,7 +273,20 @@ input.invalid { border-color: var(--danger); }
   // ---- CONFIG: adjusted to match backend endpoints & session ----
   var API_LOGIN    = '/api/auth/login';      // POST {email, password}
   var API_REGISTER = '/api/auth/register';   // POST {name, email, password}
-  var DASHBOARD    = new URLSearchParams(location.search).get('redirect') || 'index.html';  // redirect after success
+  var REDIRECT_OVERRIDE = new URLSearchParams(location.search).get('redirect') || null;  // explicit redirect from URL
+  // Role-specific default landing pages
+  var ROLE_DASHBOARDS = {
+    manager: 'index.html',
+    admin:   'index.html',
+    supervisor: 'order-picking.html',
+    fleet:   'fleet.html',
+    guest:   'products.html'
+  };
+  function getDashboardForRole(role) {
+    if (REDIRECT_OVERRIDE) return REDIRECT_OVERRIDE;
+    var r = (role || '').toLowerCase();
+    return ROLE_DASHBOARDS[r] || 'index.html';
+  }
   var DEMO_PASSWORD = 'password123';         // standard password for the seeded demo accounts
   var DEMOS = {
     manager: { email: 'admin@warehouse.io',      label: 'Operations Manager', role: 'manager' },
@@ -368,8 +381,10 @@ input.invalid { border-color: var(--danger); }
         localStorage.setItem('warehouse_auth_user', JSON.stringify(user));
       }
       window.dispatchEvent(new CustomEvent('authchange', { detail: { user: user, token: token } }));
+      return user;
     } catch (e) {
       console.warn('Session persistence error:', e);
+      return null;
     }
   }
 
@@ -379,16 +394,20 @@ input.invalid { border-color: var(--danger); }
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, data: d }; }); })
       .then(function (res) {
         if (!res.ok) throw new Error(res.data.error || res.data.message || 'Invalid credentials.');
-        saveSession(res.data, payload);
+        var savedUser = saveSession(res.data, payload);
+        var role = (savedUser && savedUser.role) || (res.data.user && res.data.user.role) || '';
+        var dest = getDashboardForRole(role);
         setStatus('Signed in. Redirecting…', 'ok');
-        setTimeout(function () { window.location.href = DASHBOARD; }, 400);
+        setTimeout(function () { window.location.href = dest; }, 400);
       })
       .catch(function (err) {
         // Fallback demo support in case backend is offline or unreachable
         if (payload.guest || selectedRole) {
+          var demoRole = selectedRole ? DEMOS[selectedRole].role : 'manager';
           saveSession({}, payload);
+          var dest = getDashboardForRole(demoRole);
           setStatus('Signed in as demo profile. Redirecting…', 'ok');
-          setTimeout(function () { window.location.href = DASHBOARD; }, 400);
+          setTimeout(function () { window.location.href = dest; }, 400);
           return;
         }
         setStatus(err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message, 'error');
