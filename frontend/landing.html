@@ -8,8 +8,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="powerbi.css">
 <script src="theme.js"></script>
 <script src="auth.js"></script>
+<script src="profile-settings.js"></script>
 <style>
 :root {
   --primary: #2C2C2E;
@@ -100,6 +102,28 @@ header.site-header {
 }
 .icon-btn:hover { transform: translateY(-2px); border-color: var(--primary); }
 .nav-actions .btn { padding: 9px 18px; }
+
+/* User Profile Header Component (Executive Topbar Parity) */
+.user { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--primary); color: #fff;
+  display: grid; place-items: center;
+  font-size: .8rem; font-weight: 700;
+  cursor: pointer; transition: transform .2s, box-shadow .2s;
+}
+.avatar:hover { transform: scale(1.08); box-shadow: var(--shadow); }
+.user-meta { cursor: pointer; text-align: left; }
+.user-meta b { display: block; font-size: .84rem; line-height: 1.15; color: var(--text-main); }
+.user-meta span { font-size: .7rem; color: var(--text-secondary); text-transform: capitalize; }
+.ib {
+  width: 38px; height: 38px; border-radius: 9px;
+  border: 1px solid var(--border-color); background: transparent;
+  color: var(--text-main); display: grid; place-items: center;
+  cursor: pointer; transition: transform .2s, border-color .2s, background .2s;
+}
+.ib:hover { transform: translateY(-2px); border-color: var(--accent); background: rgba(183,184,159,.12); }
+@media (max-width: 900px) { .user-meta { display: none; } }
 
 /* Hero */
 .hero { padding: 72px 0 56px; position: relative; overflow: hidden; }
@@ -407,21 +431,21 @@ footer li a:hover { color: #FFFFFF; padding-left: 4px; }
           <h3>Manager</h3>
           <p>Slotting analytics, KPI dashboards, audit trail and user management.</p>
           <div class="creds"><div><span>user</span> admin@warehouse.io</div><div><span>pass</span> password123</div></div>
-          <a href="login.html" class="btn btn-primary">Sign in as Manager</a>
+          <a href="login.html?role=manager&auto=1" class="btn btn-primary">Sign in as Manager</a>
         </article>
         <article class="card profile">
           <span class="role-badge">Picker Lead</span>
           <h3>Picker Lead</h3>
           <p>Wave batching, TSP route comparison and graph topology tools.</p>
           <div class="creds"><div><span>user</span> supervisor@warehouse.io</div><div><span>pass</span> password123</div></div>
-          <a href="login.html" class="btn btn-primary">Sign in as Picker Lead</a>
+          <a href="login.html?role=picker&auto=1" class="btn btn-primary">Sign in as Picker Lead</a>
         </article>
         <article class="card profile">
           <span class="role-badge">Fleet Coordinator</span>
           <h3>Fleet Lead</h3>
           <p>Multi-picker assignment, workload balance and congestion monitoring.</p>
           <div class="creds"><div><span>user</span> fleet@warehouse.io</div><div><span>pass</span> password123</div></div>
-          <a href="login.html" class="btn btn-primary">Sign in as Fleet Lead</a>
+          <a href="login.html?role=fleet&auto=1" class="btn btn-primary">Sign in as Fleet Lead</a>
         </article>
       </div>
     </div>

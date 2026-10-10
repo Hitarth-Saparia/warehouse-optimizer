@@ -414,8 +414,16 @@ input.invalid { border-color: var(--danger); }
   [nameI, email, pw].forEach(function (i) { if (i) i.addEventListener('input', function () { i.classList.remove('invalid'); }); });
 
   bindSwitch();
-  var q = new URLSearchParams(location.search).get('role');
-  if (q && DEMOS[q]) pickRole(q);
+  var params = new URLSearchParams(location.search);
+  var q = params.get('role');
+  if (q && DEMOS[q]) {
+    pickRole(q);
+    if (params.get('auto') === '1') {
+      setTimeout(function () {
+        submit({ email: DEMOS[q].email, password: DEMO_PASSWORD, role: q }, API_LOGIN);
+      }, 100);
+    }
+  }
 })();
 </script>
 </body>

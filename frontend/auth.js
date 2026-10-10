@@ -601,7 +601,81 @@ function renderNavAuth() {
     }
   }
 
-  const rightActions = document.querySelector('.nav-right-actions');
+  // 2. Synchronize Landing Page Navigation (.nav-actions) if present
+  const navActions = typeof document !== 'undefined' ? document.querySelector('.nav-actions') : null;
+  if (navActions) {
+    if (user) {
+      const initials = user.initials || (user.name ? user.name.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase() : 'AM');
+      const roleTitle = user.role || 'Operations Manager';
+      const userName = user.name || 'Alex Morgan';
+
+      navActions.innerHTML = `
+        <div class="user" id="user-section">
+          <span class="avatar" id="avatar" title="Manager Profile &amp; Settings">${initials}</span>
+          <span class="user-meta" id="userMeta" title="Manager Profile &amp; Settings"><b id="uname">${userName}</b><span>${roleTitle}</span></span>
+          <button class="ib" id="logout" aria-label="Sign out" title="Sign out"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+          <button class="ib" id="theme" aria-label="Toggle theme"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></button>
+        </div>
+      `;
+
+      // Update Dashboard nav link to direct index.html
+      const dashLink = document.querySelector('.nav-links a[href*="index.html"]');
+      if (dashLink) {
+        dashLink.href = 'index.html';
+      }
+      // Update Hero CTA buttons
+      const heroCtaPrimary = document.querySelector('.cta-row a[href*="index.html"]');
+      if (heroCtaPrimary) {
+        heroCtaPrimary.href = 'index.html';
+        heroCtaPrimary.innerHTML = 'Go to Executive Dashboard <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+      }
+      const heroCtaOutline = document.querySelector('.cta-row a[href*="graph.html"]');
+      if (heroCtaOutline) {
+        heroCtaOutline.href = 'graph.html';
+      }
+    } else {
+      navActions.innerHTML = `
+        <button class="ib" id="theme" aria-label="Toggle theme"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></button>
+        <a href="login.html" class="btn btn-primary" id="landing-login-btn">Sign In</a>
+      `;
+    }
+
+    const avatarEl = navActions.querySelector('#avatar');
+    if (avatarEl) {
+      avatarEl.addEventListener('click', () => {
+        if (typeof openProfileSettingsModal === 'function') openProfileSettingsModal('settings');
+      });
+    }
+
+    const userMeta = navActions.querySelector('#userMeta');
+    if (userMeta) {
+      userMeta.addEventListener('click', () => {
+        if (typeof openProfileSettingsModal === 'function') openProfileSettingsModal('settings');
+      });
+    }
+
+    const logoutBtn = navActions.querySelector('#logout');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        logoutUser();
+      });
+    }
+
+    if (typeof updateThemeToggleButtons === 'function') {
+      updateThemeToggleButtons();
+    }
+    const themeBtn = navActions.querySelector('#theme');
+    if (themeBtn && !themeBtn._themeInitialized) {
+      themeBtn._themeInitialized = true;
+      themeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (typeof toggleTheme === 'function') toggleTheme();
+      });
+    }
+  }
+
+  const rightActions = typeof document !== 'undefined' ? document.querySelector('.nav-right-actions') : null;
   if (!rightActions) return;
 
   // Remove existing auth elements if already present
