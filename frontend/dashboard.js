@@ -807,7 +807,7 @@ async function loadFleetDashboard() {
 
     if (elWorkers) elWorkers.textContent = fMetrics.active_workers || currentFleetWorkerCount;
     if (elCapacity) elCapacity.textContent = currentFleetCartCapacity;
-    if (elWaves) elWaves.textContent = wMetrics.total_waves_formed || 0;
+    if (elWaves) elWaves.textContent = wMetrics.total_waves_formed || wMetrics.total_batches || 0;
     if (elMakespan) elMakespan.textContent = (fMetrics.makespan_distance || 0) + ' m';
 
     // Populate Worker Workload Cards

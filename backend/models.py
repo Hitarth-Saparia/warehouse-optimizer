@@ -64,6 +64,7 @@ class Order:
     def to_dict(self):
         return {
             "id": self.id,
+            "order_id": self.id,
             "customer_name": self.customer_name,
             "status": self.status,
             "item_count": self.item_count,

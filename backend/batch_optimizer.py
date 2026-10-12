@@ -189,6 +189,7 @@ class BatchOptimizer:
         metrics = {
             "total_orders": len(order_meta),
             "total_batches": len(batched_results),
+            "total_waves_formed": len(batched_results),
             "avg_orders_per_batch": round(len(order_meta) / len(batched_results), 1) if batched_results else 0.0,
             "unbatched_total_distance": round(unbatched_total_distance, 2),
             "batched_total_distance": round(batched_total_distance, 2),

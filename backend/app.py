@@ -37,8 +37,11 @@ CORS(app)
 from backend.db import get_db, get_active_db_type, DB_CONFIG
 
 def parse_int_arg(param_name, default, min_val=None, max_val=None):
-    """Safely extracts and validates an integer query parameter."""
+    """Safely extracts and validates an integer query parameter or JSON body value."""
     raw = request.args.get(param_name)
+    if raw is None and request.is_json:
+        body = request.get_json(silent=True) or {}
+        raw = body.get(param_name)
     if raw is None:
         return default
     try:
@@ -930,12 +933,14 @@ def optimize_layout():
         return jsonify({
             "status": "success",
             "summary": summary,
-            "assignments": assignments
+            "assignments": assignments,
+            "proposed_assignments": assignments
         })
     finally:
         conn.close()
 
 @app.route("/api/layout/apply", methods=["POST"])
+@app.route("/api/layout/save", methods=["POST"])
 def apply_layout():
     """
     Applies the proposed assignments to the database.
@@ -1342,7 +1347,11 @@ def get_batch_waves():
     into wave picking batches to minimize aggregate walking distance.
     Supports optional cart_capacity parameter.
     """
-    cart_capacity = parse_int_arg("cart_capacity", default=35, min_val=5, max_val=500)
+    cart_capacity = parse_int_arg("cart_capacity", default=None)
+    if cart_capacity is None:
+        cart_capacity = parse_int_arg("max_cart_capacity", default=35, min_val=5, max_val=500)
+    else:
+        cart_capacity = max(5, min(500, cart_capacity))
     conn = get_db()
     try:
         warehouse = fetch_warehouse(conn)
@@ -1396,7 +1405,11 @@ def assign_fleet_waves():
     2. Assigns waves across M pickers to minimize makespan and equalize shift workload.
     """
     workers_count = parse_int_arg("workers", default=3, min_val=1, max_val=5)
-    cart_capacity = parse_int_arg("cart_capacity", default=35, min_val=5, max_val=500)
+    cart_capacity = parse_int_arg("cart_capacity", default=None)
+    if cart_capacity is None:
+        cart_capacity = parse_int_arg("max_cart_capacity", default=35, min_val=5, max_val=500)
+    else:
+        cart_capacity = max(5, min(500, cart_capacity))
     default_names = ["Picker Alpha", "Picker Bravo", "Picker Charlie", "Picker Delta", "Picker Echo"]
     names = default_names[:max(1, min(workers_count, len(default_names)))]
 
