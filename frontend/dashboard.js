@@ -36,18 +36,53 @@ function initDashboardRole() {
  * Update the top identity banner
  */
 function updateDashboardBannerIdentity(user) {
-  const nameEl = document.getElementById('user-greeting-name');
-  const roleEl = document.getElementById('user-greeting-role');
-  const avatarEl = document.getElementById('user-greeting-avatar');
+  const nameEl = document.getElementById('user-greeting-name') || document.getElementById('wname');
+  const roleEl = document.getElementById('user-greeting-role') || document.getElementById('wpill');
+  const avatarEl = document.getElementById('user-greeting-avatar') || document.getElementById('wAvatar');
+  const descEl = document.getElementById('wdesc');
+  const accessEl = document.getElementById('waccess');
 
-  if (user) {
-    if (nameEl) nameEl.textContent = user.name;
-    if (roleEl) roleEl.textContent = user.role.toUpperCase();
-    if (avatarEl) avatarEl.textContent = user.initials || 'U';
-  } else {
-    if (nameEl) nameEl.textContent = 'Warehouse Operator';
-    if (roleEl) roleEl.textContent = 'GUEST PREVIEW';
-    if (avatarEl) avatarEl.textContent = 'WO';
+  const uName = (user && user.name) || (typeof sessionStorage !== 'undefined' && (sessionStorage.getItem('wo-name') || localStorage.getItem('wo-name'))) || 'Alex Morgan';
+  const uRole = (user && user.role) || (typeof sessionStorage !== 'undefined' && (sessionStorage.getItem('wo-role') || localStorage.getItem('wo-role'))) || 'manager';
+  const uInitials = (user && user.initials) || uName.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase();
+
+  if (nameEl) nameEl.textContent = uName;
+  if (avatarEl) avatarEl.textContent = uInitials;
+
+  const isFleet = isFleetUser(user) || /fleet/i.test(uRole);
+  const isSupervisor = isPickerLeadUser(user) || /supervisor|picker/i.test(uRole);
+  const isManager = !isFleet && !isSupervisor;
+
+  if (roleEl) {
+    if (isFleet) roleEl.textContent = 'FLEET COORDINATOR';
+    else if (isSupervisor) roleEl.textContent = 'ORDER PICKER';
+    else roleEl.textContent = 'MANAGER';
+  }
+
+  if (descEl) {
+    if (isFleet) {
+      descEl.textContent = 'Fleet mission control for multi-picker workload balancing, cart limits, and wave allocations.';
+    } else if (isSupervisor) {
+      descEl.textContent = 'Floor operations mission control for pick queues, order routing, and corridor safety.';
+    } else {
+      descEl.textContent = 'Executive mission control for slotting, routing and fleet performance.';
+    }
+  }
+
+  if (accessEl) {
+    if (isFleet) {
+      accessEl.innerHTML = '<span class="dot" style="background:#107C41;"></span> Fleet Coordinator access · mTSP balancing active';
+    } else if (isSupervisor) {
+      accessEl.innerHTML = '<span class="dot" style="background:#f59e0b;"></span> Order Picker access · live queue active';
+    } else {
+      accessEl.innerHTML = '<span class="dot"></span> Manager access · full audit logging on';
+    }
+  }
+
+  // Hide the role switcher tab group for pickers so they are dedicated to their own dashboard
+  const tabGroup = document.querySelector('.role-tab-group');
+  if (tabGroup) {
+    tabGroup.style.display = isManager ? 'inline-flex' : 'none';
   }
 }
 
@@ -566,7 +601,7 @@ async function loadSupervisorDashboard() {
     // 1. Fetch Orders List
     const resOrders = await fetch('/api/orders');
     const ordersData = await resOrders.json();
-    const orders = ordersData.orders || [];
+    const orders = Array.isArray(ordersData) ? ordersData : (ordersData.orders || []);
 
     // Tally queue counts
     const pendingCount = orders.filter(o => (o.status || 'Pending').toLowerCase() === 'pending').length;

@@ -301,11 +301,20 @@
           select.appendChild(opt);
         });
 
+        // Support direct linking from dashboard (e.g. order-picking.html?order=3)
+        const urlParams = new URLSearchParams(window.location.search);
+        const requestedOrder = urlParams.get('order');
+        if (requestedOrder && orders.some(o => String(o.id) === String(requestedOrder))) {
+          select.value = requestedOrder;
+        }
+
+        select.addEventListener('change', () => computeRoute());
+
         // Setup Canvas Listeners and Initial Render
         setupCanvasInteractivity();
         resizeCanvas();
 
-        // Compute route for the first order by default
+        // Compute route for the selected order by default
         if (orders.length > 0) {
           computeRoute();
         }
@@ -1036,6 +1045,7 @@
     // --- Sub-renderer: Fixed Viewport HUD Overlays ---
     function drawScreenHUD(ctx, width, height) {
       ctx.save();
+      const dark = typeof isDarkMode === 'function' && isDarkMode();
 
       // 1. Facility Header & North Compass (Top-Left)
       const cx = 35;
@@ -1074,7 +1084,6 @@
       ctx.fillText('N', cx, cy - 11);
 
       // Facility Label
-      const dark = typeof isDarkMode === 'function' && isDarkMode();
       ctx.fillStyle = dark ? '#F2F2F7' : '#1C1C1E';
       ctx.font = 'bold 11px sans-serif';
       ctx.textAlign = 'left';
