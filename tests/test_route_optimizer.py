@@ -40,20 +40,38 @@ def test_tsp_empty_stops(sample_warehouse):
     assert res["stops"] == [1]
 
 
-def test_tsp_2opt_heuristic_large_instances():
+def test_tsp_held_karp_exact_optimality():
     w = Warehouse()
-    # Linear aisle with 12 stops
-    for i in range(1, 12):
+    for i in range(1, 10):
         w.add_edge(i, i + 1, 5.0)
-    w.add_edge(12, 1, 15.0)
+    w.add_edge(10, 1, 10.0)
 
     opt = RouteOptimizer(w)
-    # 8 stops -> triggers Nearest-Neighbor + 2-Opt
+    # 8 stops -> triggers Held-Karp DP (Exact TSP for 8 <= k <= 12)
     stops = [2, 3, 4, 5, 6, 7, 8, 9]
     res = opt.solve_order_route(10, stops)
 
-    assert "2-Opt" in res["algorithm"]
+    assert "Held-Karp" in res["algorithm"]
     assert res["stop_count"] == 8
+    assert res["stops"][0] == 1
+    assert res["stops"][-1] == 1
+
+
+def test_tsp_2opt_heuristic_large_instances():
+    w = Warehouse()
+    # Linear aisle with 15 stops
+    for i in range(1, 15):
+        w.add_edge(i, i + 1, 5.0)
+    w.add_edge(15, 1, 15.0)
+
+    opt = RouteOptimizer(w)
+    # > 12 stops -> triggers Nearest-Neighbor + 2-Opt heuristic
+    stops = list(range(2, 15))
+    res = opt.solve_order_route(10, stops)
+
+    assert "2-Opt" in res["algorithm"]
+    assert res["stop_count"] == 13
     assert res["total_distance"] > 0
     assert res["stops"][0] == 1
     assert res["stops"][-1] == 1
+

@@ -1398,7 +1398,7 @@
       const banner = document.getElementById('proposal-banner');
       banner.style.display = 'block';
 
-      document.getElementById('proposal-meta-text').textContent = `Run #${r.run_id} &bull; ${r.available_vehicles_count} vehicles evaluated`;
+      document.getElementById('proposal-meta-text').textContent = `Run #${r.run_id} · ${r.available_vehicles_count} vehicles evaluated`;
       document.getElementById('comp-cost-after').textContent = '$' + r.comparison.cost_after.toFixed(2);
       document.getElementById('comp-cost-before').textContent = 'Baseline: $' + r.comparison.cost_before.toFixed(2);
       document.getElementById('comp-savings').textContent = '$' + r.comparison.cost_savings.toFixed(2);

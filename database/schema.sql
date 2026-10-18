@@ -37,6 +37,7 @@ CREATE TABLE products (
     category VARCHAR(80) NOT NULL,
     assigned_shelf_id INT NULL,
     stock_quantity INT NOT NULL DEFAULT 50,
+    volume FLOAT NOT NULL DEFAULT 1.0,
     CONSTRAINT fk_prod_shelf FOREIGN KEY (assigned_shelf_id) 
         REFERENCES shelves(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
@@ -255,4 +256,17 @@ CREATE TABLE wave_exceptions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_exc_wave FOREIGN KEY (wave_id)
         REFERENCES waves(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 18. Layout Snapshots table: snapshot history for undoing and auditing warehouse re-slotting
+CREATE TABLE layout_snapshots (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    strategy VARCHAR(50) NOT NULL DEFAULT 'velocity',
+    assignments_json MEDIUMTEXT NOT NULL,
+    travel_index_before FLOAT NOT NULL DEFAULT 0.0,
+    travel_index_after FLOAT NOT NULL DEFAULT 0.0,
+    reduction_pct FLOAT NOT NULL DEFAULT 0.0,
+    user_email VARCHAR(120) NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'applied',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;

@@ -81,6 +81,11 @@ def test_layout_and_routing():
     assert status == 200 and save.get("status") == "success", "Failed to save layout"
     print("  [PASS] Layout database persistence (/api/layout/save) succeeded")
 
+    # Test layout undo
+    status, undo_res = api("/api/layout/undo", method="POST")
+    assert status == 200 and undo_res.get("status") == "success", "Failed to undo layout"
+    print(f"  [PASS] Layout snapshot undo (/api/layout/undo) restored {undo_res.get('restored_count')} SKUs")
+
     # Test order routing
     status, route = api("/api/orders/1/route", method="POST")
     assert status == 200, "Failed to compute order route"

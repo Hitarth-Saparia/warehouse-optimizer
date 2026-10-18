@@ -414,10 +414,11 @@ def fetch_all_products(conn):
         cur.execute("""
             SELECT p.id, p.name, p.category, p.assigned_shelf_id,
                    COALESCE(p.stock_quantity, 50) AS stock_quantity,
+                   COALESCE(p.volume, 1.0) AS volume,
                    COALESCE(SUM(s.units_sold), 0) AS pick_frequency
             FROM products p
             LEFT JOIN sales s ON p.id = s.product_id
-            GROUP BY p.id, p.name, p.category, p.assigned_shelf_id, p.stock_quantity
+            GROUP BY p.id, p.name, p.category, p.assigned_shelf_id, p.stock_quantity, p.volume
             ORDER BY pick_frequency DESC
         """)
         rows = cur.fetchall()
@@ -624,14 +625,18 @@ def save_warehouse_graph():
                 )
 
         recalculate_warehouse_distances(conn)
+
+        user_email = _get_request_user_email()
+        record_audit_log(conn, None, user_email, "GRAPH_UPDATE", "SUCCESS", f"Updated warehouse graph: {len(submitted_ids)} nodes, {len(edge_pairs_seen)} edges")
         conn.commit()
 
         updated_w = fetch_warehouse(conn)
+        updated_w._invalidate_cache()
         res_dict = updated_w.to_dict()
         res_dict["blocked_corridors"] = updated_w.get_blocked_corridors()
         return jsonify({
             "status": "success",
-            "message": "Warehouse graph saved and shortest paths recomputed successfully.",
+            "message": f"Warehouse graph saved: {len(submitted_ids)} nodes, {len(edge_pairs_seen)} edges. Shortest paths recomputed.",
             "graph": res_dict
         })
     except Exception as exc:
@@ -929,23 +934,53 @@ def get_blocked_corridors_api():
     finally:
         conn.close()
 
-@app.route("/api/layout/optimize", methods=["POST"])
+def _get_request_user_email():
+    """Helper to safely extract user email from Authorization header or default to admin."""
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+        claims = verify_token(token)
+        if claims and "sub" in claims:
+            conn = get_db()
+            try:
+                user = fetch_user_by_id(conn, claims["sub"])
+                if user:
+                    return user.email
+            finally:
+                conn.close()
+    return "admin@warehouse.io"
+
+@app.route("/api/layout/optimize", methods=["GET", "POST"])
 def optimize_layout():
     """
-    Executes greedy layout optimization.
-    Returns proposed old vs new shelf assignments without saving yet.
+    Executes greedy layout optimization under chosen strategy (Velocity or COI).
+    Returns proposed old vs new shelf assignments, travel index metrics, and floor heatmaps.
     """
+    data = request.get_json(silent=True) or {}
+    strategy = data.get("strategy") or request.args.get("strategy", "velocity")
+
     conn = get_db()
     try:
         products = fetch_all_products(conn)
         shelves = fetch_all_shelves(conn)
         optimizer = LayoutOptimizer()
-        assignments, summary = optimizer.optimize(products, shelves)
+        assignments, summary = optimizer.optimize(products, shelves, strategy=strategy)
+
+        # Check if an undoable layout snapshot exists
+        can_undo = False
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) AS cnt FROM layout_snapshots WHERE status = 'applied'")
+            res = cur.fetchone()
+            cnt = res["cnt"] if isinstance(res, dict) else res[0]
+            can_undo = bool(cnt > 0)
+
         return jsonify({
             "status": "success",
+            "strategy": strategy,
             "summary": summary,
             "assignments": assignments,
-            "proposed_assignments": assignments
+            "proposed_assignments": assignments,
+            "can_undo": can_undo
         })
     finally:
         conn.close()
@@ -954,10 +989,15 @@ def optimize_layout():
 @app.route("/api/layout/save", methods=["POST"])
 def apply_layout():
     """
-    Applies the proposed assignments to the database.
+    Applies the proposed assignments to the database, writes a snapshot for undo,
+    and records an audit trail entry.
     """
     data = request.get_json() or {}
     assignments = data.get("assignments")
+    strategy = data.get("strategy", "velocity")
+    summary = data.get("summary")
+    user_email = _get_request_user_email()
+
     if assignments is not None and not isinstance(assignments, list):
         return jsonify({"error": "'assignments' must be a list of shelf mappings."}), 400
 
@@ -968,23 +1008,80 @@ def apply_layout():
             products = fetch_all_products(conn)
             shelves = fetch_all_shelves(conn)
             optimizer = LayoutOptimizer()
-            assignments, _ = optimizer.optimize(products, shelves)
+            assignments, summary = optimizer.optimize(products, shelves, strategy=strategy)
 
         optimizer = LayoutOptimizer()
-        optimizer.apply(conn, assignments)
+        success, snapshot_id = optimizer.apply(
+            conn, assignments, user_email=user_email, strategy=strategy, summary=summary
+        )
+        if not success:
+            return jsonify({"status": "error", "error": snapshot_id}), 400
+
         return jsonify({
             "status": "success",
+            "snapshot_id": snapshot_id,
+            "updated_count": len(assignments),
             "message": f"Successfully updated shelf assignments for {len(assignments)} products."
         })
     finally:
         conn.close()
 
-@app.route("/api/orders/<int:order_id>/route", methods=["POST"])
+@app.route("/api/layout/undo", methods=["POST"])
+def undo_layout():
+    """
+    Reverts the most recent applied layout snapshot, restoring original shelf assignments,
+    and recording a warning audit entry.
+    """
+    user_email = _get_request_user_email()
+    conn = get_db()
+    try:
+        optimizer = LayoutOptimizer()
+        success, res = optimizer.undo(conn, user_email=user_email)
+        if not success:
+            return jsonify({"status": "error", "error": res}), 400
+
+        return jsonify({
+            "status": "success",
+            "message": res["message"],
+            "snapshot_id": res["snapshot_id"],
+            "restored_count": res["restored_count"]
+        })
+    finally:
+        conn.close()
+
+@app.route("/api/layout/snapshot/latest", methods=["GET"])
+def get_latest_layout_snapshot():
+    """
+    Returns metadata for the most recent active layout snapshot (for undo button state).
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, strategy, travel_index_before, travel_index_after, reduction_pct, user_email, status, created_at 
+                FROM layout_snapshots 
+                WHERE status = 'applied' 
+                ORDER BY id DESC LIMIT 1
+            """)
+            row = cur.fetchone()
+            if not row:
+                return jsonify({"has_snapshot": False, "snapshot": None})
+            return jsonify({
+                "has_snapshot": True,
+                "snapshot": dict(row)
+            })
+    finally:
+        conn.close()
+
+@app.route("/api/orders/<int:order_id>/route", methods=["POST", "GET"])
 def compute_order_route(order_id):
     """
     Computes the shortest picking route for the specified customer order.
-    Uses Brute-Force Permutation for small orders (<8 items), or Nearest-Neighbor fallback.
+    Uses Brute-Force (<8 stops) or Held-Karp (8-12 stops) for exact TSP, or 2-opt metaheuristics.
     """
+    data = request.get_json(silent=True) or {}
+    algorithm = data.get("algorithm") or request.args.get("algorithm", "auto")
+
     conn = get_db()
     try:
         warehouse = fetch_warehouse(conn)
@@ -995,12 +1092,14 @@ def compute_order_route(order_id):
 
         shelf_ids = [item["shelf_id"] for item in order.items if item["shelf_id"] is not None]
         router = RouteOptimizer(warehouse)
-        route_result = router.solve_order_route(order_id, shelf_ids)
+        route_result = router.solve_order_route(order_id, shelf_ids, algorithm_choice=algorithm)
         route_result["customer_name"] = order.customer_name
         route_result["items"] = order.items
+        route_result["status"] = order.status
         return jsonify(route_result)
     finally:
         conn.close()
+
 
 @app.route("/api/orders/create", methods=["POST"])
 def create_order():
@@ -1177,6 +1276,11 @@ def complete_order(order_id):
                     (it["quantity"], it["product_id"])
                 )
 
+            user_email = _get_request_user_email()
+            record_audit_log(
+                conn, None, user_email, "ORDER_COMPLETE", "SUCCESS",
+                f"Completed Order #{order_id} ({len(items)} items picked)"
+            )
             cur.execute("UPDATE orders SET status = 'Completed' WHERE id = %s", (order_id,))
             conn.commit()
 
@@ -1189,6 +1293,44 @@ def complete_order(order_id):
         })
     finally:
         conn.close()
+
+@app.route("/api/orders/<int:order_id>/dispatch", methods=["POST"])
+def dispatch_order(order_id):
+    """
+    Assigns a warehouse picker and dispatches the order for active picking.
+    Updates order status to 'Picking' and records an audit log.
+    """
+    data = request.get_json(silent=True) or {}
+    picker = str(data.get("picker", "Picker Alpha")).strip()
+    route_distance = float(data.get("route_distance", 0.0))
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, customer_name, status FROM orders WHERE id = %s", (order_id,))
+            order = cur.fetchone()
+            if not order:
+                return jsonify({"error": f"Order #{order_id} not found"}), 404
+
+            cur.execute("UPDATE orders SET status = 'Picking' WHERE id = %s", (order_id,))
+            
+            user_email = _get_request_user_email()
+            record_audit_log(
+                conn, None, user_email, "ORDER_DISPATCH", "SUCCESS",
+                f"Dispatched Order #{order_id} ({round(route_distance, 1)}m) to {picker}"
+            )
+            conn.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": f"Order #{order_id} successfully dispatched to {picker} ({round(route_distance, 1)}m).",
+            "order_id": order_id,
+            "picker": picker,
+            "new_status": "Picking"
+        })
+    finally:
+        conn.close()
+
 
 @app.route("/api/inventory/status", methods=["GET"])
 def get_inventory_status():

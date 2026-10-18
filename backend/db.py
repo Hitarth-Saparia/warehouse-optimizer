@@ -147,6 +147,7 @@ def init_sqlite_database():
             category TEXT NOT NULL,
             assigned_shelf_id INTEGER NULL,
             stock_quantity INTEGER NOT NULL DEFAULT 50,
+            volume REAL NOT NULL DEFAULT 1.0,
             FOREIGN KEY (assigned_shelf_id) REFERENCES shelves(id) ON DELETE SET NULL
         );
 
@@ -326,8 +327,32 @@ def init_sqlite_database():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (wave_id) REFERENCES waves(id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS layout_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            strategy TEXT NOT NULL DEFAULT 'velocity',
+            assignments_json TEXT NOT NULL,
+            travel_index_before REAL NOT NULL DEFAULT 0.0,
+            travel_index_after REAL NOT NULL DEFAULT 0.0,
+            reduction_pct REAL NOT NULL DEFAULT 0.0,
+            user_email TEXT NULL,
+            status TEXT NOT NULL DEFAULT 'applied',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
     """)
     conn.commit()
+
+    # Migrate products table volume column if missing
+    cur.execute("PRAGMA table_info(products)")
+    existing_prod_cols = {col[1] for col in cur.fetchall()}
+    if "volume" not in existing_prod_cols:
+        cur.execute("ALTER TABLE products ADD COLUMN volume REAL NOT NULL DEFAULT 1.0")
+        cur.execute("UPDATE products SET volume = 3.5 WHERE category = 'Heavy'")
+        cur.execute("UPDATE products SET volume = 1.5 WHERE category = 'Fragile'")
+        cur.execute("UPDATE products SET volume = 1.0 WHERE category = 'Tools'")
+        cur.execute("UPDATE products SET volume = 0.5 WHERE category = 'Electronics'")
+        cur.execute("UPDATE products SET volume = 0.1 WHERE category = 'Fasteners'")
+        conn.commit()
 
     # Migrate orders table columns if missing
     cur.execute("PRAGMA table_info(orders)")
@@ -590,6 +615,46 @@ def get_sqlite_connection():
     return SQLiteConnectionWrapper(raw_conn)
 
 
+_MYSQL_MIGRATED = False
+
+def ensure_mysql_migrations(conn):
+    global _MYSQL_MIGRATED
+    if _MYSQL_MIGRATED:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT COUNT(*) as cnt FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND COLUMN_NAME = 'volume'
+            """)
+            res = cur.fetchone()
+            cnt = res.get("cnt", 0) if isinstance(res, dict) else res[0]
+            if cnt == 0:
+                cur.execute("ALTER TABLE products ADD COLUMN volume FLOAT NOT NULL DEFAULT 1.0")
+                cur.execute("UPDATE products SET volume = 3.5 WHERE category = 'Heavy'")
+                cur.execute("UPDATE products SET volume = 1.5 WHERE category = 'Fragile'")
+                cur.execute("UPDATE products SET volume = 1.0 WHERE category = 'Tools'")
+                cur.execute("UPDATE products SET volume = 0.5 WHERE category = 'Electronics'")
+                cur.execute("UPDATE products SET volume = 0.1 WHERE category = 'Fasteners'")
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS layout_snapshots (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    strategy VARCHAR(50) NOT NULL DEFAULT 'velocity',
+                    assignments_json MEDIUMTEXT NOT NULL,
+                    travel_index_before FLOAT NOT NULL DEFAULT 0.0,
+                    travel_index_after FLOAT NOT NULL DEFAULT 0.0,
+                    reduction_pct FLOAT NOT NULL DEFAULT 0.0,
+                    user_email VARCHAR(120) NULL,
+                    status VARCHAR(50) NOT NULL DEFAULT 'applied',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB;
+            """)
+        _MYSQL_MIGRATED = True
+    except Exception as e:
+        print(f"[MySQL Migration Warning] {e}")
+
+
 def get_db():
     """
     Primary database accessor.
@@ -601,6 +666,7 @@ def get_db():
         try:
             conn = pymysql.connect(**DB_CONFIG)
             ACTIVE_DB_TYPE = "mysql"
+            ensure_mysql_migrations(conn)
             return conn
         except (pymysql.err.OperationalError, pymysql.err.InternalError, pymysql.err.ProgrammingError) as err:
             if ACTIVE_DB_TYPE != "sqlite":

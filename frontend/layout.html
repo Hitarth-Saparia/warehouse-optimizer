@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Greedy Layout Optimizer. Intelligently slot high-velocity warehouse inventory closer to packing under capacity and category constraints.">
+  <meta name="description" content="Intelligent Warehouse Layout Optimizer. Slot high-velocity SKUs closer to packing hub via Velocity (ABC) or Cube-per-Order Index (COI) strategies with interactive heat maps.">
   <title>Layout Optimizer | Warehouse Optimizer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,10 +13,381 @@
   <script src="theme.js"></script>
   <script src="auth.js"></script>
   <script src="profile-settings.js"></script>
+  <style>
+    /* Dedicated Layout Optimizer Component Styles */
+    :root {
+      --heat-0: #e2e8f0;
+      --heat-low: #cbd5e1;
+      --heat-mid: #93b584;
+      --heat-high: #5e7a52;
+      --heat-peak: #b8892f;
+      --rack-border: #94a3b8;
+    }
+
+    [data-theme="dark"] {
+      --heat-0: #242428;
+      --heat-low: #33383e;
+      --heat-mid: #4a6341;
+      --heat-high: #6b8f5d;
+      --heat-peak: #d49b2c;
+      --rack-border: #475569;
+    }
+
+    .strategy-toggle-group {
+      display: inline-flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .strategy-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s ease;
+    }
+
+    .strategy-btn:hover {
+      color: var(--text-main);
+    }
+
+    .strategy-btn[aria-pressed="true"] {
+      background: var(--card-bg);
+      color: var(--text-main);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+      border: 1px solid var(--border);
+    }
+
+    .strategy-btn:focus-visible,
+    .btn:focus-visible,
+    button:focus-visible {
+      outline: 2px solid var(--success);
+      outline-offset: 2px;
+    }
+
+    /* Heatmaps Side-by-Side Container */
+    .heatmaps-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .heatmaps-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .heatmaps-header h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .heatmap-legend {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .legend-bar {
+      display: inline-flex;
+      height: 10px;
+      width: 140px;
+      border-radius: 5px;
+      background: linear-gradient(to right, var(--heat-0), var(--heat-low), var(--heat-mid), var(--heat-high), var(--heat-peak));
+      border: 1px solid var(--border);
+    }
+
+    .heatmaps-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+
+    .heatmap-panel {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem;
+      position: relative;
+    }
+
+    .heatmap-panel-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.6rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-main);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .heatmap-svg-container {
+      width: 100%;
+      height: auto;
+      overflow: hidden;
+      border-radius: 8px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+    }
+
+    .heatmap-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* Shelf SVG elements */
+    .shelf-node {
+      cursor: pointer;
+      transition: transform 0.15s ease, filter 0.15s ease;
+    }
+
+    .shelf-node:hover {
+      filter: brightness(1.12);
+    }
+
+    .shelf-node rect {
+      transition: fill 0.3s ease, stroke 0.2s ease;
+    }
+
+    /* Heatmap Tooltip */
+    .map-tooltip {
+      position: absolute;
+      z-index: 1000;
+      pointer-events: none;
+      background: rgba(18, 18, 20, 0.94);
+      color: #ffffff;
+      padding: 0.65rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      line-height: 1.35;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(8px);
+      max-width: 240px;
+      display: none;
+      transform: translate(-50%, -115%);
+    }
+
+    .map-tooltip b {
+      color: var(--heat-peak);
+    }
+
+    /* Moves Table Enhancements */
+    .table-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .moves-counter {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .effect-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .effect-positive {
+      background: rgba(94, 122, 82, 0.16);
+      color: var(--success);
+      border: 1px solid rgba(94, 122, 82, 0.3);
+    }
+
+    .effect-negative {
+      background: rgba(162, 74, 62, 0.16);
+      color: var(--danger);
+      border: 1px solid rgba(162, 74, 62, 0.3);
+    }
+
+    .effect-neutral {
+      background: rgba(122, 122, 126, 0.12);
+      color: var(--text-muted);
+    }
+
+    /* Modal Styling */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: 90%;
+      max-width: 480px;
+      padding: 1.75rem;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+      transform: translateY(12px) scale(0.98);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .modal-overlay.active .modal-box {
+      transform: translateY(0) scale(1);
+    }
+
+    .modal-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin: 0 0 0.5rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .modal-desc {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+      margin-bottom: 1.5rem;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+    }
+
+    /* Floating Graph Toast */
+    .graph-toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      z-index: 100000;
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.75rem 1.25rem;
+      border-radius: 9999px;
+      background: rgba(18, 18, 20, 0.94);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      color: #ffffff;
+      font-size: 0.85rem;
+      font-weight: 600;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .graph-toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .graph-toast.success {
+      border-color: rgba(94, 122, 82, 0.6);
+    }
+
+    .graph-toast.success svg {
+      color: var(--success);
+    }
+
+    .graph-toast.error {
+      border-color: rgba(162, 74, 62, 0.6);
+    }
+
+    .graph-toast.error svg {
+      color: var(--danger);
+    }
+
+    /* Responsive Queries */
+    @media (max-width: 1024px) {
+      .heatmaps-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+      }
+      .strategy-toggle-group {
+        width: 100%;
+        display: flex;
+      }
+      .strategy-btn {
+        flex: 1;
+        justify-content: center;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
 </head>
 <body>
 
-  <!-- Executive Topbar Navigation (Dashboard UI) -->
+  <!-- Executive Topbar Navigation -->
   <header class="topbar">
     <div class="wrap">
       <div class="brand">
@@ -44,98 +415,156 @@
   </header>
 
   <div class="container">
+    <!-- Header with Strategy Controls & Actions -->
     <div class="page-header">
       <div>
         <h1 class="page-title">Greedy Inventory Slotting Optimizer</h1>
-        <p class="page-subtitle">Reallocate high-velocity items closer to dispatch hub while enforcing strict capacity and safety constraints</p>
+        <p class="page-subtitle">Reallocate warehouse SKUs closer to the dispatch hub under capacity and safety constraints</p>
       </div>
-      <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-        <button id="btn-run" class="btn btn-primary" onclick="runLayoutOptimization()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="5 3 19 12 5 21 5 3"></polygon>
-          </svg>
-          Run Layout Optimizer
+
+      <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+        <!-- Strategy Segmented Toggle -->
+        <div class="strategy-toggle-group" role="radiogroup" aria-label="Slotting strategy selection">
+          <button id="btn-strat-velocity" class="strategy-btn" role="radio" aria-checked="true" aria-pressed="true" onclick="setSlottingStrategy('velocity')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Velocity (ABC)
+          </button>
+          <button id="btn-strat-coi" class="strategy-btn" role="radio" aria-checked="false" aria-pressed="false" onclick="setSlottingStrategy('coi')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            COI (volume &divide; velocity)
+          </button>
+        </div>
+
+        <!-- Action Buttons -->
+        <button id="btn-undo" class="btn btn-warning" onclick="handleUndoLayout()" style="display: none;" title="Revert to snapshot before last layout optimization">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          Undo last layout
         </button>
-        <button id="btn-save" class="btn btn-success" onclick="saveLayout()" disabled>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-            <polyline points="17 21 17 13 7 13 7 21"></polyline>
-            <polyline points="7 3 7 8 15 8"></polyline>
-          </svg>
-          Save Layout to MySQL
+
+        <button id="btn-apply" class="btn btn-success" onclick="promptApplyLayout()" disabled title="Commit optimized shelf assignments to database">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Apply optimized layout
         </button>
       </div>
     </div>
 
-    <div class="concept-tag">
+    <!-- Active Strategy Concept Tag -->
+    <div class="concept-tag" id="strategy-explanation">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-        <polyline points="14 2 14 8 20 8"></polyline>
-        <line x1="16" y1="13" x2="8" y2="13"></line>
-        <line x1="16" y1="17" x2="8" y2="17"></line>
-        <polyline points="10 9 9 9 8 9"></polyline>
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="16" x2="12" y2="12"></line>
+        <line x1="12" y1="8" x2="12.01" y2="8"></line>
       </svg>
-      <div>
-        <strong>Optimization Heuristic:</strong>
-        1. Products sorted by pick velocity descending &bull;
-        2. Shelves sorted by corridor distance to packing ascending &bull;
-        3. Greedy assignment to nearest eligible shelf &bull;
-        4. Strict constraints verified: Shelf capacity &le; 5 units, Fragile & Heavy items strictly segregated.
+      <div id="strategy-text">
+        <strong>Strategy: Pareto ABC Velocity</strong> &bull;
+        High-velocity SKUs (Tier A: top 80% pick volume) are allocated to storage shelves nearest to the dispatch hub.
+        Corridor routing: same corridor = |&Delta;y|; different corridors = min(front cross-aisle, back cross-aisle).
+        Shelf capacity &le; 5 SKUs, Fragile and Heavy categories strictly segregated.
       </div>
     </div>
 
-    <!-- Optimization Status Alert -->
-    <div id="status-alert" class="alert alert-info" style="display: none;"></div>
-
-    <!-- Optimization Summary Cards -->
-    <div class="stats-grid" id="summary-cards" style="display: none;">
-      <div class="stat-card highlight">
-        <div class="stat-label">Products Analyzed</div>
-        <div class="stat-value" id="res-total">0</div>
-        <div class="stat-desc">Full warehouse catalog evaluated</div>
-      </div>
-      <div class="stat-card violet">
-        <div class="stat-label">Products Reallocated</div>
-        <div class="stat-value" id="res-moved">0</div>
-        <div class="stat-desc">Moved to closer storage shelves</div>
-      </div>
-      <div class="stat-card success">
-        <div class="stat-label">Distance Saved / Cycle</div>
-        <div class="stat-value" id="res-saved" style="color: #10b981;">0 m</div>
-        <div class="stat-desc">Per single pick round-trip iteration</div>
-      </div>
+    <!-- 4 KPI Cards -->
+    <div class="stats-grid" id="kpi-grid">
       <div class="stat-card">
-        <div class="stat-label">Constraint Violations</div>
-        <div class="stat-value" style="color: #10b981;">0</div>
-        <div class="stat-desc">Capacities and safety rules verified</div>
+        <div class="stat-label">Current Travel Index</div>
+        <div class="stat-value" id="kpi-travel-before">0.00 <small style="font-size:0.55em; color:var(--text-muted);">km/wk</small></div>
+        <div class="stat-desc">&Sigma; (picks &times; 2 &times; hub dist) &divide; 1000</div>
+      </div>
+
+      <div class="stat-card highlight">
+        <div class="stat-label">Proposed Travel Index</div>
+        <div class="stat-value" id="kpi-travel-after">0.00 <small style="font-size:0.55em; color:var(--text-muted);">km/wk</small></div>
+        <div class="stat-desc" id="kpi-travel-saved-desc">Optimized weekly travel demand</div>
+      </div>
+
+      <div class="stat-card success">
+        <div class="stat-label">Travel Reduction</div>
+        <div class="stat-value" id="kpi-reduction" style="color: var(--success);">0.0%</div>
+        <div class="stat-desc" id="kpi-km-saved-badge" style="font-weight: 600; color: var(--success);">+0.00 km/week saved</div>
+      </div>
+
+      <div class="stat-card violet">
+        <div class="stat-label">SKUs to Re-slot</div>
+        <div class="stat-value" id="kpi-skus-moved">0</div>
+        <div class="stat-desc" id="kpi-skus-desc">0 of 60 items reallocated</div>
       </div>
     </div>
 
-    <!-- Side-by-Side Comparison Table -->
+    <!-- Dual Floor Heat Maps (Side-by-Side Before & After) -->
+    <div class="heatmaps-card">
+      <div class="heatmaps-header">
+        <h2>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <path d="M3 9h18"></path>
+            <path d="M9 21V9"></path>
+          </svg>
+          Floorplan Pick Velocity Heatmaps
+        </h2>
+        <div class="heatmap-legend" aria-label="Heatmap scale legend">
+          <span>0 picks</span>
+          <div class="legend-bar" role="img" aria-label="Color scale: cool gray (low) to deep olive and amber (high picks)"></div>
+          <span>300+ picks/wk</span>
+        </div>
+      </div>
+
+      <div class="heatmaps-grid">
+        <!-- Current Floor Map -->
+        <div class="heatmap-panel" id="panel-current">
+          <div class="heatmap-panel-title">
+            <span>Current Floor Layout</span>
+            <span class="badge" id="badge-current-picks">Current Picks</span>
+          </div>
+          <div class="heatmap-svg-container" id="container-map-current">
+            <svg id="svg-map-current" class="heatmap-svg" viewBox="0 0 780 480" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Current floor heat map showing shelf velocity and SKU counts"></svg>
+          </div>
+        </div>
+
+        <!-- Proposed Floor Map -->
+        <div class="heatmap-panel" id="panel-proposed">
+          <div class="heatmap-panel-title">
+            <span>Proposed Floor Layout</span>
+            <span class="badge badge-success" id="badge-proposed-picks">Optimized Allocation</span>
+          </div>
+          <div class="heatmap-svg-container" id="container-map-proposed">
+            <svg id="svg-map-proposed" class="heatmap-svg" viewBox="0 0 780 480" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Proposed floor heat map showing optimized shelf velocity and SKU counts"></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Planned Moves Table Card -->
     <div class="card">
-      <div class="card-title">
-        <span>Old vs New Shelf Assignments (Side-by-Side Diff)</span>
-        <span id="diff-count-badge" class="badge">Awaiting Optimization</span>
+      <div class="table-toolbar">
+        <div>
+          <div class="card-title" style="margin: 0;">Planned Moves Schedule</div>
+          <div class="moves-counter" id="moves-counter-label">Evaluating optimal moves...</div>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <button id="btn-toggle-view" class="btn btn-secondary" onclick="toggleShowAllMoves()" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+            Show all
+          </button>
+        </div>
       </div>
 
       <div class="table-responsive">
-        <table>
+        <table id="planned-moves-table">
           <thead>
             <tr>
-              <th>Product</th>
-              <th>Category</th>
-              <th>Pick Velocity</th>
-              <th>Current (Old) Shelf</th>
-              <th>Current Distance</th>
-              <th>Optimized (New) Shelf</th>
-              <th>New Distance</th>
-              <th>Distance Delta</th>
+              <th>SKU</th>
+              <th>Product Name</th>
+              <th>Tier</th>
+              <th>Picks / Wk</th>
+              <th id="th-vol-coi" style="display: none;">Vol &bull; COI</th>
+              <th>Move Path</th>
+              <th>Hub Distance (Before &rarr; After)</th>
+              <th style="text-align: right;">Weekly Effect</th>
             </tr>
           </thead>
-          <tbody id="layout-diff-body">
+          <tbody id="planned-moves-tbody">
             <tr>
               <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 3rem;">
-                Click <strong>"Run Layout Optimizer"</strong> to generate the greedy allocation plan.
+                Loading warehouse slotting plan...
               </td>
             </tr>
           </tbody>
@@ -144,160 +573,598 @@
     </div>
   </div>
 
+  <!-- Shared Hover Tooltip -->
+  <div id="heatmap-tooltip" class="map-tooltip" role="tooltip"></div>
+
+  <!-- Confirmation Modal -->
+  <div class="modal-overlay" id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" onclick="if(event.target === this) closeConfirmModal()">
+    <div class="modal-box">
+      <h3 class="modal-title" id="modal-title">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--success);"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Confirm Layout Application
+      </h3>
+      <p class="modal-desc" id="modal-desc">
+        Are you sure you want to apply this re-slotting plan?
+      </p>
+      <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; font-size: 0.8rem; color: var(--text-muted);">
+        <strong style="color: var(--text-main);">Automatic Snapshot:</strong> A complete backup of the current shelf assignments will be recorded in the audit trail. You can revert this change at any time via "Undo last layout".
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeConfirmModal()">Cancel</button>
+        <button id="btn-modal-confirm" class="btn btn-success" onclick="commitApplyLayout()">
+          Confirm &amp; Apply
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Toast Notification -->
+  <div id="toast" class="graph-toast" role="status" aria-live="polite">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    <span id="toast-text">Message</span>
+  </div>
+
   <footer class="app-footer">
     <div class="container" style="margin: 0 auto;">
-      Warehouse Layout & Order Picking Optimizer &bull; High-Performance Graph Routing Engine
+      Warehouse Layout &amp; Order Picking Optimizer &bull; High-Performance Graph Routing Engine
     </div>
   </footer>
 
   <script>
-    let currentProposedAssignments = null;
+    // State Management
+    let currentStrategy = 'velocity';
+    let currentAssignments = [];
+    let currentSummary = null;
+    let showAllMoves = false;
+    let canUndo = false;
 
-    async function runLayoutOptimization() {
-      const btnRun = document.getElementById('btn-run');
-      const alertBox = document.getElementById('status-alert');
-      btnRun.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
-          <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
-          <path d="M12 2a10 10 0 0 1 10 10"></path>
-        </svg>
-        Optimizing...
-      `;
-      btnRun.disabled = true;
+    // Toast Helper
+    function showToast(text, type = 'success') {
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toast-text');
+      toast.className = `graph-toast ${type} show`;
+      toastText.textContent = text;
+      clearTimeout(toast._timeout);
+      toast._timeout = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 4000);
+    }
 
-      try {
-        const res = await fetch('/api/layout/optimize', { method: 'POST' });
-        const data = await res.json();
+    // Modal Control & Keyboard Dismissal
+    function openConfirmModal() {
+      const modal = document.getElementById('confirm-modal');
+      modal.classList.add('active');
+      document.getElementById('btn-modal-confirm').focus();
+    }
 
-        currentProposedAssignments = data.assignments;
+    function closeConfirmModal() {
+      const modal = document.getElementById('confirm-modal');
+      modal.classList.remove('active');
+    }
 
-        // Show Summary Cards
-        document.getElementById('summary-cards').style.display = 'grid';
-        document.getElementById('res-total').textContent = data.summary.total_products;
-        document.getElementById('res-moved').textContent = data.summary.moved_count;
-        document.getElementById('res-saved').textContent = data.summary.total_distance_saved_per_round + ' m';
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeConfirmModal();
+      }
+    });
 
-        // Update alert
-        alertBox.className = 'alert alert-info';
-        alertBox.style.display = 'flex';
-        alertBox.innerHTML = `
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-          </svg>
-          <div>
-            <strong>Optimization Plan Ready!</strong> Proposed moving <strong>${data.summary.moved_count} items</strong> to closer shelves, saving <strong>${data.summary.total_distance_saved_per_round} meters</strong> per pick cycle. Click "Save Layout to MySQL" to apply permanently.
-          </div>
+    // Strategy Selection (Recalculates without full page reload)
+    function setSlottingStrategy(strategy) {
+      if (currentStrategy === strategy) return;
+      currentStrategy = strategy;
+
+      const btnVelocity = document.getElementById('btn-strat-velocity');
+      const btnCoi = document.getElementById('btn-strat-coi');
+      const strategyText = document.getElementById('strategy-text');
+      const thVolCoi = document.getElementById('th-vol-coi');
+
+      if (strategy === 'coi') {
+        btnVelocity.setAttribute('aria-pressed', 'false');
+        btnVelocity.setAttribute('aria-checked', 'false');
+        btnCoi.setAttribute('aria-pressed', 'true');
+        btnCoi.setAttribute('aria-checked', 'true');
+        thVolCoi.style.display = 'table-cell';
+        strategyText.innerHTML = `
+          <strong>Strategy: Cube-per-Order Index (COI)</strong> &bull;
+          Products sorted by volume &divide; pick velocity (ascending). High-frequency compact items are prioritized for closest shelves.
+          Corridor routing: same corridor = |&Delta;y|; different corridors = min(front cross-aisle, back cross-aisle).
+          Shelf capacity &le; 5 SKUs, Fragile and Heavy categories strictly segregated.
         `;
+      } else {
+        btnVelocity.setAttribute('aria-pressed', 'true');
+        btnVelocity.setAttribute('aria-checked', 'true');
+        btnCoi.setAttribute('aria-pressed', 'false');
+        btnCoi.setAttribute('aria-checked', 'false');
+        thVolCoi.style.display = 'none';
+        strategyText.innerHTML = `
+          <strong>Strategy: Pareto ABC Velocity</strong> &bull;
+          High-velocity SKUs (Tier A: top 80% pick volume) are allocated to storage shelves nearest to the dispatch hub.
+          Corridor routing: same corridor = |&Delta;y|; different corridors = min(front cross-aisle, back cross-aisle).
+          Shelf capacity &le; 5 SKUs, Fragile and Heavy categories strictly segregated.
+        `;
+      }
 
-        // Render Table Diff
-        const tbody = document.getElementById('layout-diff-body');
-        tbody.innerHTML = '';
+      fetchOptimizationData();
+    }
 
-        data.assignments.forEach(item => {
-          const tr = document.createElement('tr');
-          const isMoved = item.old_shelf_id !== item.new_shelf_id;
-          const isCloser = item.distance_diff > 0;
+    // Toggle Show Top 12 vs Show All
+    function toggleShowAllMoves() {
+      showAllMoves = !showAllMoves;
+      const btn = document.getElementById('btn-toggle-view');
+      btn.textContent = showAllMoves ? 'Show top 12' : 'Show all';
+      renderMovesTable();
+    }
 
-          let diffBadge = '<span class="badge" style="background:#f1f5f9; color:#64748b;">Unchanged</span>';
-          if (isMoved && isCloser) {
-            diffBadge = `<span class="badge badge-success">↓ -${item.distance_diff}m (${Math.round((item.distance_diff / (item.old_distance || 1)) * 100)}% closer)</span>`;
-            tr.classList.add('highlight-row');
-          } else if (isMoved && !isCloser) {
-            diffBadge = `<span class="badge badge-warning">↑ +${Math.abs(item.distance_diff)}m</span>`;
-          }
+    // Fetch Layout Optimization Data from Backend
+    async function fetchOptimizationData() {
+      try {
+        const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
 
-          let catBadge = 'badge-primary';
-          if (item.category === 'Fragile') catBadge = 'badge-warning';
-          if (item.category === 'Heavy') catBadge = 'badge-danger';
-          if (item.category === 'Tools') catBadge = 'badge-violet';
-          if (item.category === 'Electronics') catBadge = 'badge-cyan';
-          if (item.category === 'Safety') catBadge = 'badge-success';
-
-          tr.innerHTML = `
-            <td style="font-weight: 600;">${item.name}</td>
-            <td><span class="badge ${catBadge}">${item.category}</span></td>
-            <td><strong>${item.pick_frequency}</strong> units</td>
-            <td><span class="badge" style="background:#f1f5f9; color:#475569;">Shelf ${item.old_shelf_id}</span></td>
-            <td>${item.old_distance} m</td>
-            <td><span class="badge badge-primary" style="font-weight: 700;">Shelf ${item.new_shelf_id}</span></td>
-            <td><strong>${item.new_distance} m</strong></td>
-            <td>${diffBadge}</td>
-          `;
-          tbody.appendChild(tr);
+        const res = await fetch(`/api/layout/optimize?strategy=${currentStrategy}`, {
+          method: 'GET',
+          headers: headers
         });
 
-        document.getElementById('diff-count-badge').className = 'badge badge-success';
-        document.getElementById('diff-count-badge').textContent = `${data.summary.moved_count} Items Reallocated`;
-        document.getElementById('btn-save').disabled = false;
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: Failed to calculate layout`);
+        }
 
+        const data = await res.json();
+        currentAssignments = data.assignments || [];
+        currentSummary = data.summary || {};
+        canUndo = Boolean(data.can_undo);
+
+        updateHeaderActions();
+        renderKPIs();
+        renderFloorHeatmaps(currentSummary.shelf_heatmaps || []);
+        renderMovesTable();
       } catch (err) {
-        console.error("Layout optimization failed:", err);
-        alertBox.className = 'alert alert-danger';
-        alertBox.style.display = 'flex';
-        alertBox.textContent = "Optimization failed: " + err.message;
-      } finally {
-        btnRun.innerHTML = `
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="5 3 19 12 5 21 5 3"></polygon>
-          </svg>
-          Run Layout Optimizer
-        `;
-        btnRun.disabled = false;
+        console.error('Error fetching layout data:', err);
+        showToast(err.message || 'Error calculating layout optimization', 'error');
       }
     }
 
-    async function saveLayout() {
-      if (!currentProposedAssignments) return;
-      const btnSave = document.getElementById('btn-save');
-      const alertBox = document.getElementById('status-alert');
-      btnSave.textContent = "Saving to Database...";
-      btnSave.disabled = true;
+    // Update Header Buttons State
+    function updateHeaderActions() {
+      const btnApply = document.getElementById('btn-apply');
+      const btnUndo = document.getElementById('btn-undo');
+
+      const movedCount = currentSummary ? currentSummary.moved_count : 0;
+      btnApply.disabled = (movedCount === 0);
+
+      if (canUndo) {
+        btnUndo.style.display = 'inline-flex';
+      } else {
+        btnUndo.style.display = 'none';
+      }
+    }
+
+    // Render 4 KPI Cards
+    function renderKPIs() {
+      if (!currentSummary) return;
+
+      const travelBefore = currentSummary.travel_index_before || 0;
+      const travelAfter = currentSummary.travel_index_after || 0;
+      const kmSaved = currentSummary.km_saved_per_week || 0;
+      const reduction = currentSummary.reduction_pct || 0;
+      const movedCount = currentSummary.moved_count || 0;
+      const totalCount = currentSummary.total_products || 0;
+
+      document.getElementById('kpi-travel-before').innerHTML = `${travelBefore.toFixed(2)} <small style="font-size:0.55em; color:var(--text-muted);">km/wk</small>`;
+      document.getElementById('kpi-travel-after').innerHTML = `${travelAfter.toFixed(2)} <small style="font-size:0.55em; color:var(--text-muted);">km/wk</small>`;
+      
+      const kpiRed = document.getElementById('kpi-reduction');
+      kpiRed.textContent = `${reduction.toFixed(1)}%`;
+      
+      const kmBadge = document.getElementById('kpi-km-saved-badge');
+      kmBadge.textContent = `+${kmSaved.toFixed(2)} km/week saved`;
+      
+      document.getElementById('kpi-travel-saved-desc').textContent = `${kmSaved.toFixed(2)} km weekly travel saved`;
+      document.getElementById('kpi-skus-moved').textContent = movedCount;
+      document.getElementById('kpi-skus-desc').textContent = `${movedCount} of ${totalCount} items reallocated`;
+    }
+
+    // Compute Shelf Heat Color based on Weekly Picks
+    function getHeatColor(picks) {
+      const p = Number(picks || 0);
+      if (p <= 0) return 'var(--heat-0)';
+      if (p < 50) return 'var(--heat-low)';
+      if (p < 150) return 'var(--heat-mid)';
+      if (p < 300) return 'var(--heat-high)';
+      return 'var(--heat-peak)';
+    }
+
+    function getShelfTextColor(picks) {
+      const p = Number(picks || 0);
+      return (p >= 150) ? '#ffffff' : 'var(--text-main)';
+    }
+
+    // Render Dual Floor Heatmaps (Current vs Proposed)
+    function renderFloorHeatmaps(shelves) {
+      renderSVGFloorMap('svg-map-current', shelves, 'current');
+      renderSVGFloorMap('svg-map-proposed', shelves, 'proposed');
+    }
+
+    function renderSVGFloorMap(svgId, shelves, mode) {
+      const svg = document.getElementById(svgId);
+      if (!svg) return;
+      svg.innerHTML = '';
+
+      // Grid Dimensions and Background
+      const width = 780;
+      const height = 480;
+
+      // 1. Grid Pattern & Corridors
+      const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      defs.innerHTML = `
+        <pattern id="grid-${mode}" width="20" height="20" patternUnits="userSpaceOnUse">
+          <path d="M 20 0 L 0 0 0 20" fill="none" stroke="currentColor" stroke-opacity="0.04" stroke-width="1"/>
+        </pattern>
+      `;
+      svg.appendChild(defs);
+
+      const gridRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      gridRect.setAttribute('width', width);
+      gridRect.setAttribute('height', height);
+      gridRect.setAttribute('fill', `url(#grid-${mode})`);
+      svg.appendChild(gridRect);
+
+      // 2. Walkable Corridor Lines (Aisles & Cross-aisles)
+      const corridorGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      corridorGroup.setAttribute('stroke', 'currentColor');
+      corridorGroup.setAttribute('stroke-opacity', '0.12');
+      corridorGroup.setAttribute('stroke-width', '16');
+      corridorGroup.setAttribute('stroke-linecap', 'round');
+      corridorGroup.setAttribute('stroke-linejoin', 'round');
+
+      // Vertical Aisle corridors: x = 220, 380, 540, 700
+      [220, 380, 540, 700].forEach(x => {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', x);
+        line.setAttribute('y1', 75);
+        line.setAttribute('x2', x);
+        line.setAttribute('y2', 435);
+        corridorGroup.appendChild(line);
+      });
+
+      // Horizontal Cross-aisles: y = 80 (front), y = 290 (mid), y = 430 (back)
+      [80, 290, 430].forEach(y => {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', 220);
+        line.setAttribute('y1', y);
+        line.setAttribute('x2', 700);
+        line.setAttribute('y2', y);
+        corridorGroup.appendChild(line);
+      });
+
+      // Dispatch Corridor connecting Packing Hub (80, 260) to Aisle 1 (220, 220-290)
+      const dispatchLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      dispatchLine.setAttribute('d', 'M 80 260 L 220 260');
+      dispatchLine.setAttribute('stroke', 'var(--success)');
+      dispatchLine.setAttribute('stroke-opacity', '0.25');
+      dispatchLine.setAttribute('stroke-width', '12');
+      corridorGroup.appendChild(dispatchLine);
+
+      svg.appendChild(corridorGroup);
+
+      // 3. Render Packing Hub (Shelf 1 at x=80, y=260)
+      const hubGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      hubGroup.setAttribute('transform', 'translate(45, 225)');
+
+      const hubRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      hubRect.setAttribute('width', '70');
+      hubRect.setAttribute('height', '70');
+      hubRect.setAttribute('rx', '10');
+      hubRect.setAttribute('fill', 'var(--card-bg)');
+      hubRect.setAttribute('stroke', 'var(--success)');
+      hubRect.setAttribute('stroke-width', '2.5');
+      hubGroup.appendChild(hubRect);
+
+      const hubText1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      hubText1.setAttribute('x', '35');
+      hubText1.setAttribute('y', '32');
+      hubText1.setAttribute('text-anchor', 'middle');
+      hubText1.setAttribute('font-family', 'Plus Jakarta Sans, sans-serif');
+      hubText1.setAttribute('font-size', '10');
+      hubText1.setAttribute('font-weight', '800');
+      hubText1.setAttribute('fill', 'var(--success)');
+      hubText1.textContent = 'DISPATCH';
+      hubGroup.appendChild(hubText1);
+
+      const hubText2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      hubText2.setAttribute('x', '35');
+      hubText2.setAttribute('y', '48');
+      hubText2.setAttribute('text-anchor', 'middle');
+      hubText2.setAttribute('font-family', 'Plus Jakarta Sans, sans-serif');
+      hubText2.setAttribute('font-size', '9');
+      hubText2.setAttribute('font-weight', '600');
+      hubText2.setAttribute('fill', 'var(--text-muted)');
+      hubText2.textContent = 'HUB #1';
+      hubGroup.appendChild(hubText2);
+
+      svg.appendChild(hubGroup);
+
+      // 4. Render Storage Shelves
+      const tooltip = document.getElementById('heatmap-tooltip');
+
+      shelves.forEach(shelf => {
+        const isCurrent = (mode === 'current');
+        const picks = isCurrent ? shelf.current_picks : shelf.proposed_picks;
+        const count = isCurrent ? shelf.current_count : shelf.proposed_count;
+        const skus = isCurrent ? shelf.current_skus : shelf.proposed_skus;
+
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.classList.add('shelf-node');
+        g.setAttribute('tabindex', '0');
+        g.setAttribute('role', 'button');
+        g.setAttribute('aria-label', `Shelf ${shelf.shelf_id}: ${picks} picks per week, ${count} SKUs`);
+
+        const rx = shelf.x - 38;
+        const ry = shelf.y - 22;
+
+        // Shelf background rect
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', rx);
+        rect.setAttribute('y', ry);
+        rect.setAttribute('width', '76');
+        rect.setAttribute('height', '44');
+        rect.setAttribute('rx', '8');
+        rect.setAttribute('fill', getHeatColor(picks));
+        rect.setAttribute('stroke', 'var(--rack-border)');
+        rect.setAttribute('stroke-width', '1.5');
+        g.appendChild(rect);
+
+        // Shelf ID label
+        const txtId = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        txtId.setAttribute('x', shelf.x);
+        txtId.setAttribute('y', shelf.y - 4);
+        txtId.setAttribute('text-anchor', 'middle');
+        txtId.setAttribute('font-family', 'Plus Jakarta Sans, sans-serif');
+        txtId.setAttribute('font-size', '11');
+        txtId.setAttribute('font-weight', '700');
+        txtId.setAttribute('fill', getShelfTextColor(picks));
+        txtId.textContent = `Shelf ${shelf.shelf_id}`;
+        g.appendChild(txtId);
+
+        // SKU count badge text
+        const txtSkus = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        txtSkus.setAttribute('x', shelf.x);
+        txtSkus.setAttribute('y', shelf.y + 12);
+        txtSkus.setAttribute('text-anchor', 'middle');
+        txtSkus.setAttribute('font-family', 'JetBrains Mono, monospace');
+        txtSkus.setAttribute('font-size', '9.5');
+        txtSkus.setAttribute('font-weight', '600');
+        txtSkus.setAttribute('fill', getShelfTextColor(picks));
+        txtSkus.setAttribute('opacity', '0.9');
+        txtSkus.textContent = `${count} SKU${count === 1 ? '' : 's'}`;
+        g.appendChild(txtSkus);
+
+        // Interactive Tooltip Events
+        g.addEventListener('mouseenter', (e) => {
+          tooltip.style.display = 'block';
+          tooltip.innerHTML = `
+            <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem;">Shelf #${shelf.shelf_id}</div>
+            <div>Weekly Picks: <b>${picks} units</b></div>
+            <div>Slotted Items: <b>${count} / ${shelf.capacity} cap</b></div>
+            <div>Hub Distance: <b>${shelf.distance_to_packing}m</b></div>
+            <div style="margin-top:0.35rem; font-size:0.7rem; color:#94a3b8; border-top:1px solid rgba(255,255,255,0.1); padding-top:0.25rem;">
+              ${skus && skus.length ? skus.slice(0, 4).join(', ') + (skus.length > 4 ? ` +${skus.length - 4} more` : '') : 'No SKUs slotted'}
+            </div>
+          `;
+        });
+
+        g.addEventListener('mousemove', (e) => {
+          tooltip.style.left = `${e.pageX}px`;
+          tooltip.style.top = `${e.pageY - 10}px`;
+        });
+
+        g.addEventListener('mouseleave', () => {
+          tooltip.style.display = 'none';
+        });
+
+        svg.appendChild(g);
+      });
+    }
+
+    // Render Planned Moves Table
+    function renderMovesTable() {
+      const tbody = document.getElementById('planned-moves-tbody');
+      const counterLabel = document.getElementById('moves-counter-label');
+      const isCoi = (currentStrategy === 'coi');
+
+      if (!currentAssignments || currentAssignments.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="${isCoi ? 8 : 7}" style="text-align: center; color: var(--text-muted); padding: 3rem;">
+              No SKU records available.
+            </td>
+          </tr>
+        `;
+        counterLabel.textContent = '0 SKUs analyzed';
+        return;
+      }
+
+      // Filter only moves that changed shelf or show all products if none moved
+      const movedItems = currentAssignments.filter(a => a.is_moved);
+      const totalMoved = movedItems.length;
+
+      if (totalMoved === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="${isCoi ? 8 : 7}" style="text-align: center; color: var(--success); padding: 3rem; font-weight: 600;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 0.5rem;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+              Layout is already optimal. No SKU reallocations required.
+            </td>
+          </tr>
+        `;
+        counterLabel.textContent = '0 moves required (layout is optimal)';
+        return;
+      }
+
+      const displayItems = showAllMoves ? movedItems : movedItems.slice(0, 12);
+      counterLabel.textContent = `Showing ${displayItems.length} of ${totalMoved} planned moves`;
+
+      tbody.innerHTML = '';
+      displayItems.forEach(item => {
+        const tr = document.createElement('tr');
+
+        // Tier Badge
+        let tierColor = 'var(--text-muted)';
+        if (item.tier === 'A') tierColor = 'var(--success)';
+        else if (item.tier === 'B') tierColor = 'var(--info)';
+
+        // Weekly Effect Pill (+km green for savings, -km red for loss)
+        let effectClass = 'effect-neutral';
+        let effectSign = '';
+        if (item.weekly_effect_km > 0.0001) {
+          effectClass = 'effect-positive';
+          effectSign = '+';
+        } else if (item.weekly_effect_km < -0.0001) {
+          effectClass = 'effect-negative';
+        }
+
+        const coiCell = isCoi ? `
+          <td>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:0.78rem;">${item.volume}m&sup3;</div>
+            <small style="color:var(--text-muted); font-size:0.72rem;">COI: ${item.coi}</small>
+          </td>
+        ` : '';
+
+        tr.innerHTML = `
+          <td><span class="badge" style="font-family:'JetBrains Mono',monospace; font-size:0.75rem;">${item.sku}</span></td>
+          <td>
+            <strong>${item.product_name}</strong>
+            <div style="font-size:0.72rem; color:var(--text-muted);">${item.category}</div>
+          </td>
+          <td>
+            <span class="badge" style="font-weight:700; color:${tierColor}; border-color:${tierColor};">Tier ${item.tier}</span>
+          </td>
+          <td><strong>${item.pick_frequency}</strong></td>
+          ${coiCell}
+          <td>
+            <span style="font-weight:600; color:var(--text-muted);">Shelf ${item.old_shelf_id}</span>
+            <span style="color:var(--text-muted); margin:0 0.35rem;">&rarr;</span>
+            <span class="badge badge-primary" style="font-weight:700;">Shelf ${item.new_shelf_id}</span>
+          </td>
+          <td>
+            <span>${item.old_distance}m &rarr; <strong>${item.new_distance}m</strong></span>
+            <small style="color:${item.distance_diff >= 0 ? 'var(--success)' : 'var(--danger)'}; margin-left:0.4rem; font-weight:600;">
+              (${item.distance_diff >= 0 ? '-' : '+'}${Math.abs(item.distance_diff)}m)
+            </small>
+          </td>
+          <td style="text-align: right;">
+            <span class="effect-pill ${effectClass}">
+              ${effectSign}${item.weekly_effect_km.toFixed(3)} km
+            </span>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Modal Confirmation before Apply
+    function promptApplyLayout() {
+      if (!currentSummary || currentSummary.moved_count === 0) return;
+      const modalDesc = document.getElementById('modal-desc');
+      modalDesc.innerHTML = `
+        <strong>${currentSummary.moved_count} SKUs</strong> will be re-slotted across storage racks,
+        achieving an expected travel reduction of <strong>${currentSummary.reduction_pct}%</strong>
+        (saving <strong>${currentSummary.km_saved_per_week} km/week</strong> of picker travel).
+      `;
+      openConfirmModal();
+    }
+
+    // Commit Layout Apply
+    async function commitApplyLayout() {
+      closeConfirmModal();
+      const btnApply = document.getElementById('btn-apply');
+      const originalText = btnApply.innerHTML;
+      btnApply.innerHTML = `Applying...`;
+      btnApply.disabled = true;
 
       try {
+        const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const payload = {
-          assignments: currentProposedAssignments.map(a => ({
+          strategy: currentStrategy,
+          summary: currentSummary,
+          assignments: currentAssignments.map(a => ({
             product_id: a.product_id,
+            old_shelf_id: a.old_shelf_id,
+            new_shelf_id: a.new_shelf_id,
             shelf_id: a.new_shelf_id
           }))
         };
 
-        const res = await fetch('/api/layout/save', {
+        const res = await fetch('/api/layout/apply', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           body: JSON.stringify(payload)
         });
 
         const data = await res.json();
+        if (!res.ok || data.status !== 'success') {
+          throw new Error(data.error || 'Failed to commit layout changes');
+        }
 
-        alertBox.className = 'alert alert-success';
-        alertBox.style.display = 'flex';
-        alertBox.innerHTML = `
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-          <div>
-            <strong>Layout Successfully Saved!</strong> ${data.updated_count} product shelf assignments updated in MySQL database. The changes will now take effect in all order picking routes.
-          </div>
-        `;
+        showToast(`Layout applied successfully! ${data.updated_count} SKUs re-slotted.`, 'success');
+        canUndo = true;
+        // Refresh live data
+        await fetchOptimizationData();
       } catch (err) {
-        console.error("Failed to save layout:", err);
-        alertBox.className = 'alert alert-danger';
-        alertBox.style.display = 'flex';
-        alertBox.textContent = "Failed to save: " + err.message;
+        console.error('Failed to apply layout:', err);
+        showToast(err.message || 'Error applying layout', 'error');
       } finally {
-        btnSave.innerHTML = `
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-            <polyline points="17 21 17 13 7 13 7 21"></polyline>
-            <polyline points="7 3 7 8 15 8"></polyline>
-          </svg>
-          Save Layout to MySQL
-        `;
-        btnSave.disabled = false;
+        btnApply.innerHTML = originalText;
+        btnApply.disabled = false;
       }
     }
+
+    // Handle Undo Layout
+    async function handleUndoLayout() {
+      if (!confirm('Revert the last applied layout and restore original product shelf assignments?')) {
+        return;
+      }
+
+      const btnUndo = document.getElementById('btn-undo');
+      btnUndo.disabled = true;
+
+      try {
+        const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch('/api/layout/undo', {
+          method: 'POST',
+          headers: headers
+        });
+
+        const data = await res.json();
+        if (!res.ok || data.status !== 'success') {
+          throw new Error(data.error || 'Failed to revert layout');
+        }
+
+        showToast(`Layout reverted: ${data.restored_count} SKUs restored to previous shelves.`, 'success');
+        canUndo = false;
+        // Refresh live data
+        await fetchOptimizationData();
+      } catch (err) {
+        console.error('Failed to undo layout:', err);
+        showToast(err.message || 'Error reverting layout', 'error');
+      } finally {
+        btnUndo.disabled = false;
+      }
+    }
+
+    // Initial Load
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchOptimizationData();
+    });
   </script>
 </body>
 </html>

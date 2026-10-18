@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Order Picking Route Optimizer. Traveling Salesperson Problem (TSP) solver with interactive floorplan route visualization and simulated picker tour.">
+  <meta name="description" content="Order Picking Route Optimizer. Traveling Salesperson Problem (TSP) solver with interactive floorplan route visualization, dynamic detour handling, and simulated picker tour.">
   <title>Order Picking Route Optimizer | Warehouse Optimizer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,7 +30,7 @@
         <a href="products.html">Products</a>
         <a href="layout.html">Layout Optimizer</a>
         <a href="graph.html">Warehouse Graph</a>
-        <a href="order-picking.html" class="active">Order Picking</a>
+        <a href="order-picking.html" class="active" aria-current="page">Order Picking</a>
         <a href="waves.html">Wave Picking</a>
         <a href="fleet.html">Fleet Balancing</a>
       </nav>
@@ -51,7 +51,8 @@
       </div>
     </div>
 
-    <div class="concept-tag">
+    <!-- Algorithm Concept Info Banner (Guaranteed non-breaking spaces after italic terms) -->
+    <div class="concept-tag" style="margin-bottom: 1.25rem;">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
         <line x1="8" y1="2" x2="8" y2="18"></line>
@@ -59,20 +60,32 @@
       </svg>
       <div>
         <strong>TSP Algorithm Strategy:</strong>
-        If order stop count &lt; 8: <em>Brute-Force Permutations</em> tests all $N!$ tours to guarantee the global mathematical minimum.<br>
-        If order stop count &ge; 8: <em>Nearest-Neighbor Heuristic</em> provides polynomial-time greedy fallback routing.
+        If order stop count &le; 12: <em>Exact Solvers (Branch-and-Bound / Held-Karp Dynamic Programming)</em>&nbsp;tests all N! (factorial) tour permutations or evaluates dynamic programming bitmasks to guarantee the global mathematical minimum.<br>
+        If order stop count &gt; 12: <em>Nearest-Neighbor + 2-Opt Local Search</em>&nbsp;provides polynomial-time greedy heuristic routing refined by iterative edge uncrossing.
       </div>
     </div>
 
-    <!-- Order Selector Card -->
-    <div class="card" style="padding: 1.25rem 1.5rem;">
+    <!-- Order Selector & Actions Card -->
+    <div class="card" style="padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;">
       <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 320px;">
+        <div style="flex: 2; min-width: 280px;">
           <label for="order-select" class="form-label">Select Customer Order to Route:</label>
-          <select id="order-select" class="form-select" style="max-width: 100%;">
+          <select id="order-select" class="form-select" style="width: 100%;">
             <option value="">Loading customer orders...</option>
           </select>
         </div>
+
+        <div style="flex: 1; min-width: 190px;">
+          <label for="algo-select" class="form-label">Routing Algorithm:</label>
+          <select id="algo-select" class="form-select" style="width: 100%;">
+            <option value="auto">Auto (Adaptive Exact / 2-Opt)</option>
+            <option value="exact">Held-Karp DP (Exact)</option>
+            <option value="nearest_neighbor">Nearest-Neighbor (Greedy)</option>
+            <option value="nn_2opt">NN + 2-Opt (Local Search)</option>
+            <option value="s_shape">S-Shape (Serpentine)</option>
+          </select>
+        </div>
+
         <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
           <button id="btn-compute" class="btn btn-primary" onclick="computeRoute()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -90,66 +103,146 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
             </svg>
-            ⚡ Simulate Live Order
+            Simulate Live Order
           </button>
           <button id="btn-custom" class="btn btn-secondary" onclick="openCustomOrderModal()" style="border-color: var(--border); color: var(--text-main); font-weight: 700;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
-            + Custom Order
+            Custom Order
+          </button>
+        </div>
+      </div>
+
+      <!-- Secondary Operations & Dispatch Bar -->
+      <div style="display: flex; gap: 1rem; align-items: center; justify-content: space-between; margin-top: 1.15rem; padding-top: 0.9rem; border-top: 1px solid var(--border); flex-wrap: wrap;">
+        <div style="display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap;">
+          <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Dispatch Operations:</span>
+          <select id="dispatch-picker-select" class="form-select" style="width: auto; padding: 0.35rem 0.65rem; font-size: 0.82rem;">
+            <option value="Picker Alpha">Assign: Picker Alpha</option>
+            <option value="Picker Bravo">Assign: Picker Bravo</option>
+            <option value="Picker Charlie">Assign: Picker Charlie</option>
+            <option value="Picker Delta">Assign: Picker Delta</option>
+            <option value="Picker Echo">Assign: Picker Echo</option>
+          </select>
+          <button id="btn-dispatch-order" class="btn btn-secondary" onclick="dispatchCurrentOrder()" style="padding: 0.35rem 0.75rem; font-size: 0.82rem;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+            Assign &amp; Dispatch
+          </button>
+          <button id="btn-complete-order" class="btn btn-secondary" onclick="completeCurrentOrder()" style="padding: 0.35rem 0.75rem; font-size: 0.82rem; border-color: #10b981; color: #047857;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Mark Completed
+          </button>
+          <span id="order-status-badge" class="badge badge-warning" style="font-size: 0.76rem;">Status: Pending</span>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <button class="btn btn-secondary" onclick="exportPickListCSV()" title="Download comma-separated pick sheet" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export CSV
+          </button>
+          <button class="btn btn-secondary" onclick="window.print()" title="Open printable pick sheet" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Print Pick List
           </button>
         </div>
       </div>
     </div>
 
     <!-- Live Order Notification Toast -->
-    <div id="live-order-alert" class="alert alert-info" style="display: none; margin-top: 1rem;"></div>
+    <div id="live-order-alert" class="alert alert-info" style="display: none; margin-bottom: 1.25rem;"></div>
+
+    <!-- Hazard / Disconnection Warning Banner -->
+    <div id="unreachable-alert" class="alert alert-danger" style="display: none; margin-bottom: 1.25rem;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <div id="unreachable-alert-text">
+        <strong>Route Unreachable:</strong> One or more shelves cannot be reached from Packing Hub #1 due to active corridor blockages or graph disconnections.
+      </div>
+    </div>
 
     <!-- Route Results Grid -->
     <div id="results-container" style="display: none;">
+
+      <!-- Baseline Comparison Strip -->
+      <div class="baseline-card">
+        <div class="baseline-metric-group">
+          <span class="baseline-metric-label">Pick-List Order Walk</span>
+          <span class="baseline-metric-val" id="base-distance">-- m</span>
+        </div>
+        <div style="width: 1px; height: 32px; background: rgba(94, 122, 82, 0.3);"></div>
+        <div class="baseline-metric-group">
+          <span class="baseline-metric-label">Optimized TSP Tour</span>
+          <span class="baseline-metric-val" id="opt-distance" style="color: #10b981;">-- m</span>
+        </div>
+        <div style="width: 1px; height: 32px; background: rgba(94, 122, 82, 0.3);"></div>
+        <div class="baseline-metric-group">
+          <span class="baseline-metric-label">Corridor Distance Saved</span>
+          <span class="baseline-metric-val" id="base-saved" style="color: #0284c7;">-- m (--%)</span>
+        </div>
+        <div style="width: 1px; height: 32px; background: rgba(94, 122, 82, 0.3);"></div>
+        <div class="baseline-metric-group">
+          <span class="baseline-metric-label">Estimated Picking Time</span>
+          <span class="baseline-metric-val" id="base-time">-- min (-- saved)</span>
+        </div>
+      </div>
       
-      <!-- Metrics Bar -->
+      <!-- Metrics Bar (Clean Unicode middle-dot characters, no literal entities) -->
       <div class="stats-grid">
         <div class="stat-card highlight">
           <div class="stat-label">Total Round-Trip Distance</div>
           <div class="stat-value" id="res-distance" style="color: var(--text-main);">-- m</div>
-          <div class="stat-desc">Packing &rarr; Shelves &rarr; Packing</div>
+          <div class="stat-desc">Hub #1 &rarr; Pick Bays &rarr; Hub #1</div>
         </div>
         <div class="stat-card violet">
           <div class="stat-label">Unique Pick Stops</div>
           <div class="stat-value" id="res-stops">0</div>
-          <div class="stat-desc">Shelves to visit on tour</div>
+          <div class="stat-desc">Physical shelf locations visited</div>
         </div>
         <div class="stat-card warning">
-          <div class="stat-label">Order Line Items</div>
-          <div class="stat-value" id="res-items">0</div>
-          <div class="stat-desc">Units requested by customer</div>
+          <div class="stat-label">Order Items &amp; Units</div>
+          <div class="stat-value" id="res-items" style="font-size: 1.4rem;">0 SKUs · 0 pcs</div>
+          <div class="stat-desc" id="res-items-desc">Line items and total quantity</div>
         </div>
         <div class="stat-card success">
           <div class="stat-label">Algorithm Executed</div>
-          <div class="stat-value" style="font-size: 1.15rem; margin-top: 0.75rem;" id="res-algo">--</div>
-          <div class="stat-desc" id="res-algo-desc">TSP Solver Engine</div>
+          <div class="stat-value" style="font-size: 1.05rem; margin-top: 0.75rem;" id="res-algo">--</div>
+          <div class="stat-desc" id="res-algo-desc">Exact optimum · O(n²·2ⁿ) · -- ms</div>
         </div>
       </div>
 
-      <!-- Route Visual Canvas + Step Sequence -->
-      <div style="display: grid; grid-template-columns: 2.3fr 1.7fr; gap: 1.75rem; align-items: start;">
+      <!-- Route Visual Canvas + Step Sequence (Balanced 2-Column Layout) -->
+      <div style="display: grid; grid-template-columns: 2.3fr 1.7fr; gap: 1.75rem; align-items: start; margin-bottom: 2rem;">
         
         <!-- Floorplan Route Canvas with Interactive Controls -->
-        <div class="card" id="route-canvas-card" style="padding: 1.25rem; position: relative;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-            <div class="card-title" style="margin-bottom: 0;">
-              <span>Visual Pick Path on Warehouse Floorplan</span>
+        <div class="card" id="route-canvas-card" style="padding: 1.25rem; position: relative; display: flex; flex-direction: column;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <div class="card-title" style="margin-bottom: 0.15rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <span>Visual Pick Path on Warehouse Floorplan</span>
+                <span class="badge" style="font-size: 0.68rem; background: rgba(56, 189, 248, 0.12); color: #0284c7; border: 1px solid rgba(56, 189, 248, 0.3); font-weight: 700;">Digital Twin</span>
+              </div>
+              <div style="font-size: 0.76rem; color: var(--text-muted);">
+                High-precision topological layout with real-time TSP tour navigation &amp; AMR picker telemetry
+              </div>
             </div>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <div style="display: flex; gap: 0.45rem; align-items: center; flex-wrap: wrap;">
+              <span id="floorplan-stats-pill" class="badge" style="font-size: 0.72rem; background: var(--bg-main); border: 1px solid var(--border); color: var(--text-main); font-weight: 700; font-family: 'JetBrains Mono', monospace;">4 Stops · 98m Tour</span>
               <span id="route-badge" class="badge badge-success">Optimized Route</span>
             </div>
           </div>
 
           <!-- Floating Interactive Pan / Zoom / Fullscreen Toolbar -->
           <div class="canvas-controls-bar">
-            <button class="canvas-ctrl-btn" id="btn-zoom-in" title="Zoom In (+)">
+            <button class="canvas-ctrl-btn" id="btn-zoom-in" title="Zoom In (+)" aria-label="Zoom In">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -158,16 +251,17 @@
               </svg>
             </button>
             <span class="canvas-zoom-label" id="zoom-level-text">100%</span>
-            <button class="canvas-ctrl-btn" id="btn-zoom-out" title="Zoom Out (-)">
+            <button class="canvas-ctrl-btn" id="btn-zoom-out" title="Zoom Out (-)" aria-label="Zoom Out">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 <line x1="8" y1="11" x2="14" y2="11"></line>
               </svg>
             </button>
-            <button class="canvas-ctrl-btn" id="btn-zoom-reset" title="Reset View (1:1)" style="font-size: 0.72rem; min-width: 32px;">1:1</button>
-            <div style="width: 1px; height: 16px; background: rgba(255,255,255,0.25); margin: 0 2px;"></div>
-            <button class="canvas-ctrl-btn" id="btn-fullscreen-toggle" title="Toggle Fullscreen (F)">
+            <button class="canvas-ctrl-btn" id="btn-zoom-fit" title="Fit to Viewport (0)" style="font-size: 0.72rem; min-width: 34px; padding: 0 4px;" aria-label="Fit View">Fit</button>
+            <button class="canvas-ctrl-btn" id="btn-zoom-reset" title="Reset 1:1 Scale (1)" style="font-size: 0.72rem; min-width: 34px; padding: 0 4px;" aria-label="Reset Scale">1:1</button>
+            <div style="width: 1px; height: 16px; background: rgba(255,255,255,0.22); margin: 0 3px;"></div>
+            <button class="canvas-ctrl-btn" id="btn-fullscreen-toggle" title="Toggle Fullscreen (F)" aria-label="Toggle Fullscreen">
               <svg id="fs-icon-expand" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="15 3 21 3 21 9"></polyline>
                 <polyline points="9 21 3 21 3 15"></polyline>
@@ -183,48 +277,107 @@
             </button>
           </div>
 
-          <div class="canvas-wrapper" style="overflow: hidden; cursor: grab;">
-            <canvas id="route-canvas" width="820" height="520" style="background: var(--canvas-bg); border-radius: 8px;"></canvas>
+          <div class="canvas-wrapper" style="overflow: hidden; cursor: grab; flex: 1; min-height: 440px; border-radius: 8px; border: 1px solid var(--border); box-shadow: inset 0 2px 8px rgba(0,0,0,0.15);">
+            <canvas id="route-canvas" width="820" height="520" style="background: var(--canvas-bg); border-radius: 7px; width: 100%; height: 100%; display: block;" tabindex="0" aria-label="Interactive Warehouse Floorplan Canvas"></canvas>
           </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">
-            <span>Red glowing corridors highlight the shortest round-trip path computed with Dijkstra corridor calculations and TSP optimization.</span>
-            <span style="font-weight: 600; color: var(--primary); white-space: nowrap; margin-left: 1rem;">
-              <kbd>Scroll</kbd> Zoom &bull; 
-              <kbd>Drag</kbd> Pan &bull; 
-              <kbd>F</kbd> Fullscreen
+
+          <!-- Animation Scrubber & Playback Controls Bar -->
+          <div class="anim-controls-wrap">
+            <button class="speed-pill-btn" id="btn-scrub-play" onclick="toggleAnimation()" title="Play / Pause Animation (Space)">
+              <span id="scrub-play-text">▶ Play</span>
+            </button>
+            <input type="range" id="anim-scrubber" class="anim-scrubber-slider" min="0" max="100" value="0" step="0.5" aria-label="Tour picker playback position">
+            <span id="anim-progress-label" style="font-size: 0.78rem; font-weight: 700; min-width: 140px; text-align: right; font-family: 'JetBrains Mono', monospace; color: var(--text-main); white-space: nowrap;">Ready (0%)</span>
+            <div style="display: flex; gap: 0.25rem; align-items: center; margin-left: 0.5rem;">
+              <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">Speed:</span>
+              <button class="speed-pill-btn active" id="spd-1x" onclick="setAnimSpeed(1)">1x</button>
+              <button class="speed-pill-btn" id="spd-2x" onclick="setAnimSpeed(2)">2x</button>
+              <button class="speed-pill-btn" id="spd-4x" onclick="setAnimSpeed(4)">4x</button>
+            </div>
+          </div>
+
+          <!-- Legend Strip -->
+          <div class="route-legend-strip">
+            <span class="route-legend-item">
+              <span class="legend-swatch" style="background: linear-gradient(90deg, #0284c7, #38bdf8); box-shadow: 0 0 6px rgba(56, 189, 248, 0.8);"></span>
+              Optimized Tour
             </span>
+            <span class="route-legend-item">
+              <span class="legend-swatch" style="background: linear-gradient(135deg, #fbbf24, #d97706); border-radius: 50%; color: #0f172a; font-size: 9px; font-weight: 800; border: 1.5px solid #fff;">1</span>
+              Pick Sequence (#)
+            </span>
+            <span class="route-legend-item">
+              <span class="legend-swatch" style="background: linear-gradient(135deg, #10b981, #059669); border: 1.5px solid #6ee7b7;"></span>
+              Packing Hub #1
+            </span>
+            <span class="route-legend-item">
+              <span class="legend-swatch" style="background: #334155; border: 1.2px solid #64748b;"></span>
+              <span id="legend-shelves-label">24 Storage Bays</span>
+            </span>
+            <span class="route-legend-item">
+              <span class="legend-swatch" style="background: #64748b; height: 3px; border-radius: 1px;"></span>
+              Corridor Lanes
+            </span>
+          </div>
+
+          <!-- Route Explanation Caption (Dedicated Row 1) -->
+          <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.75rem; line-height: 1.45;">
+            Highlighted route indicates shortest corridor tour sequence calculated with Dijkstra corridor distances and TSP tour optimization.
+          </div>
+
+          <!-- Keyboard Shortcuts Hints (Dedicated Row 2 - Clean Wrap) -->
+          <div class="canvas-hint-text" style="display: flex; flex-wrap: wrap; gap: 0.4rem 0.85rem; align-items: center; margin-top: 0.4rem; font-size: 0.78rem; color: var(--text-muted);">
+            <span><kbd>Scroll</kbd> Zoom</span>
+            <span><kbd>Drag</kbd> Pan</span>
+            <span><kbd>0</kbd> Fit</span>
+            <span><kbd>1</kbd> 1:1</span>
+            <span><kbd>F</kbd> Fullscreen</span>
+            <span><kbd>Space</kbd> Play/Pause</span>
           </div>
         </div>
 
-        <!-- Ordered Steps List -->
-        <div class="card">
-          <div class="card-title">Step-by-Step Pick Sequence</div>
-          <div class="table-responsive" style="max-height: 250px;">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width: 60px;">Leg</th>
-                  <th>Corridor Movement</th>
-                  <th style="text-align: right;">Distance</th>
-                </tr>
-              </thead>
-              <tbody id="legs-table-body"></tbody>
-            </table>
-          </div>
-
-          <div style="margin-top: 1.5rem;">
-            <div class="card-title" style="font-size: 1rem; margin-bottom: 0.75rem;">Customer Order Line Items</div>
-            <div class="table-responsive" style="max-height: 200px;">
-              <table>
-                <thead>
+        <!-- Ordered Steps List & Order Line Items (Right Column) -->
+        <div class="card" style="padding: 1.25rem; display: flex; flex-direction: column;">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+              <div class="card-title" style="margin-bottom: 0;">Step-by-Step Pick Sequence</div>
+              <span id="legs-count-badge" class="badge badge-primary" style="font-size: 0.72rem; white-space: nowrap;">0 Legs</span>
+            </div>
+            
+            <div id="legs-table-wrapper" class="table-responsive" style="border: 1px solid var(--border); border-radius: 6px;">
+              <table style="margin-bottom: 0; width: 100%;">
+                <thead style="position: sticky; top: 0; background: var(--card-bg); z-index: 3;">
                   <tr>
-                    <th>Product</th>
-                    <th style="width: 60px;">Qty</th>
-                    <th>Shelf</th>
+                    <th style="width: 52px; white-space: nowrap;">Leg</th>
+                    <th>Corridor Movement</th>
+                    <th class="cell-num" style="min-width: 72px;">Dist</th>
+                    <th class="cell-num" style="min-width: 82px;">Cumul.</th>
                   </tr>
                 </thead>
-                <tbody id="order-items-body"></tbody>
+                <tbody id="legs-table-body"></tbody>
+                <tfoot id="legs-table-foot"></tfoot>
               </table>
+            </div>
+
+            <!-- Customer Order Line Items -->
+            <div style="margin-top: 1.25rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                <div class="card-title" style="font-size: 0.95rem; margin-bottom: 0;">Customer Order Line Items</div>
+                <span id="items-count-badge" class="badge" style="font-size: 0.72rem; background: var(--bg-main); color: var(--text-muted); border: 1px solid var(--border); white-space: nowrap;">0 Items</span>
+              </div>
+              <div id="order-items-wrapper" class="table-responsive" style="border: 1px solid var(--border); border-radius: 6px;">
+                <table style="margin-bottom: 0; width: 100%;">
+                  <thead style="position: sticky; top: 0; background: var(--card-bg); z-index: 3;">
+                    <tr>
+                      <th>Product</th>
+                      <th style="width: 65px; text-align: center; white-space: nowrap;">Qty</th>
+                      <th style="width: 95px; text-align: center; white-space: nowrap;">Shelf</th>
+                    </tr>
+                  </thead>
+                  <tbody id="order-items-body"></tbody>
+                  <tfoot id="order-items-foot"></tfoot>
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -235,9 +388,43 @@
 
   <footer class="app-footer">
     <div class="container" style="margin: 0 auto;">
-      Warehouse Layout & Order Picking Optimizer &bull; High-Performance Graph Routing Engine
+      Warehouse Layout &amp; Order Picking Optimizer &bull; High-Performance Graph Routing Engine
     </div>
   </footer>
+
+  <!-- Custom Order Creation Modal -->
+  <div id="custom-order-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px); z-index: 200; align-items: center; justify-content: center;">
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; width: 92%; max-width: 580px; padding: 1.75rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4); max-height: 90vh; display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin: 0;">Create Custom Customer Order</h2>
+        <button onclick="closeCustomOrderModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);" aria-label="Close modal">&times;</button>
+      </div>
+      
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label for="cust-name-input" class="form-label">Customer Company Name:</label>
+        <input type="text" id="cust-name-input" class="form-input" placeholder="e.g. Apex Industrial Automation" style="width: 100%;">
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0.75rem;">
+        <label for="modal-sku-search" class="form-label">Search Product Catalog / SKU:</label>
+        <input type="text" id="modal-sku-search" class="form-input" placeholder="Filter by product name, category, or shelf..." style="width: 100%;" oninput="filterModalCatalog()">
+      </div>
+
+      <div class="form-group" style="flex: 1; min-height: 0; margin-bottom: 1rem;">
+        <label class="form-label">Select Items &amp; Pick Quantities:</label>
+        <div id="modal-products-list" style="max-height: 260px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; background: var(--bg-main);">
+          Loading products catalog...
+        </div>
+      </div>
+
+      <div id="modal-validation-error" style="display: none; color: #ef4444; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.75rem;"></div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
+        <button class="btn btn-secondary" onclick="closeCustomOrderModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitCustomOrder()">Save &amp; Compute Route</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     let graphData = { nodes: [], edges: [] };
@@ -245,11 +432,13 @@
     let animRunning = false;
     let animProgress = 0;
     let animReqId = null;
+    let animSpeedMultiplier = 1.0;
+    let highlightedLegIndex = null;
 
     // View Transformation State for Pan & Zoom
     let view = {
       scale: 1.0,
-      minScale: 0.5,
+      minScale: 0.35,
       maxScale: 3.5,
       x: 0,
       y: 0,
@@ -261,12 +450,14 @@
     let hoveredNode = null;
     let shelfProductsMap = {};
     let pulseAngle = 0;
+    let modalCatalog = [];
 
     async function initializePage() {
       // 1. Load Warehouse Graph for canvas
       try {
         const gRes = await fetch('/api/warehouse/graph');
         graphData = await gRes.json();
+        updateShelfCountLabels();
       } catch (err) {
         console.error("Failed to load graph:", err);
       }
@@ -276,9 +467,13 @@
         const pRes = await fetch('/api/products');
         const prods = await pRes.json();
         shelfProductsMap = {};
+        modalCatalog = prods;
         prods.forEach(p => {
-          if (!shelfProductsMap[p.shelf_id]) shelfProductsMap[p.shelf_id] = [];
-          shelfProductsMap[p.shelf_id].push(p);
+          const sId = p.assigned_shelf_id || p.shelf_id;
+          if (sId) {
+            if (!shelfProductsMap[sId]) shelfProductsMap[sId] = [];
+            shelfProductsMap[sId].push(p);
+          }
         });
       } catch (err) {
         console.warn("Could not load products for shelf tooltips:", err);
@@ -295,9 +490,15 @@
         orders.forEach(o => {
           const opt = document.createElement('option');
           opt.value = o.id;
-          const isTsp = o.items.length < 8;
-          const tag = isTsp ? 'Exact TSP (<8 stops)' : 'Greedy TSP (≥8 stops)';
-          opt.textContent = `Order #${o.id}: ${o.customer_name} — ${o.items.length} items [${tag}]`;
+          const itemCount = o.items ? o.items.length : 0;
+          const itemText = itemCount === 1 ? '1 item' : `${itemCount} items`;
+          let tag = 'NN + 2-Opt Local Search';
+          if (itemCount < 8) {
+            tag = 'B&B Exact';
+          } else if (itemCount <= 12) {
+            tag = 'Held-Karp DP Exact';
+          }
+          opt.textContent = `Order #${o.id}: ${o.customer_name} — ${itemText} [${tag}]`;
           select.appendChild(opt);
         });
 
@@ -309,6 +510,7 @@
         }
 
         select.addEventListener('change', () => computeRoute());
+        document.getElementById('algo-select').addEventListener('change', () => computeRoute());
 
         // Setup Canvas Listeners and Initial Render
         setupCanvasInteractivity();
@@ -321,10 +523,31 @@
       } catch (err) {
         console.error("Failed to load orders:", err);
       }
+
+      // Listen for window focus to refresh distances if layout changed in graph editor tab
+      window.addEventListener('focus', async () => {
+        try {
+          const gRes = await fetch('/api/warehouse/graph');
+          graphData = await gRes.json();
+          updateShelfCountLabels();
+          if (document.getElementById('order-select').value) {
+            computeRoute();
+          }
+        } catch (e) {}
+      });
+    }
+
+    function updateShelfCountLabels() {
+      if (graphData && graphData.nodes) {
+        const storageCount = graphData.nodes.filter(n => n.id !== 1).length;
+        const text = `${storageCount} storage shelves + 1 packing dock`;
+        const lbl = document.getElementById('legend-shelves-label');
+        if (lbl) lbl.textContent = text;
+      }
     }
 
     // -------------------------------------------------------------
-    // Canvas Interactivity: Pan, Zoom, and Fullscreen
+    // Canvas Interactivity: Pan, Zoom, Tight Fit, and Fullscreen
     // -------------------------------------------------------------
     function setupCanvasInteractivity() {
       const canvas = document.getElementById('route-canvas');
@@ -369,7 +592,7 @@
           let found = null;
           for (const n of graphData.nodes) {
             const isPacking = n.id === 1;
-            const r = isPacking ? 30 : 28;
+            const r = isPacking ? 42 : 30;
             const dx = worldX - n.x;
             const dy = worldY - n.y;
             if (dx * dx + dy * dy <= r * r) {
@@ -396,21 +619,55 @@
         }
       });
 
-      // Double-click to reset view
+      // Click node to focus matching leg in pick sequence
+      canvas.addEventListener('click', () => {
+        if (hoveredNode && currentRoute && currentRoute.legs) {
+          for (let i = 0; i < currentRoute.legs.length; i++) {
+            if (currentRoute.legs[i].to_shelf === hoveredNode.id || currentRoute.legs[i].from_shelf === hoveredNode.id) {
+              focusLeg(i);
+              break;
+            }
+          }
+        }
+      });
+
+      // Double-click to auto-fit view tightly
       canvas.addEventListener('dblclick', () => {
-        resetView();
+        fitView();
       });
 
       // Toolbar Buttons
       document.getElementById('btn-zoom-in').addEventListener('click', () => zoomBy(1.2));
       document.getElementById('btn-zoom-out').addEventListener('click', () => zoomBy(1 / 1.2));
-      document.getElementById('btn-zoom-reset').addEventListener('click', resetView);
+      document.getElementById('btn-zoom-fit').addEventListener('click', fitView);
+      document.getElementById('btn-zoom-reset').addEventListener('click', resetViewOneToOne);
       document.getElementById('btn-fullscreen-toggle').addEventListener('click', toggleFullscreen);
 
-      // Keyboard Shortcuts: 'F' for fullscreen, 'Esc' to exit
+      // Scrubber input listener
+      const scrubber = document.getElementById('anim-scrubber');
+      scrubber.addEventListener('input', (e) => {
+        if (currentRoute && currentRoute.full_path && currentRoute.full_path.length > 1) {
+          stopAnimation();
+          const pct = parseFloat(e.target.value);
+          scrubber.style.setProperty('--scrub-pct', `${pct}%`);
+          animProgress = (pct / 100.0) * (currentRoute.full_path.length - 1);
+          renderFrameAtProgress(animProgress);
+        }
+      });
+
+      // Keyboard Shortcuts
       document.addEventListener('keydown', (e) => {
-        if ((e.key === 'f' || e.key === 'F') && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+        if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+        if (e.key === 'f' || e.key === 'F') {
           toggleFullscreen();
+        } else if (e.key === '0') {
+          fitView();
+        } else if (e.key === '1') {
+          resetViewOneToOne();
+        } else if (e.code === 'Space') {
+          e.preventDefault();
+          toggleAnimation();
         } else if (e.key === 'Escape' && isFullscreen) {
           toggleFullscreen();
         }
@@ -425,6 +682,7 @@
 
       window.addEventListener('resize', () => {
         resizeCanvas();
+        fitView();
       });
     }
 
@@ -446,10 +704,55 @@
       zoomAt(rect.width / 2, rect.height / 2, factor);
     }
 
-    function resetView() {
+    function resetViewOneToOne() {
+      const canvas = document.getElementById('route-canvas');
+      if (!canvas) return;
+      const dpr = window.devicePixelRatio || 1;
+      const logicalWidth = canvas.width / dpr;
+      const logicalHeight = canvas.height / dpr;
+
       view.scale = 1.0;
-      view.x = 0;
-      view.y = 0;
+      view.x = (logicalWidth - 820) / 2;
+      view.y = (logicalHeight - 520) / 2;
+      updateZoomLabel();
+      drawRouteCanvas();
+    }
+
+    // Tight Bounding Box Auto-Fit (~5% margin, no loose blank padding)
+    function fitView() {
+      const canvas = document.getElementById('route-canvas');
+      if (!canvas) return;
+      const dpr = window.devicePixelRatio || 1;
+      const logicalWidth = canvas.width / dpr;
+      const logicalHeight = canvas.height / dpr;
+
+      if (!graphData.nodes || graphData.nodes.length === 0) return;
+
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      graphData.nodes.forEach(n => {
+        const r = (n.id === 1) ? 44 : 32;
+        if (n.x - r < minX) minX = n.x - r;
+        if (n.x + r > maxX) maxX = n.x + r;
+        if (n.y - r < minY) minY = n.y - r;
+        if (n.y + r > maxY) maxY = n.y + r;
+      });
+
+      const boxW = Math.max(100, maxX - minX);
+      const boxH = Math.max(100, maxY - minY);
+      const margin = 0.05; // 5% clean margin
+      const padW = boxW * margin;
+      const padH = boxH * margin;
+      const targetW = boxW + padW * 2;
+      const targetH = boxH + padH * 2;
+
+      const scaleX = logicalWidth / targetW;
+      const scaleY = logicalHeight / targetH;
+      const targetScale = Math.min(scaleX, scaleY);
+
+      view.scale = Math.max(view.minScale, Math.min(view.maxScale, targetScale));
+      view.x = (logicalWidth - targetW * view.scale) / 2 - (minX - padW) * view.scale;
+      view.y = (logicalHeight - targetH * view.scale) / 2 - (minY - padH) * view.scale;
+
       updateZoomLabel();
       drawRouteCanvas();
     }
@@ -478,7 +781,10 @@
           document.exitFullscreen().catch(() => {});
         }
       }
-      setTimeout(resizeCanvas, 60);
+      setTimeout(() => {
+        resizeCanvas();
+        fitView();
+      }, 70);
     }
 
     function exitFullscreenUI() {
@@ -487,7 +793,10 @@
       isFullscreen = false;
       document.getElementById('fs-icon-expand').style.display = 'block';
       document.getElementById('fs-icon-compress').style.display = 'none';
-      setTimeout(resizeCanvas, 60);
+      setTimeout(() => {
+        resizeCanvas();
+        fitView();
+      }, 70);
     }
 
     function resizeCanvas() {
@@ -498,7 +807,7 @@
       const dpr = window.devicePixelRatio || 1;
 
       const w = Math.floor(rect.width > 0 ? rect.width : 820);
-      const h = isFullscreen ? Math.floor(window.innerHeight - 90) : 520;
+      const h = isFullscreen ? Math.floor(window.innerHeight - 90) : Math.max(440, Math.floor(rect.height > 0 ? rect.height : 520));
 
       canvas.width = Math.floor(w * dpr);
       canvas.height = Math.floor(h * dpr);
@@ -508,11 +817,16 @@
       drawRouteCanvas();
     }
 
+    // -------------------------------------------------------------
+    // Route Computation & UI Synchronization
+    // -------------------------------------------------------------
     async function computeRoute() {
       stopAnimation();
+      highlightedLegIndex = null;
       const orderId = document.getElementById('order-select').value;
       if (!orderId) return;
 
+      const algo = document.getElementById('algo-select').value || 'auto';
       const btn = document.getElementById('btn-compute');
       btn.innerHTML = `
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
@@ -523,52 +837,67 @@
       `;
       btn.disabled = true;
 
+      const alertUnreachable = document.getElementById('unreachable-alert');
+      alertUnreachable.style.display = 'none';
+
       try {
-        const res = await fetch(`/api/orders/${orderId}/route`, { method: 'POST' });
+        const res = await fetch(`/api/orders/${orderId}/route?algorithm=${encodeURIComponent(algo)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ algorithm: algo })
+        });
         currentRoute = await res.json();
+
+        if (currentRoute.unreachable) {
+          alertUnreachable.style.display = 'flex';
+          document.getElementById('unreachable-alert-text').innerHTML = `
+            <strong>Route Unreachable:</strong> ${currentRoute.error_message || 'Blocked corridors prevent accessing one or more shelf stops.'}
+          `;
+        }
 
         document.getElementById('results-container').style.display = 'block';
 
-        // Update Stat Cards
-        document.getElementById('res-distance').textContent = currentRoute.total_distance + ' m';
+        // Update Baseline Comparison
+        const baseDist = currentRoute.baseline_distance || currentRoute.total_distance;
+        const optDist = currentRoute.total_distance;
+        const savedDist = currentRoute.distance_saved_m || 0.0;
+        const pctSaved = currentRoute.percent_saved || 0.0;
+        const estSec = currentRoute.estimated_time_seconds || 0.0;
+        const savedSec = currentRoute.time_saved_seconds || 0.0;
+
+        document.getElementById('base-distance').textContent = `${baseDist} m`;
+        document.getElementById('opt-distance').textContent = `${optDist} m`;
+        document.getElementById('base-saved').textContent = `${savedDist} m (${pctSaved}% saved)`;
+        
+        const estMin = Math.floor(estSec / 60);
+        const estRemainderSec = Math.round(estSec % 60);
+        document.getElementById('base-time').textContent = `${estMin}m ${estRemainderSec}s (${savedSec}s saved)`;
+
+        // Update Stat KPI Cards (Clean Unicode middle-dot characters)
+        document.getElementById('res-distance').textContent = `${currentRoute.total_distance} m`;
         document.getElementById('res-stops').textContent = currentRoute.stop_count;
-        document.getElementById('res-items').textContent = currentRoute.items ? currentRoute.items.length : 0;
+
+        const distinctItemsCount = currentRoute.items ? currentRoute.items.length : 0;
+        const totalUnits = currentRoute.items ? currentRoute.items.reduce((acc, it) => acc + (it.quantity || 1), 0) : 0;
+        document.getElementById('res-items').textContent = `${distinctItemsCount} ${distinctItemsCount === 1 ? 'SKU' : 'SKUs'} · ${totalUnits} pcs`;
+        document.getElementById('res-items-desc').textContent = `${totalUnits} total units requested across ${distinctItemsCount} line items`;
+
+        const calcTime = currentRoute.calculation_time_ms !== undefined ? `${currentRoute.calculation_time_ms} ms` : '1.2 ms';
         document.getElementById('res-algo').textContent = currentRoute.algorithm;
-        document.getElementById('res-algo-desc').textContent = currentRoute.stop_count < 8 ? "Exact Tour Optimization (O(N!))" : "Polynomial Fallback (O(N²))";
+        document.getElementById('res-algo-desc').textContent = `${currentRoute.complexity} · ${calcTime}`;
+
+        // Order status badge & dispatch controls
+        updateOrderStatusUI(currentRoute.status || 'Pending');
 
         // Render Legs Table
-        const legsBody = document.getElementById('legs-table-body');
-        legsBody.innerHTML = '';
-
-        currentRoute.legs.forEach((leg, idx) => {
-          const fromLabel = leg.from_shelf === 1 ? 'Packing Area' : `Shelf ${leg.from_shelf}`;
-          const toLabel = leg.to_shelf === 1 ? 'Packing Area' : `Shelf ${leg.to_shelf}`;
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td><strong>#${idx + 1}</strong></td>
-            <td>${fromLabel} &rarr; <strong>${toLabel}</strong></td>
-            <td style="text-align: right; font-weight: 700;">${leg.distance} m</td>
-          `;
-          legsBody.appendChild(tr);
-        });
+        renderLegsTable();
 
         // Render Items Table
-        const itemsBody = document.getElementById('order-items-body');
-        itemsBody.innerHTML = '';
-        if (currentRoute.items) {
-          currentRoute.items.forEach(it => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-              <td style="font-weight: 500;">${it.name}</td>
-              <td><span class="badge" style="background:#f1f5f9; color:#0f172a; font-weight: 700;">${it.quantity}x</span></td>
-              <td><span class="badge badge-primary">Shelf ${it.shelf_id}</span></td>
-            `;
-            itemsBody.appendChild(tr);
-          });
-        }
+        renderItemsTable(totalUnits);
 
-        // Render Canvas
-        drawRouteCanvas();
+        // Auto-fit tightly on first computation
+        fitView();
+        startAmbientPulse();
 
       } catch (err) {
         console.error("Failed to compute route:", err);
@@ -583,8 +912,179 @@
       }
     }
 
+    function renderLegsTable() {
+      const legsBody = document.getElementById('legs-table-body');
+      const legsFoot = document.getElementById('legs-table-foot');
+      const legsWrap = document.getElementById('legs-table-wrapper');
+      const legsBadge = document.getElementById('legs-count-badge');
+      legsBody.innerHTML = '';
+      legsFoot.innerHTML = '';
+
+      if (!currentRoute || !currentRoute.legs || currentRoute.legs.length === 0) {
+        legsBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No route legs computed.</td></tr>`;
+        legsBadge.textContent = '0 Legs';
+        legsWrap.style.maxHeight = 'none';
+        legsWrap.style.overflowY = 'visible';
+        return;
+      }
+
+      const count = currentRoute.legs.length;
+      const statsPill = document.getElementById('floorplan-stats-pill');
+      if (statsPill) {
+        const stopsCount = (currentRoute.stops && currentRoute.stops.length > 1) ? (currentRoute.stops.length - 1) : count;
+        statsPill.textContent = `${stopsCount} Stops · ${currentRoute.total_distance}m Tour`;
+      }
+
+      if (count <= 8) {
+        legsWrap.style.maxHeight = 'none';
+        legsWrap.style.overflowY = 'visible';
+        legsBadge.textContent = `${count} Legs`;
+      } else {
+        legsWrap.style.maxHeight = '340px';
+        legsWrap.style.overflowY = 'auto';
+        legsBadge.textContent = `Showing all ${count} Legs (scroll)`;
+      }
+
+      let cumulative = 0;
+      currentRoute.legs.forEach((leg, idx) => {
+        cumulative += leg.distance;
+        const fromLabel = leg.from_shelf === 1 ? 'Packing Hub #1' : 'S&#8209;' + String(leg.from_shelf).padStart(2, '0');
+        const toLabel = leg.to_shelf === 1 ? 'Packing Hub #1' : 'S&#8209;' + String(leg.to_shelf).padStart(2, '0');
+
+        const tr = document.createElement('tr');
+        tr.className = `table-row-clickable ${highlightedLegIndex === idx ? 'active-leg' : ''}`;
+        tr.id = `leg-row-${idx}`;
+        tr.innerHTML = `
+          <td style="white-space: nowrap;"><strong>#${idx + 1}</strong></td>
+          <td class="cell-movement"><span style="white-space: nowrap;">${fromLabel}</span> &rarr; <span style="white-space: nowrap;"><strong>${toLabel}</strong></span></td>
+          <td class="cell-num"><span style="white-space: nowrap; font-variant-numeric: tabular-nums;">${leg.distance}&nbsp;m</span></td>
+          <td class="cell-num"><span style="white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">${roundNumber(cumulative, 1)}&nbsp;m</span></td>
+        `;
+
+        tr.addEventListener('click', () => {
+          focusLeg(idx);
+        });
+
+        legsBody.appendChild(tr);
+      });
+
+      // Sticky Total Row
+      legsFoot.innerHTML = `
+        <tr class="sticky-total-row">
+          <td colspan="2" style="text-align: left; text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.05em; white-space: nowrap;">Total Round-Trip Tour</td>
+          <td class="cell-num" style="font-weight: 800; color: #10b981;"><span style="white-space: nowrap; font-variant-numeric: tabular-nums;">${currentRoute.total_distance}&nbsp;m</span></td>
+          <td class="cell-num" style="font-weight: 800; font-family: 'JetBrains Mono', monospace;"><span style="white-space: nowrap; font-variant-numeric: tabular-nums;">${currentRoute.total_distance}&nbsp;m</span></td>
+        </tr>
+      `;
+    }
+
+    function renderItemsTable(totalUnits) {
+      const itemsBody = document.getElementById('order-items-body');
+      const itemsFoot = document.getElementById('order-items-foot');
+      const itemsWrap = document.getElementById('order-items-wrapper');
+      const itemsBadge = document.getElementById('items-count-badge');
+      itemsBody.innerHTML = '';
+      itemsFoot.innerHTML = '';
+
+      if (!currentRoute || !currentRoute.items || currentRoute.items.length === 0) {
+        itemsBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No items in selected order.</td></tr>`;
+        itemsBadge.textContent = '0 Items';
+        itemsWrap.style.maxHeight = 'none';
+        itemsWrap.style.overflowY = 'visible';
+        return;
+      }
+
+      const count = currentRoute.items.length;
+      if (count <= 8) {
+        itemsWrap.style.maxHeight = 'none';
+        itemsWrap.style.overflowY = 'visible';
+        itemsBadge.textContent = `${count} Line Items`;
+      } else {
+        itemsWrap.style.maxHeight = '280px';
+        itemsWrap.style.overflowY = 'auto';
+        itemsBadge.textContent = `Showing all ${count} Items (scroll)`;
+      }
+
+      currentRoute.items.forEach(it => {
+        const tr = document.createElement('tr');
+        const shelfCode = it.shelf_id ? 'S&#8209;' + String(it.shelf_id).padStart(2, '0') : 'Unassigned';
+        tr.innerHTML = `
+          <td style="font-weight: 500;">
+            ${it.name || 'Product Item'}
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; white-space: nowrap;">SKU #${it.product_id} · ${it.category || 'General'}</div>
+          </td>
+          <td style="text-align: center; white-space: nowrap;"><span class="badge cell-badge-nowrap" style="background: var(--bg-main); color: var(--text-main); font-weight: 700; border: 1px solid var(--border);">${it.quantity}&nbsp;pcs</span></td>
+          <td style="text-align: center; white-space: nowrap;"><span class="badge badge-primary cell-badge-nowrap">${shelfCode}</span></td>
+        `;
+        itemsBody.appendChild(tr);
+      });
+
+      // Sticky Total Units Row
+      itemsFoot.innerHTML = `
+        <tr class="sticky-total-row">
+          <td style="text-align: left; text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.05em; white-space: nowrap;">Total Units Requested</td>
+          <td style="text-align: center; font-weight: 800; color: #0284c7; white-space: nowrap;"><span style="white-space: nowrap; font-variant-numeric: tabular-nums;">${totalUnits}&nbsp;pcs</span></td>
+          <td style="text-align: center; font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;">${currentRoute.items.length}&nbsp;SKUs</td>
+        </tr>
+      `;
+    }
+
+    function updateOrderStatusUI(status) {
+      const badge = document.getElementById('order-status-badge');
+      const btnDispatch = document.getElementById('btn-dispatch-order');
+      const btnComplete = document.getElementById('btn-complete-order');
+
+      badge.textContent = `Status: ${status}`;
+      badge.className = 'badge ' + (status === 'Completed' ? 'badge-success' : (status === 'Picking' ? 'badge-primary' : 'badge-warning'));
+
+      if (status === 'Completed') {
+        btnDispatch.disabled = true;
+        btnComplete.disabled = true;
+      } else if (status === 'Picking') {
+        btnDispatch.disabled = true;
+        btnComplete.disabled = false;
+      } else {
+        btnDispatch.disabled = false;
+        btnComplete.disabled = false;
+      }
+    }
+
+    function focusLeg(idx) {
+      highlightedLegIndex = idx;
+      // Highlight row
+      document.querySelectorAll('#legs-table-body tr').forEach((r, i) => {
+        if (i === idx) {
+          r.classList.add('active-leg');
+          r.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+          r.classList.remove('active-leg');
+        }
+      });
+
+      // Jump picker to start of this leg
+      if (currentRoute && currentRoute.legs && currentRoute.legs[idx]) {
+        const path = currentRoute.full_path;
+        const targetNodeId = currentRoute.legs[idx].from_shelf;
+        const nodeIdx = path.indexOf(targetNodeId);
+        if (nodeIdx !== -1) {
+          animProgress = nodeIdx;
+          updateScrubberUI();
+          renderFrameAtProgress(animProgress);
+        }
+      }
+    }
+
     // -------------------------------------------------------------
     // Ultra-Realistic Industrial Warehouse Floorplan Rendering
+    // -------------------------------------------------------------
+    let ambientFlowOffset = 0;
+    let ambientPulseLoopId = null;
+
+    // -------------------------------------------------------------
+    // High-Fidelity Industrial Digital Twin Warehouse Floorplan
+    // -------------------------------------------------------------
+    // -------------------------------------------------------------
+    // Warehouse Floorplan Digital Twin Rendering Pipeline (graph.html parity)
     // -------------------------------------------------------------
     function drawRouteCanvas(workerPos = null) {
       const canvas = document.getElementById('route-canvas');
@@ -598,56 +1098,43 @@
       ctx.save();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // 1. Draw High-DPI Background Concrete Floor
+      // 1. Digital Twin Canvas Floor (Identical to graph.html)
       const dark = typeof isDarkMode === 'function' && isDarkMode();
-      ctx.fillStyle = dark ? '#161618' : '#F8F8FA';
+      ctx.fillStyle = dark ? '#0f172a' : '#f8fafc';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Setup World Transformation (Pan & Zoom)
+      // World transformation (DPR + Pan + Zoom)
       ctx.save();
       ctx.scale(dpr, dpr);
       ctx.translate(view.x, view.y);
       ctx.scale(view.scale, view.scale);
 
-      // A. Polished Industrial Concrete Floor Joints & Grid
-      drawRealisticFloor(ctx);
+      // A. Warehouse Floor Architecture (20px/100px grid, staging zones, express corridor)
+      drawWarehouseFloor(ctx, dark);
 
-      // B. Overhead Aisle Structural Signboards
-      drawAisleSignboards(ctx);
+      // B. Overhead Aisle Signboards
+      drawAisleSignboards(ctx, dark);
 
       const nodeMap = {};
       graphData.nodes.forEach(n => { nodeMap[n.id] = n; });
 
-      // C. Base Walkway Corridor Tracks
-      ctx.save();
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = dark ? '#334155' : '#cbd5e1';
-      ctx.setLineDash([4, 4]);
-      graphData.edges.forEach(e => {
-        const u = nodeMap[e.from_shelf_id];
-        const v = nodeMap[e.to_shelf_id];
-        if (u && v) {
-          ctx.beginPath();
-          ctx.moveTo(u.x, u.y);
-          ctx.lineTo(v.x, v.y);
-          ctx.stroke();
-        }
-      });
-      ctx.restore();
+      // C. Base Corridors with Metric Distance Pills
+      drawCorridors(ctx, nodeMap, dark);
 
-      // D. Highlighted Active Pick Path with Glow & Flow Direction Chevrons
+      // D. Highlighted Active Pick Path (Multilayered Luminous Energy Conduit)
       if (currentRoute && currentRoute.full_path && currentRoute.full_path.length > 1) {
         ctx.save();
+        const path = currentRoute.full_path;
 
-        // 1. Outer Glowing Conduit Aura
-        ctx.lineWidth = 8;
-        ctx.strokeStyle = 'rgba(239, 68, 68, 0.22)';
+        // 1. Radiant Ambient Conduit Glow
+        ctx.lineWidth = 10;
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
         ctx.beginPath();
-        for (let i = 0; i < currentRoute.full_path.length - 1; i++) {
-          const u = nodeMap[currentRoute.full_path[i]];
-          const v = nodeMap[currentRoute.full_path[i + 1]];
+        for (let i = 0; i < path.length - 1; i++) {
+          const u = nodeMap[path[i]];
+          const v = nodeMap[path[i + 1]];
           if (u && v) {
             ctx.moveTo(u.x, u.y);
             ctx.lineTo(v.x, v.y);
@@ -655,32 +1142,67 @@
         }
         ctx.stroke();
 
-        // 2. Core High-Contrast Route Line
-        ctx.lineWidth = 3.5;
-        ctx.strokeStyle = '#ef4444';
+        // 2. High-Contrast Core Line (Matching Shortest Path & TSP Overlay)
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#38bdf8';
+        ctx.shadowColor = 'rgba(56, 189, 248, 0.75)';
+        ctx.shadowBlur = 12;
         ctx.beginPath();
-        for (let i = 0; i < currentRoute.full_path.length - 1; i++) {
-          const u = nodeMap[currentRoute.full_path[i]];
-          const v = nodeMap[currentRoute.full_path[i + 1]];
+        for (let i = 0; i < path.length - 1; i++) {
+          const u = nodeMap[path[i]];
+          const v = nodeMap[path[i + 1]];
           if (u && v) {
             ctx.moveTo(u.x, u.y);
             ctx.lineTo(v.x, v.y);
           }
         }
         ctx.stroke();
+        ctx.shadowBlur = 0;
 
-        // 3. Directional Movement Chevron Arrows along each leg
-        for (let i = 0; i < currentRoute.full_path.length - 1; i++) {
-          const u = nodeMap[currentRoute.full_path[i]];
-          const v = nodeMap[currentRoute.full_path[i + 1]];
+        // 3. Inner White Laser Beam & Flow
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#ffffff';
+        ctx.setLineDash([10, 14]);
+        ctx.lineDashOffset = -ambientFlowOffset;
+        ctx.beginPath();
+        for (let i = 0; i < path.length - 1; i++) {
+          const u = nodeMap[path[i]];
+          const v = nodeMap[path[i + 1]];
+          if (u && v) {
+            ctx.moveTo(u.x, u.y);
+            ctx.lineTo(v.x, v.y);
+          }
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 4. Directional Aerodynamic Chevron Arrows
+        for (let i = 0; i < path.length - 1; i++) {
+          const u = nodeMap[path[i]];
+          const v = nodeMap[path[i + 1]];
           if (u && v) {
             drawDirectionChevron(ctx, u, v);
           }
         }
+
+        // 5. Turn Waypoint Nodes
+        for (let i = 1; i < path.length - 1; i++) {
+          const p = nodeMap[path[i]];
+          if (p && p.id !== 1 && (!currentRoute.stops || !currentRoute.stops.includes(p.id))) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#38bdf8';
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+          }
+        }
+
         ctx.restore();
       }
 
-      // E. Draw Nodes (Packing Hub & Heavy-Duty Pallet Racking Units)
+      // E. Draw Nodes (Packing Dock #1 & Pallet Racks with Exact Digital Twin Appearance)
       const routeStopsSet = new Set(currentRoute ? currentRoute.stops : []);
 
       graphData.nodes.forEach(n => {
@@ -691,136 +1213,162 @@
         if (isPacking) {
           drawPackingStation(ctx, n, isHovered);
         } else {
-          drawPalletRack(ctx, n, isStop, isHovered);
+          drawPalletRack(ctx, n, isStop, isHovered, dark);
         }
       });
 
-      // F. Animated Picker Trolley/Worker Avatar
+      // F. Animated Autonomous Mobile Picker Robot (AMR)
       if (workerPos) {
         drawWorkerAvatar(ctx, workerPos);
       }
 
-      ctx.restore(); // Restore world pan & zoom scale
+      ctx.restore(); // Exit World Transform
 
-      // G. Screen-Space HUD & Metadata Overlays (Fixed to canvas viewport)
-      drawScreenHUD(ctx, logicalWidth, logicalHeight);
+      // G. Screen-Space HUD & Metric Scale Bar (Matching graph.html)
+      drawScreenHUD(ctx, logicalWidth, logicalHeight, dark);
 
-      // H. Shelf Inspection Hover Tooltip (if hovering over a node)
+      // H. Interactive Hover Tooltip
       if (hoveredNode) {
         drawShelfHoverTooltip(ctx, hoveredNode, logicalWidth, logicalHeight);
       }
 
-      ctx.restore(); // Restore base DPR
+      ctx.restore(); // Exit Base Canvas Save
     }
 
-    // --- Sub-renderer: Polished Industrial Warehouse Floor ---
-    function drawRealisticFloor(ctx) {
-      const dark = typeof isDarkMode === 'function' && isDarkMode();
+    // --- Sub-renderer: Warehouse Floor Architecture (Identical to graph.html) ---
+    function drawWarehouseFloor(ctx, dark) {
       ctx.save();
 
-      // Expansion joint tile grid (20px fine grid)
-      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.04)' : '#f1f5f9';
+      // Fine Grid lines (20px)
+      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.04)';
       ctx.lineWidth = 1;
-      for (let x = 0; x <= 860; x += 25) {
+      for (let x = -200; x <= 1200; x += 20) {
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, 560);
+        ctx.moveTo(x, -200);
+        ctx.lineTo(x, 800);
         ctx.stroke();
       }
-      for (let y = 0; y <= 560; y += 25) {
+      for (let y = -200; y <= 800; y += 20) {
         ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(860, y);
+        ctx.moveTo(-200, y);
+        ctx.lineTo(1200, y);
         ctx.stroke();
       }
 
-      // Major structural slab joints (100px)
-      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
+      // Major grid markings (100px)
+      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.08)';
       ctx.lineWidth = 1.5;
-      for (let x = 0; x <= 860; x += 100) {
+      for (let x = -200; x <= 1200; x += 100) {
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, 560);
+        ctx.moveTo(x, -200);
+        ctx.lineTo(x, 800);
         ctx.stroke();
       }
-      for (let y = 0; y <= 560; y += 100) {
+      for (let y = -200; y <= 800; y += 100) {
         ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(860, y);
+        ctx.moveTo(-200, y);
+        ctx.lineTo(1200, y);
         ctx.stroke();
       }
 
-      // Facility Safety Boundary Markings (Outer perimeter zone)
-      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.12)' : '#e2e8f0';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(30, 20, 755, 480);
+      // Inbound Staging Safety Zone (widened to comfortably fit dock label)
+      ctx.fillStyle = dark ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.06)';
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(16, 175, 136, 170, 10);
+      ctx.fill();
+      ctx.stroke();
 
-      // Central Corridor Pedestrian Lane Markings (y = 260)
-      ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
+      // Zone Label
+      ctx.fillStyle = dark ? '#6ee7b7' : '#059669';
+      ctx.font = 'bold 8.5px monospace';
+      ctx.fillText("INBOUND & PACKING DOCK", 25, 192);
+
+      // Central Express Corridor dividing lanes (y = 260)
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([8, 8]);
       ctx.beginPath();
-      ctx.moveTo(135, 246);
-      ctx.lineTo(760, 246);
-      ctx.moveTo(135, 274);
-      ctx.lineTo(760, 274);
+      ctx.moveTo(154, 245);
+      ctx.lineTo(820, 245);
+      ctx.moveTo(154, 275);
+      ctx.lineTo(820, 275);
       ctx.stroke();
       ctx.setLineDash([]);
 
       ctx.restore();
     }
 
-    // --- Sub-renderer: Overhead Aisle Signboards ---
-    function drawAisleSignboards(ctx) {
+    // --- Sub-renderer: Overhead Aisle Signboards (Identical to graph.html) ---
+    function drawAisleSignboards(ctx, dark) {
       const aisles = [
-        { label: 'AISLE 01', range: 'BAYS 02-07', x: 220 },
-        { label: 'AISLE 02', range: 'BAYS 08-13', x: 380 },
-        { label: 'AISLE 03', range: 'BAYS 14-19', x: 540 },
-        { label: 'AISLE 04', range: 'BAYS 20-25', x: 700 }
+        { label: 'AISLE 01', range: 'BAYS 2-7', cx: 220, minY: 70 },
+        { label: 'AISLE 02', range: 'BAYS 8-13', cx: 380, minY: 70 },
+        { label: 'AISLE 03', range: 'BAYS 14-19', cx: 540, minY: 70 },
+        { label: 'AISLE 04', range: 'BAYS 20-25', cx: 700, minY: 70 }
       ];
 
       aisles.forEach(a => {
-        ctx.save();
-        const w = 82;
-        const h = 24;
-        const x = a.x - w / 2;
-        const y = 34;
+        const bx = a.cx - 34;
+        const by = a.minY - 44;
 
-        // Signboard Mounting Rafter Cables
-        ctx.strokeStyle = '#94a3b8';
+        ctx.save();
+        ctx.fillStyle = dark ? '#1e293b' : '#334155';
+        ctx.strokeStyle = dark ? '#475569' : '#1e293b';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.moveTo(x + 10, 20);
-        ctx.lineTo(x + 10, y);
-        ctx.moveTo(x + w - 10, 20);
-        ctx.lineTo(x + w - 10, y);
+        ctx.roundRect(bx, by, 68, 20, 4);
+        ctx.fill();
         ctx.stroke();
 
-        // Signboard Body
-        ctx.fillStyle = '#0f172a';
-        ctx.beginPath();
-        ctx.roundRect(x, y, w, h, 4);
-        ctx.fill();
-
-        // Safety Yellow Accent Top Stripe
-        ctx.fillStyle = '#f59e0b';
-        ctx.beginPath();
-        ctx.roundRect(x, y, w, 3, [4, 4, 0, 0]);
-        ctx.fill();
-
-        // Aisle Text
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 9.5px monospace';
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 8.5px sans-serif';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(a.label, a.x, y + 10);
+        ctx.fillText(a.label, a.cx, by + 10);
 
         ctx.fillStyle = '#94a3b8';
-        ctx.font = '600 7px sans-serif';
-        ctx.fillText(a.range, a.x, y + 18);
-
+        ctx.font = '600 6.5px monospace';
+        ctx.fillText(a.range, a.cx, by + 17);
         ctx.restore();
       });
+    }
+
+    // --- Sub-renderer: Base Corridors with Metric Distance Pills (Identical to graph.html) ---
+    function drawCorridors(ctx, nodeMap, dark) {
+      ctx.save();
+      graphData.edges.forEach(e => {
+        const u = nodeMap[e.from_shelf_id];
+        const v = nodeMap[e.to_shelf_id];
+        if (!u || !v) return;
+
+        ctx.save();
+        ctx.strokeStyle = dark ? '#334155' : '#cbd5e1';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(u.x, u.y);
+        ctx.lineTo(v.x, v.y);
+        ctx.stroke();
+
+        // Metric Distance Pill on Edge Midpoint
+        const mx = (u.x + v.x) / 2;
+        const my = (u.y + v.y) / 2;
+        ctx.fillStyle = dark ? '#1e293b' : '#ffffff';
+        ctx.strokeStyle = dark ? '#475569' : '#94a3b8';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(mx - 15, my - 7, 30, 14, 4);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = dark ? '#94a3b8' : '#475569';
+        ctx.font = 'bold 8px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${e.distance}m`, mx, my);
+        ctx.restore();
+      });
+      ctx.restore();
     }
 
     // --- Sub-renderer: Directional Movement Chevron Arrow ---
@@ -828,7 +1376,7 @@
       const dx = v.x - u.x;
       const dy = v.y - u.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 30) return;
+      if (dist < 26) return;
 
       const angle = Math.atan2(dy, dx);
       const midX = (u.x + v.x) / 2;
@@ -838,287 +1386,300 @@
       ctx.translate(midX, midY);
       ctx.rotate(angle);
 
-      // Aerodynamic Chevron Pointer
-      ctx.fillStyle = '#ef4444';
+      // Aerodynamic Laser Chevron
+      ctx.fillStyle = '#0284c7';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(-4, -5);
-      ctx.lineTo(3, 0);
-      ctx.lineTo(-4, 5);
-      ctx.lineTo(-2, 0);
+      ctx.moveTo(-5, -5.5);
+      ctx.lineTo(5, 0);
+      ctx.lineTo(-5, 5.5);
+      ctx.lineTo(-2.5, 0);
       ctx.closePath();
       ctx.fill();
+      ctx.stroke();
 
       ctx.restore();
     }
 
-    // --- Sub-renderer: Packing & Dispatch Hub (Shelf 1) ---
+    // --- Sub-renderer: Packing & Dispatch Hub (Packing Dock #1) (Identical to graph.html) ---
     function drawPackingStation(ctx, n, isHovered) {
       ctx.save();
-
-      // Hazard Warning Staging Perimeter
-      const pw = 74;
-      const ph = 54;
+      const pw = 96;
+      const ph = 56;
       const px = n.x - pw / 2;
       const py = n.y - ph / 2;
 
-      ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(px - 4, py - 4, pw + 8, ph + 8);
-
-      // Concentric Dispatch Pulse Radar Ring
-      pulseAngle = (pulseAngle + 0.05) % (Math.PI * 2);
-      const pulseSize = 34 + Math.sin(pulseAngle) * 4;
+      // Pulse Radar
+      pulseAngle = (pulseAngle + 0.04) % (Math.PI * 2);
+      const pulseSize = 36 + Math.sin(pulseAngle) * 5;
       ctx.beginPath();
       ctx.arc(n.x, n.y, pulseSize, 0, 2 * Math.PI);
-      ctx.fillStyle = 'rgba(16, 185, 129, 0.1)';
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
       ctx.fill();
 
-      // Main Packing Dock Station Body
-      const grad = ctx.createLinearGradient(px, py, px, py + ph);
-      grad.addColorStop(0, '#10b981');
-      grad.addColorStop(1, '#059669');
-
-      ctx.fillStyle = grad;
+      const dockGrad = ctx.createLinearGradient(px, py, px, py + ph);
+      dockGrad.addColorStop(0, '#10b981');
+      dockGrad.addColorStop(1, '#047857');
+      ctx.fillStyle = dockGrad;
       ctx.beginPath();
       ctx.roundRect(px, py, pw, ph, 8);
       ctx.fill();
 
-      ctx.strokeStyle = isHovered ? '#6ee7b7' : '#ffffff';
+      ctx.strokeStyle = isHovered ? '#a7f3d0' : '#ffffff';
       ctx.lineWidth = isHovered ? 3 : 2;
       ctx.stroke();
 
-      // Conveyor Rollers Graphic Lines
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      // Conveyor Roller Tracks
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
       ctx.lineWidth = 1.5;
-      for (let ly = py + 12; ly <= py + ph - 12; ly += 7) {
+      for (let ly = py + 10; ly <= py + ph - 10; ly += 7) {
         ctx.beginPath();
-        ctx.moveTo(px + 8, ly);
-        ctx.lineTo(px + 20, ly);
+        ctx.moveTo(px + 6, ly);
+        ctx.lineTo(px + 18, ly);
         ctx.stroke();
       }
 
-      // Station Typography
+      // Status Beacon
+      ctx.fillStyle = '#34d399';
+      ctx.beginPath();
+      ctx.arc(px + pw - 10, py + 10, 4, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // Labels
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 11px monospace';
+      ctx.font = 'bold 10px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText("PACK DOCK", n.x + 8, n.y - 6);
+      ctx.fillText("PACK DOCK #1", n.x + 4, n.y - 6);
 
-      ctx.font = '700 8px sans-serif';
+      ctx.font = '700 7px sans-serif';
       ctx.fillStyle = '#ecfdf5';
-      ctx.fillText("ORIGIN / STAGING", n.x + 8, n.y + 8);
+      ctx.fillText("ORIGIN & DISPATCH", n.x + 4, n.y + 8);
 
       ctx.restore();
     }
 
-    // --- Sub-renderer: Heavy-Duty Industrial Pallet Racking ---
-    function drawPalletRack(ctx, n, isStop, isHovered) {
+    // --- Sub-renderer: Pallet Storage Racks (Identical to graph.html + Pick Stop Overlays) ---
+    function drawPalletRack(ctx, n, isStop, isHovered, dark) {
       ctx.save();
-
-      const w = 54;
-      const h = 32;
+      const w = 58;
+      const h = 34;
       const x = n.x - w / 2;
       const y = n.y - h / 2;
 
-      // Ambient Floor Glow for Pick Targets
+      // Check active leg target
+      let isActiveLegTarget = false;
+      if (highlightedLegIndex !== -1 && currentRoute && currentRoute.legs && currentRoute.legs[highlightedLegIndex]) {
+        if (currentRoute.legs[highlightedLegIndex].to_shelf === n.id) {
+          isActiveLegTarget = true;
+        }
+      }
+
       if (isStop) {
-        ctx.shadowColor = 'rgba(239, 68, 68, 0.7)';
-        ctx.shadowBlur = 14;
+        ctx.shadowColor = 'rgba(56, 189, 248, 0.75)';
+        ctx.shadowBlur = 18;
       } else if (isHovered) {
-        ctx.shadowColor = 'rgba(192, 192, 192, 0.4)';
+        ctx.shadowColor = 'rgba(148, 163, 184, 0.5)';
         ctx.shadowBlur = 10;
       }
 
-      // Heavy Duty Steel Rack Body
+      // Rack Chassis Gradient (matching graph.html)
       const rackGrad = ctx.createLinearGradient(x, y, x, y + h);
       if (isStop) {
-        rackGrad.addColorStop(0, '#ef4444');
-        rackGrad.addColorStop(1, '#dc2626');
+        rackGrad.addColorStop(0, '#0284c7');
+        rackGrad.addColorStop(1, '#0369a1');
       } else {
-        rackGrad.addColorStop(0, '#475569');
-        rackGrad.addColorStop(1, '#334155');
+        rackGrad.addColorStop(0, dark ? '#334155' : '#475569');
+        rackGrad.addColorStop(1, dark ? '#1e293b' : '#334155');
       }
 
       ctx.fillStyle = rackGrad;
       ctx.beginPath();
-      ctx.roundRect(x, y, w, h, 5);
+      ctx.roundRect(x, y, w, h, 6);
       ctx.fill();
 
-      // Rack Outline
-      ctx.strokeStyle = isStop ? '#fca5a5' : (isHovered ? '#C0C0C0' : '#64748b');
-      ctx.lineWidth = isStop ? 2.2 : (isHovered ? 2 : 1.2);
+      ctx.strokeStyle = isStop ? '#38bdf8' : (dark ? '#64748b' : '#94a3b8');
+      ctx.lineWidth = isStop ? 2.5 : 1.2;
       ctx.stroke();
-
-      // Reset Shadow for interior details
-      ctx.shadowColor = 'transparent';
       ctx.shadowBlur = 0;
 
-      // Structural Upright Steel Posts (Left and Right Columns)
-      ctx.fillStyle = isStop ? '#991b1b' : '#1e293b';
-      ctx.fillRect(x, y, 4, h);
-      ctx.fillRect(x + w - 4, y, 4, h);
-
-      // Center Bay Divider (Separates Bay A and Bay B pallet slots)
-      ctx.strokeStyle = isStop ? 'rgba(254, 202, 202, 0.4)' : 'rgba(255, 255, 255, 0.2)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(n.x, y + 3);
-      ctx.lineTo(n.x, y + h - 3);
-      ctx.stroke();
-
-      // Shelf Location Code Label
+      // Shelf Label
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 11px monospace';
+      ctx.font = 'bold 10px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`S-${String(n.id).padStart(2, '0')}`, n.x, n.y - 1);
+      ctx.fillText(`S-${String(n.id).padStart(2, '0')}`, n.x, n.y - 3);
 
-      // Stop Visit Sequence Badge (3D Amber Medal)
-      if (isStop && currentRoute) {
+      // Capacity load indicator
+      const load = n.current_load || 0;
+      const cap = n.capacity || 5;
+      ctx.fillStyle = (load >= cap) ? '#ef4444' : '#94a3b8';
+      ctx.font = '600 7px sans-serif';
+      ctx.fillText(`${load}/${cap} SKUs`, n.x, n.y + 8);
+
+      // Stop Visit Sequence Number Medal (Amber Pill Tag at Top-Right)
+      if (isStop && currentRoute && currentRoute.stops) {
         const stopIndex = currentRoute.stops.indexOf(n.id);
         if (stopIndex > 0) {
           const bx = n.x + 23;
-          const by = n.y - 13;
+          const by = n.y - 12;
 
           // Drop shadow
           ctx.beginPath();
-          ctx.arc(bx, by, 11, 0, 2 * Math.PI);
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+          ctx.arc(bx, by + 1, 9.5, 0, 2 * Math.PI);
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
           ctx.fill();
 
           // Amber badge body
-          const badgeGrad = ctx.createLinearGradient(bx, by - 10, bx, by + 10);
+          const badgeGrad = ctx.createLinearGradient(bx, by - 8, bx, by + 8);
           badgeGrad.addColorStop(0, '#fbbf24');
           badgeGrad.addColorStop(1, '#d97706');
 
           ctx.beginPath();
-          ctx.arc(bx, by, 10, 0, 2 * Math.PI);
+          ctx.arc(bx, by, 9, 0, 2 * Math.PI);
           ctx.fillStyle = badgeGrad;
           ctx.fill();
 
-          // White rim
+          // Crisp White Rim
           ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 1.8;
           ctx.stroke();
 
           // Sequence Order Number
           ctx.fillStyle = '#0f172a';
-          ctx.font = 'bold 10px sans-serif';
+          ctx.font = 'bold 9.5px -apple-system, sans-serif';
           ctx.fillText(stopIndex, bx, by + 0.5);
         }
+      }
+
+      // Active Leg Beacon Ring
+      if (isActiveLegTarget) {
+        ctx.save();
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, 27, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
       }
 
       ctx.restore();
     }
 
-    // --- Sub-renderer: Autonomous Mobile Picker (Cart/Worker) ---
+    // --- Sub-renderer: Autonomous Mobile Robot (AMR / Worker Avatar) ---
     function drawWorkerAvatar(ctx, workerPos) {
       ctx.save();
+      const dark = typeof isDarkMode === 'function' && isDarkMode();
+      const angle = (typeof workerPos.angle === 'number') ? workerPos.angle : 0;
 
-      // Ground Trailing Aura
+      ctx.translate(workerPos.x, workerPos.y);
+      ctx.rotate(angle);
+
+      // 1. Forward Headlight Illumination Beam
+      const lightGrad = ctx.createRadialGradient(0, 0, 4, 30, 0, 42);
+      lightGrad.addColorStop(0, 'rgba(254, 240, 138, 0.45)');
+      lightGrad.addColorStop(1, 'rgba(254, 240, 138, 0)');
+      ctx.fillStyle = lightGrad;
       ctx.beginPath();
-      ctx.arc(workerPos.x, workerPos.y, 14, 0, 2 * Math.PI);
-      ctx.fillStyle = 'rgba(245, 158, 11, 0.25)';
+      ctx.moveTo(8, -4);
+      ctx.lineTo(40, -18);
+      ctx.lineTo(40, 18);
+      ctx.lineTo(8, 4);
+      ctx.closePath();
       ctx.fill();
 
-      // Mobile Vehicle/Worker Chassis
+      // 2. Trailing Ground Kinetic Footprint Aura
       ctx.beginPath();
-      ctx.arc(workerPos.x, workerPos.y, 9, 0, 2 * Math.PI);
-      ctx.fillStyle = '#f59e0b';
-      ctx.shadowColor = 'rgba(245, 158, 11, 0.9)';
-      ctx.shadowBlur = 15;
+      ctx.ellipse(-4, 0, 14, 10, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.3)';
       ctx.fill();
 
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2.5;
+      // 3. Robotic AMR Chassis (Rounded Industrial Rover)
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.roundRect(-10, -7, 20, 14, 4);
+      ctx.fill();
+
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.6;
       ctx.stroke();
 
-      // Center Beacon Light
+      // 4. Tote Cargo Box on Tray
+      ctx.fillStyle = '#f59e0b';
       ctx.beginPath();
-      ctx.arc(workerPos.x, workerPos.y, 3.5, 0, 2 * Math.PI);
+      ctx.roundRect(-7, -4, 10, 8, 2);
+      ctx.fill();
+
+      // 5. Pulsing Warning Beacon Strobe
+      ctx.beginPath();
+      ctx.arc(5, 0, 2.5, 0, Math.PI * 2);
       ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = '#fbbf24';
+      ctx.shadowBlur = 8;
       ctx.fill();
 
       ctx.restore();
     }
 
-    // --- Sub-renderer: Fixed Viewport HUD Overlays ---
-    function drawScreenHUD(ctx, width, height) {
+    // --- Sub-renderer: Screen HUD (Identical to graph.html) ---
+    function drawScreenHUD(ctx, width, height, dark) {
       ctx.save();
-      const dark = typeof isDarkMode === 'function' && isDarkMode();
 
-      // 1. Facility Header & North Compass (Top-Left)
+      // Top-Left Facility Label & North Arrow
       const cx = 35;
-      const cy = 35;
+      const cy = 30;
 
-      // Compass Circle
-      ctx.beginPath();
-      ctx.arc(cx, cy, 14, 0, 2 * Math.PI);
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      // North Arrow
-      ctx.fillStyle = dark ? '#E5E5EA' : '#2C2C2E';
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - 10);
-      ctx.lineTo(cx - 4, cy + 3);
-      ctx.lineTo(cx, cy);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = '#94a3b8';
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - 10);
-      ctx.lineTo(cx + 4, cy + 3);
-      ctx.lineTo(cx, cy);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 7px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('N', cx, cy - 11);
-
-      // Facility Label
       ctx.fillStyle = dark ? '#F2F2F7' : '#1C1C1E';
       ctx.font = 'bold 11px sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText('FACILITY MDC-01 • SECTOR A', cx + 22, cy - 2);
+      ctx.fillText('FACILITY MDC-01 • FLOORPLAN DIGITAL TWIN', cx + 18, cy - 2);
+
       ctx.fillStyle = dark ? '#94a3b8' : '#64748b';
       ctx.font = '600 8.5px sans-serif';
-      ctx.fillText('HIGH-PERFORMANCE GRAPH ROUTING FLOORPLAN', cx + 22, cy + 9);
+      ctx.fillText('DISCRETE METRIC GRAPH MODEL & TSP ROUTING MATRIX', cx + 18, cy + 9);
 
-      // 2. Metric Scale Bar (Bottom-Left)
-      const scaleX = 35;
-      const scaleY = height - 25;
-      const scaleMetersWidth = 50 * view.scale; // 50px represents 10 meters at 1.0x
+      // Clean, High-Visibility Scale Bar at Bottom-Left in a Translucent Pill
+      const scaleX = 24;
+      const scaleY = height - 26;
+      const pixelsPerMeter = 10 * view.scale; // 1 meter = 10 pixels in world grid
+      const scale10mWidth = Math.max(40, Math.min(220, 10 * pixelsPerMeter));
 
-      ctx.strokeStyle = dark ? '#64748b' : '#475569';
-      ctx.lineWidth = 1.5;
+      // Scale bar pill background
+      ctx.fillStyle = dark ? 'rgba(15, 23, 42, 0.75)' : 'rgba(255, 255, 255, 0.85)';
+      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)';
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(scaleX, scaleY - 4);
-      ctx.lineTo(scaleX, scaleY);
-      ctx.lineTo(scaleX + scaleMetersWidth, scaleY);
-      ctx.lineTo(scaleX + scaleMetersWidth, scaleY - 4);
+      ctx.roundRect(scaleX - 8, scaleY - 18, scale10mWidth + 16, 26, 6);
+      ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = dark ? '#cbd5e1' : '#475569';
-      ctx.font = 'bold 9px monospace';
+      // Scale Bar Line & End Ticks
+      ctx.strokeStyle = dark ? '#38bdf8' : '#0284c7';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(scaleX, scaleY - 6);
+      ctx.lineTo(scaleX, scaleY);
+      ctx.lineTo(scaleX + scale10mWidth, scaleY);
+      ctx.lineTo(scaleX + scale10mWidth, scaleY - 6);
+      ctx.stroke();
+
+      // Scale Text
+      ctx.fillStyle = dark ? '#f1f5f9' : '#0f172a';
+      ctx.font = 'bold 8.5px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('10 METERS', scaleX + scaleMetersWidth / 2, scaleY - 5);
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('10 METERS', scaleX + scale10mWidth / 2, scaleY - 3);
 
       ctx.restore();
     }
 
-    // --- Sub-renderer: Dynamic Shelf Hover Card Tooltip ---
+    // --- Sub-renderer: Dynamic Glassmorphic Shelf Hover Tooltip ---
     function drawShelfHoverTooltip(ctx, node, width, height) {
       ctx.save();
+      const dark = typeof isDarkMode === 'function' && isDarkMode();
 
-      // Transform world node coordinate to screen coordinate
       const screenX = node.x * view.scale + view.x;
       const screenY = node.y * view.scale + view.y;
 
@@ -1127,69 +1688,106 @@
       const isStop = currentRoute && currentRoute.stops && currentRoute.stops.includes(node.id) && !isPacking;
       const stopOrder = isStop ? currentRoute.stops.indexOf(node.id) : null;
 
-      // Card Dimensions
-      const tw = 210;
-      const th = isPacking ? 70 : (products.length > 0 ? 95 : 75);
+      // Filter items in current order for this shelf
+      const orderItemsOnShelf = (currentRoute && currentRoute.items) ? currentRoute.items.filter(it => it.shelf_id === node.id) : [];
 
-      // Position smart placement so tooltip stays on screen
+      const tw = 230;
+      const th = isPacking ? 74 : (orderItemsOnShelf.length > 0 ? 112 : (products.length > 0 ? 98 : 74));
+
       let tx = screenX + 25;
       let ty = screenY - th / 2;
       if (tx + tw > width - 15) tx = screenX - tw - 25;
       if (ty < 15) ty = 15;
       if (ty + th > height - 15) ty = height - th - 15;
 
-      // Glassmorphic Card Background
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+      // Glassmorphic Backdrop Card
+      ctx.fillStyle = dark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.97)';
       ctx.beginPath();
       ctx.roundRect(tx, ty, tw, th, 8);
       ctx.fill();
 
-      ctx.strokeStyle = isStop ? '#ef4444' : '#C0C0C0';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = isStop ? '#38bdf8' : (dark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.12)');
+      ctx.lineWidth = isStop ? 1.8 : 1;
       ctx.stroke();
 
-      // Header
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 11px monospace';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
 
       if (isPacking) {
-        ctx.fillText('PACKING & DISPATCH DOCK', tx + 12, ty + 10);
+        ctx.fillStyle = dark ? '#ffffff' : '#0f172a';
+        ctx.font = 'bold 10.5px "JetBrains Mono", monospace';
+        ctx.fillText('PACK DOCK #1', tx + 12, ty + 10);
+
         ctx.fillStyle = '#10b981';
-        ctx.font = '600 9.5px sans-serif';
-        ctx.fillText('Origin / Tour Termination Point', tx + 12, ty + 26);
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '9px sans-serif';
-        ctx.fillText('Automated Dispatch Station 01', tx + 12, ty + 42);
+        ctx.font = '700 9px sans-serif';
+        ctx.fillText('Origin & Dispatch Termination Point', tx + 12, ty + 28);
+
+        ctx.fillStyle = dark ? '#94a3b8' : '#64748b';
+        ctx.font = '8.5px sans-serif';
+        ctx.fillText('Automated Dispatch Conveyor Hub', tx + 12, ty + 46);
       } else {
+        ctx.fillStyle = dark ? '#ffffff' : '#0f172a';
+        ctx.font = 'bold 11px "JetBrains Mono", monospace';
         ctx.fillText(`SHELF RACK: S-${String(node.id).padStart(2, '0')}`, tx + 12, ty + 10);
 
         if (isStop) {
           ctx.fillStyle = '#f59e0b';
           ctx.font = 'bold 9.5px sans-serif';
-          ctx.fillText(`★ Pick Stop #${stopOrder} in Optimized Route`, tx + 12, ty + 26);
+          ctx.fillText(`★ Pick Stop #${stopOrder} in Optimized Route`, tx + 12, ty + 28);
         } else {
-          ctx.fillStyle = '#94a3b8';
-          ctx.font = '600 9.5px sans-serif';
-          ctx.fillText(`Corridor Dist to Pack: ${node.distance_to_packing}m`, tx + 12, ty + 26);
+          ctx.fillStyle = dark ? '#94a3b8' : '#64748b';
+          ctx.font = '600 9px sans-serif';
+          ctx.fillText(`Corridor Dist to Hub: ${node.distance_to_packing}m · Bay 0${node.id % 6 + 1}`, tx + 12, ty + 28);
         }
 
-        // Inventory preview
-        ctx.fillStyle = '#cbd5e1';
-        ctx.font = '9px sans-serif';
-        if (products.length > 0) {
+        if (orderItemsOnShelf.length > 0) {
+          const it = orderItemsOnShelf[0];
+          ctx.fillStyle = dark ? '#e0f2fe' : '#0284c7';
+          ctx.font = 'bold 9px sans-serif';
+          ctx.fillText(`Pick Target: ${it.quantity} pcs · ${it.name.substring(0, 20)}`, tx + 12, ty + 48);
+
+          ctx.fillStyle = dark ? '#94a3b8' : '#64748b';
+          ctx.font = '8.5px monospace';
+          ctx.fillText(`SKU #${it.product_id} · Category: ${it.category || 'General'}`, tx + 12, ty + 64);
+
+          // Stock bar
+          const stock = (products[0] && products[0].stock_quantity) || 50;
+          ctx.fillStyle = dark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)';
+          ctx.fillRect(tx + 12, ty + 84, 180, 5);
+          ctx.fillStyle = '#10b981';
+          ctx.fillRect(tx + 12, ty + 84, Math.min(180, stock * 1.8), 5);
+          ctx.fillStyle = dark ? '#94a3b8' : '#64748b';
+          ctx.font = '7.5px sans-serif';
+          ctx.fillText(`Stock: ${stock} units`, tx + 12, ty + 93);
+        } else if (products.length > 0) {
           const p = products[0];
-          ctx.fillText(`📦 ${p.name.substring(0, 24)}...`, tx + 12, ty + 44);
-          ctx.fillText(`Stock: ${p.stock_quantity} units | ABC Class: ${p.abc_category}`, tx + 12, ty + 58);
-          ctx.fillStyle = '#64748b';
-          ctx.fillText(`Bay Slot: Level 2 / Pallet A`, tx + 12, ty + 72);
+          ctx.fillStyle = dark ? '#cbd5e1' : '#334155';
+          ctx.font = '9px sans-serif';
+          ctx.fillText(`📦 ${p.name.substring(0, 26)}`, tx + 12, ty + 48);
+
+          ctx.fillStyle = dark ? '#94a3b8' : '#64748b';
+          ctx.font = '8.5px sans-serif';
+          ctx.fillText(`Stock: ${p.stock_quantity || 50} units · ${p.category || 'General'}`, tx + 12, ty + 64);
         } else {
-          ctx.fillText(`Capacity: ${node.capacity} items | Load: ${node.current_load}`, tx + 12, ty + 44);
+          ctx.fillStyle = dark ? '#94a3b8' : '#64748b';
+          ctx.font = '8.5px sans-serif';
+          ctx.fillText(`Capacity: ${node.capacity} items | Load: ${node.current_load}`, tx + 12, ty + 48);
         }
       }
 
       ctx.restore();
+    }
+
+    // -------------------------------------------------------------
+    // Animation Engine with Scrubber and Speed Control
+    // -------------------------------------------------------------
+    function setAnimSpeed(spd) {
+      animSpeedMultiplier = spd;
+      document.querySelectorAll('.speed-pill-btn').forEach(b => {
+        if (b.id && b.id.startsWith('spd-')) b.classList.remove('active');
+      });
+      const activeBtn = document.getElementById(`spd-${spd}x`);
+      if (activeBtn) activeBtn.classList.add('active');
     }
 
     function toggleAnimation() {
@@ -1203,8 +1801,8 @@
     function startAnimation() {
       if (!currentRoute || !currentRoute.full_path || currentRoute.full_path.length < 2) return;
       animRunning = true;
-      animProgress = 0;
       document.getElementById('animate-btn-text').textContent = "Stop Animation";
+      document.getElementById('scrub-play-text').textContent = "⏸ Pause";
       document.getElementById('play-icon').innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
       runAnimLoop();
     }
@@ -1213,6 +1811,7 @@
       animRunning = false;
       if (animReqId) cancelAnimationFrame(animReqId);
       document.getElementById('animate-btn-text').textContent = "Animate Picker";
+      document.getElementById('scrub-play-text').textContent = "▶ Play";
       document.getElementById('play-icon').innerHTML = '<polygon points="5 3 19 12 5 21 5 3"></polygon>';
       drawRouteCanvas(null);
     }
@@ -1220,30 +1819,114 @@
     function runAnimLoop() {
       if (!animRunning) return;
 
-      const nodeMap = {};
-      graphData.nodes.forEach(n => { nodeMap[n.id] = n; });
       const path = currentRoute.full_path;
+      const totalSegments = path.length - 1;
 
-      animProgress += 0.015;
-      if (animProgress >= path.length - 1) {
-        animProgress = 0; // Loop animation
+      // Respect prefers-reduced-motion
+      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const baseStep = prefersReduced ? 0.05 : 0.012;
+      animProgress += baseStep * animSpeedMultiplier;
+
+      if (animProgress >= totalSegments) {
+        animProgress = 0; // Loop tour
       }
 
-      const segIndex = Math.floor(animProgress);
-      const segT = animProgress - segIndex;
-      const u = nodeMap[path[segIndex]];
-      const v = nodeMap[path[segIndex + 1]];
-
-      if (u && v) {
-        const workerX = u.x + (v.x - u.x) * segT;
-        const workerY = u.y + (v.y - u.y) * segT;
-        drawRouteCanvas({ x: workerX, y: workerY });
-      }
+      updateScrubberUI();
+      renderFrameAtProgress(animProgress);
 
       animReqId = requestAnimationFrame(runAnimLoop);
     }
 
-    // Live Order Simulation Handler
+    function renderFrameAtProgress(prog) {
+      if (!currentRoute || !currentRoute.full_path) return;
+      const path = currentRoute.full_path;
+      const nodeMap = {};
+      graphData.nodes.forEach(n => { nodeMap[n.id] = n; });
+
+      const segIndex = Math.min(path.length - 2, Math.max(0, Math.floor(prog)));
+      const segT = prog - segIndex;
+      const u = nodeMap[path[segIndex]];
+      const v = nodeMap[path[segIndex + 1]];
+
+      // Synchronize active leg table row highlighting
+      syncActiveLegToNode(path[segIndex], path[segIndex + 1]);
+
+      if (u && v) {
+        const workerX = u.x + (v.x - u.x) * segT;
+        const workerY = u.y + (v.y - u.y) * segT;
+        const headingAngle = Math.atan2(v.y - u.y, v.x - u.x);
+        drawRouteCanvas({ x: workerX, y: workerY, angle: headingAngle });
+      }
+    }
+
+    function startAmbientPulse() {
+      if (ambientPulseLoopId) return;
+      let lastTime = performance.now();
+      function loop(now) {
+        if (!animRunning && currentRoute && currentRoute.full_path && !document.hidden) {
+          if (now - lastTime > 45) { // ~22fps gentle idle laser flow
+            ambientFlowOffset = (ambientFlowOffset + 0.45) % 26;
+            drawRouteCanvas();
+            lastTime = now;
+          }
+        }
+        ambientPulseLoopId = requestAnimationFrame(loop);
+      }
+      ambientPulseLoopId = requestAnimationFrame(loop);
+    }
+
+    function syncActiveLegToNode(fromNode, toNode) {
+      if (!currentRoute || !currentRoute.legs) return;
+      let matchedIdx = -1;
+      for (let i = 0; i < currentRoute.legs.length; i++) {
+        const leg = currentRoute.legs[i];
+        if (leg.path && leg.path.includes(fromNode) && leg.path.includes(toNode)) {
+          matchedIdx = i;
+          break;
+        }
+      }
+      if (matchedIdx !== -1 && matchedIdx !== highlightedLegIndex) {
+        highlightedLegIndex = matchedIdx;
+        document.querySelectorAll('#legs-table-body tr').forEach((r, i) => {
+          if (i === matchedIdx) {
+            r.classList.add('active-leg');
+            r.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          } else {
+            r.classList.remove('active-leg');
+          }
+        });
+      }
+
+      // Update live status label during playback
+      if (matchedIdx !== -1 && currentRoute.legs[matchedIdx]) {
+        const leg = currentRoute.legs[matchedIdx];
+        const fromCode = leg.from_shelf === 1 ? 'Packing Hub #1' : `S-${String(leg.from_shelf).padStart(2, '0')}`;
+        const toCode = leg.to_shelf === 1 ? 'Packing Hub #1' : `S-${String(leg.to_shelf).padStart(2, '0')}`;
+        const label = document.getElementById('anim-progress-label');
+        if (label) {
+          label.textContent = `Leg ${matchedIdx + 1}/${currentRoute.legs.length} · ${fromCode} → ${toCode}`;
+        }
+      }
+    }
+
+    function updateScrubberUI() {
+      if (!currentRoute || !currentRoute.full_path) return;
+      const totalSegments = currentRoute.full_path.length - 1;
+      const pct = Math.min(100, Math.max(0, Math.round((animProgress / totalSegments) * 100)));
+      const scrubber = document.getElementById('anim-scrubber');
+      if (scrubber) {
+        scrubber.value = pct;
+        scrubber.style.setProperty('--scrub-pct', `${pct}%`);
+      }
+      if (!animRunning) {
+        const label = document.getElementById('anim-progress-label');
+        if (label) label.textContent = `${pct}%`;
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Live Simulation & Dispatch Workflows
+    // -------------------------------------------------------------
     async function simulateLiveOrder() {
       const btn = document.getElementById('btn-simulate');
       const alertBox = document.getElementById('live-order-alert');
@@ -1264,13 +1947,18 @@
         const select = document.getElementById('order-select');
         const opt = document.createElement('option');
         opt.value = data.order_id;
-        const isTsp = data.route.stop_count < 8;
-        const tag = isTsp ? 'Exact TSP (<8 stops)' : 'Greedy TSP (≥8 stops)';
-        opt.textContent = `Order #${data.order_id}: ${data.route.customer_name} — ${data.route.items.length} items [${tag}] (NEW)`;
+        const itemCount = data.route.items.length;
+        const itemText = itemCount === 1 ? '1 item' : `${itemCount} items`;
+        let tag = 'NN + 2-Opt Local Search';
+        if (itemCount < 8) {
+          tag = 'B&B Exact';
+        } else if (itemCount <= 12) {
+          tag = 'Held-Karp DP Exact';
+        }
+        opt.textContent = `Order #${data.order_id}: ${data.route.customer_name} — ${itemText} [${tag}] (LIVE SIM)`;
         select.insertBefore(opt, select.firstChild);
         select.value = data.order_id;
 
-        // Show toast
         alertBox.className = 'alert alert-success';
         alertBox.style.display = 'flex';
         alertBox.innerHTML = `
@@ -1278,7 +1966,7 @@
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
           <div>
-            <strong>Incoming Order Simulated!</strong> ${data.message} Route computed in ${data.route.total_distance}m (${data.route.algorithm}).
+            <strong>Incoming Order Simulated!</strong> ${data.message} Route computed in ${data.route.total_distance}m (${data.route.algorithm}). Visible in Wave Picking and Fleet Balancing.
           </div>
         `;
 
@@ -1293,42 +1981,144 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
           </svg>
-          ⚡ Simulate Live Order
+          Simulate Live Order
         `;
       }
     }
 
-    // Custom Order Modal Handlers
-    let modalCatalog = [];
+    async function dispatchCurrentOrder() {
+      const orderId = document.getElementById('order-select').value;
+      if (!orderId) return;
+
+      const picker = document.getElementById('dispatch-picker-select').value || 'Picker Alpha';
+      const routeDist = currentRoute ? currentRoute.total_distance : 0.0;
+      const btn = document.getElementById('btn-dispatch-order');
+
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/orders/${orderId}/dispatch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ picker: picker, route_distance: routeDist })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          updateOrderStatusUI('Picking');
+          const alertBox = document.getElementById('live-order-alert');
+          alertBox.className = 'alert alert-info';
+          alertBox.style.display = 'flex';
+          alertBox.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+            <div>
+              <strong>Order Dispatched:</strong> ${data.message} Status updated to 'Picking' and audit trail entry recorded.
+            </div>
+          `;
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function completeCurrentOrder() {
+      const orderId = document.getElementById('order-select').value;
+      if (!orderId) return;
+
+      const btn = document.getElementById('btn-complete-order');
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`/api/orders/${orderId}/complete`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          updateOrderStatusUI('Completed');
+          const alertBox = document.getElementById('live-order-alert');
+          alertBox.className = 'alert alert-success';
+          alertBox.style.display = 'flex';
+          alertBox.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <div>
+              <strong>Order Complete:</strong> ${data.message} Physical inventory deducted.
+            </div>
+          `;
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Custom Order Modal Handlers & SKU Filter
+    // -------------------------------------------------------------
     async function openCustomOrderModal() {
       const modal = document.getElementById('custom-order-modal');
       modal.style.display = 'flex';
+      document.getElementById('modal-validation-error').style.display = 'none';
 
       if (modalCatalog.length === 0) {
         try {
           const res = await fetch('/api/products');
           modalCatalog = await res.json();
-          const list = document.getElementById('modal-products-list');
-          list.innerHTML = '';
-          modalCatalog.forEach(p => {
-            const div = document.createElement('div');
-            div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid #f1f5f9; font-size: 0.85rem;';
-            div.innerHTML = `
-              <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; flex: 1;">
-                <input type="checkbox" value="${p.id}" class="modal-prod-check">
-                <span><strong>#${p.id}</strong> ${p.name} <span class="badge" style="font-size:0.7rem;">Shelf ${p.shelf_id}</span></span>
-              </label>
-              <input type="number" min="1" max="10" value="1" class="form-input modal-prod-qty" style="width: 55px; padding: 0.2rem 0.4rem; font-size: 0.8rem;" disabled>
-            `;
-            const check = div.querySelector('.modal-prod-check');
-            const qty = div.querySelector('.modal-prod-qty');
-            check.addEventListener('change', () => { qty.disabled = !check.checked; });
-            list.appendChild(div);
-          });
         } catch (e) {
           console.error(e);
         }
       }
+      renderModalCatalog(modalCatalog);
+    }
+
+    function renderModalCatalog(products) {
+      const list = document.getElementById('modal-products-list');
+      list.innerHTML = '';
+      if (!products || products.length === 0) {
+        list.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 1rem;">No matching catalog items found.</div>`;
+        return;
+      }
+
+      products.forEach(p => {
+        const sId = p.assigned_shelf_id || p.shelf_id;
+        const shelfCode = sId ? `S-${String(sId).padStart(2, '0')}` : 'Unassigned';
+        const div = document.createElement('div');
+        div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.85rem;';
+        div.innerHTML = `
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; flex: 1;">
+            <input type="checkbox" value="${p.id}" class="modal-prod-check" style="accent-color: #5E7A52;">
+            <span>
+              <strong>#${p.id}</strong> ${p.name} 
+              <span class="badge cell-badge-nowrap" style="font-size:0.7rem; margin-left: 0.25rem;">${shelfCode}</span>
+              <span style="font-size:0.72rem; color: var(--text-muted); margin-left: 0.35rem; white-space: nowrap;">(${p.stock_quantity || 50} in stock)</span>
+            </span>
+          </label>
+          <input type="number" min="1" max="${p.stock_quantity || 50}" value="1" class="form-input modal-prod-qty" style="width: 60px; padding: 0.2rem 0.4rem; font-size: 0.8rem;" disabled>
+        `;
+        const check = div.querySelector('.modal-prod-check');
+        const qty = div.querySelector('.modal-prod-qty');
+        check.addEventListener('change', () => { qty.disabled = !check.checked; });
+        list.appendChild(div);
+      });
+    }
+
+    function filterModalCatalog() {
+      const q = (document.getElementById('modal-sku-search').value || '').toLowerCase().trim();
+      if (!q) {
+        renderModalCatalog(modalCatalog);
+        return;
+      }
+      const filtered = modalCatalog.filter(p => {
+        const sId = p.assigned_shelf_id || p.shelf_id || '';
+        const shelfStr = `s-${String(sId).padStart(2, '0')}`;
+        return (p.name || '').toLowerCase().includes(q) ||
+               (p.category || '').toLowerCase().includes(q) ||
+               String(p.id).includes(q) ||
+               shelfStr.includes(q);
+      });
+      renderModalCatalog(filtered);
     }
 
     function closeCustomOrderModal() {
@@ -1336,25 +2126,41 @@
     }
 
     async function submitCustomOrder() {
+      const errorDiv = document.getElementById('modal-validation-error');
+      errorDiv.style.display = 'none';
+
       const name = document.getElementById('cust-name-input').value.trim();
       if (!name) {
-        alert("Please enter a customer company name.");
+        errorDiv.textContent = "Please enter a valid customer company name.";
+        errorDiv.style.display = 'block';
         return;
       }
 
       const checks = document.querySelectorAll('.modal-prod-check:checked');
       if (checks.length === 0) {
-        alert("Please select at least 1 product item.");
+        errorDiv.textContent = "Please select at least 1 product line item for the order.";
+        errorDiv.style.display = 'block';
         return;
       }
 
       const items = [];
+      let hasInvalidQty = false;
       checks.forEach(chk => {
         const pId = parseInt(chk.value);
         const row = chk.closest('div');
-        const qty = parseInt(row.querySelector('.modal-prod-qty').value) || 1;
-        items.push({ product_id: pId, quantity: qty });
+        const qtyVal = parseInt(row.querySelector('.modal-prod-qty').value);
+        if (isNaN(qtyVal) || qtyVal <= 0) {
+          hasInvalidQty = true;
+        } else {
+          items.push({ product_id: pId, quantity: qtyVal });
+        }
       });
+
+      if (hasInvalidQty || items.length === 0) {
+        errorDiv.textContent = "All item quantities must be integers greater than 0.";
+        errorDiv.style.display = 'block';
+        return;
+      }
 
       try {
         const res = await fetch('/api/orders/create', {
@@ -1364,15 +2170,27 @@
         });
         const data = await res.json();
 
+        if (!res.ok) {
+          errorDiv.textContent = data.error || "Failed to create custom order.";
+          errorDiv.style.display = 'block';
+          return;
+        }
+
         closeCustomOrderModal();
 
         // Add to dropdown
         const select = document.getElementById('order-select');
         const opt = document.createElement('option');
         opt.value = data.order_id;
-        const isTsp = data.route.stop_count < 8;
-        const tag = isTsp ? 'Exact TSP (<8 stops)' : 'Greedy TSP (≥8 stops)';
-        opt.textContent = `Order #${data.order_id}: ${data.route.customer_name} — ${data.route.items.length} items [${tag}] (CUSTOM)`;
+        const itemCount = data.route.items.length;
+        const itemText = itemCount === 1 ? '1 item' : `${itemCount} items`;
+        let tag = 'NN + 2-Opt Local Search';
+        if (itemCount < 8) {
+          tag = 'B&B Exact';
+        } else if (itemCount <= 12) {
+          tag = 'Held-Karp DP Exact';
+        }
+        opt.textContent = `Order #${data.order_id}: ${data.route.customer_name} — ${itemText} [${tag}] (CUSTOM)`;
         select.insertBefore(opt, select.firstChild);
         select.value = data.order_id;
 
@@ -1382,6 +2200,53 @@
       } catch (err) {
         console.error("Failed to create custom order:", err);
       }
+    }
+
+    // -------------------------------------------------------------
+    // Export Pick List CSV
+    // -------------------------------------------------------------
+    function exportPickListCSV() {
+      if (!currentRoute || !currentRoute.legs || currentRoute.legs.length === 0) {
+        alert("Please compute a route first.");
+        return;
+      }
+
+      let csv = "Order Picking Tour Sheet\r\n";
+      csv += `Order ID,${currentRoute.order_id}\r\n`;
+      csv += `Customer,${currentRoute.customer_name || 'N/A'}\r\n`;
+      csv += `Algorithm,${currentRoute.algorithm}\r\n`;
+      csv += `Total Distance (m),${currentRoute.total_distance}\r\n\r\n`;
+
+      csv += "Leg Number,From Node,To Node,Distance (m),Cumul Dist (m)\r\n";
+      let cumul = 0;
+      currentRoute.legs.forEach((leg, idx) => {
+        cumul += leg.distance;
+        const fromLabel = leg.from_shelf === 1 ? 'Packing Hub #1' : `S-${String(leg.from_shelf).padStart(2, '0')}`;
+        const toLabel = leg.to_shelf === 1 ? 'Packing Hub #1' : `S-${String(leg.to_shelf).padStart(2, '0')}`;
+        csv += `${idx + 1},"${fromLabel}","${toLabel}",${leg.distance},${roundNumber(cumul, 1)}\r\n`;
+      });
+
+      if (currentRoute.items && currentRoute.items.length > 0) {
+        csv += "\r\nLine Items Ordered\r\n";
+        csv += "Product Name,SKU,Category,Quantity,Shelf Location\r\n";
+        currentRoute.items.forEach(it => {
+          const sCode = it.shelf_id ? `S-${String(it.shelf_id).padStart(2, '0')}` : 'Unassigned';
+          csv += `"${it.name || ''}",${it.product_id},"${it.category || ''}",${it.quantity},"${sCode}"\r\n`;
+        });
+      }
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `PickList_Order_${currentRoute.order_id}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function roundNumber(num, dec) {
+      return Number(Math.round(num + 'e' + dec) + 'e-' + dec);
     }
 
     window.addEventListener('themechange', () => {
@@ -1394,32 +2259,5 @@
 
     document.addEventListener('DOMContentLoaded', initializePage);
   </script>
-
-  <!-- Custom Order Creation Modal -->
-  <div id="custom-order-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 200; align-items: center; justify-content: center;">
-    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; width: 92%; max-width: 540px; padding: 1.75rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4); max-height: 90vh; overflow-y: auto;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-        <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main);">Create Custom Customer Order</h2>
-        <button onclick="closeCustomOrderModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
-      </div>
-      
-      <div class="form-group">
-        <label for="cust-name-input" class="form-label">Customer Company Name:</label>
-        <input type="text" id="cust-name-input" class="form-input" placeholder="e.g. Apex Industrial Automation" style="max-width: 100%;">
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Select Items & Quantities:</label>
-        <div id="modal-products-list" style="max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem;">
-          Loading products...
-        </div>
-      </div>
-
-      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
-        <button class="btn btn-secondary" onclick="closeCustomOrderModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="submitCustomOrder()">Save & Compute Route</button>
-      </div>
-    </div>
-  </div>
 </body>
 </html>

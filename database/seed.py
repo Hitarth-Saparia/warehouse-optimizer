@@ -234,10 +234,12 @@ def seed_database():
             valid_candidates = available_shelves
         assigned_shelf = random.choice(valid_candidates)
         shelf_load_counter[assigned_shelf] = shelf_load_counter.get(assigned_shelf, 0) + 1
-        products_data.append((name, cat, assigned_shelf))
+        vol_map = {"Heavy": 3.5, "Fragile": 1.5, "Tools": 1.0, "Electronics": 0.5, "Fasteners": 0.1}
+        vol = vol_map.get(cat, 1.0)
+        products_data.append((name, cat, assigned_shelf, vol))
 
     cursor.executemany(
-        "INSERT INTO products (name, category, assigned_shelf_id) VALUES (%s, %s, %s)",
+        "INSERT INTO products (name, category, assigned_shelf_id, volume) VALUES (%s, %s, %s, %s)",
         products_data
     )
 

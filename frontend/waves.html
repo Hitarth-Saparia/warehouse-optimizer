@@ -1042,7 +1042,8 @@
           const m = data.metrics;
           document.getElementById('kpi-total-waves').textContent = m.total_waves;
           document.getElementById('kpi-waves-breakdown').textContent = 
-            `${m.status_counts.active} Active &bull; ${m.status_counts.scheduled} Sched &bull; ${m.status_counts.completed} Comp`;
+            `${m.status_counts.active} Active · ${m.status_counts.scheduled} Sched · ${m.status_counts.completed} Comp`;
+
           
           document.getElementById('kpi-awaiting-orders').textContent = m.orders_awaiting_picking;
           document.getElementById('kpi-pending-packing').textContent = `${m.orders_pending_packing} orders ready for packing`;

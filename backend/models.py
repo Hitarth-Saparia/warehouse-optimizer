@@ -10,13 +10,14 @@ Core Object-Oriented Domain Entities matching the database tables:
 """
 
 class Product:
-    def __init__(self, id, name, category, assigned_shelf_id=None, pick_frequency=0, stock_quantity=50):
+    def __init__(self, id, name, category, assigned_shelf_id=None, pick_frequency=0, stock_quantity=50, volume=1.0):
         self.id = id
         self.name = name
         self.category = category
         self.assigned_shelf_id = assigned_shelf_id
         self.pick_frequency = float(pick_frequency or 0)
         self.stock_quantity = int(stock_quantity if stock_quantity is not None else 50)
+        self.volume = float(volume if volume is not None else 1.0)
 
     def to_dict(self):
         return {
@@ -25,7 +26,8 @@ class Product:
             "category": self.category,
             "assigned_shelf_id": self.assigned_shelf_id,
             "pick_frequency": self.pick_frequency,
-            "stock_quantity": self.stock_quantity
+            "stock_quantity": self.stock_quantity,
+            "volume": self.volume
         }
 
 class Shelf:
