@@ -3,29 +3,276 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Multi-Worker Fleet Balancing. Multiple Traveling Salesperson Problem (mTSP) solver to balance warehouse pick loads and minimize shift makespan.">
-  <title>Fleet Balancing | Warehouse Optimizer</title>
+  <meta name="description" content="Intelligent Fleet Balancing & Vehicle Load Optimization. Balance multi-hub vehicle capacities, allocate customer orders, analyze regional fleet demand, and minimize delivery operational costs.">
+  <title>Fleet Balancing Center | Warehouse Optimizer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="powerbi.css">
   <link rel="stylesheet" href="style.css">
   <script src="theme.js"></script>
   <script src="auth.js"></script>
   <script src="profile-settings.js"></script>
+  <style>
+    /* Fleet Center Dedicated Enhancements */
+    .fleet-tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .fleet-tab-btn {
+      background: none;
+      border: none;
+      padding: 0.75rem 1.25rem;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+    }
+    .fleet-tab-btn:hover {
+      color: var(--text-main);
+    }
+    .fleet-tab-btn.active {
+      color: var(--text-main);
+      border-bottom-color: var(--primary);
+      background: var(--soft);
+      border-radius: 8px 8px 0 0;
+    }
+    .tab-badge {
+      font-size: 0.7rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 10px;
+      background: var(--border);
+      color: var(--text-secondary);
+    }
+    .fleet-tab-btn.active .tab-badge {
+      background: var(--primary);
+      color: #FFFFFF;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    /* Utilization Progress Meter */
+    .util-track {
+      width: 100%;
+      height: 9px;
+      background: var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      margin: 0.4rem 0;
+    }
+    .util-fill {
+      height: 100%;
+      border-radius: 6px;
+      transition: width 0.4s ease;
+    }
+    .util-optimal {
+      background: linear-gradient(90deg, #5E7A52, #729464);
+    }
+    .util-warn {
+      background: linear-gradient(90deg, #B8892F, #D4A345);
+    }
+    .util-danger {
+      background: linear-gradient(90deg, #A24A3E, #C75B4D);
+    }
+    .util-idle {
+      background: #7A7A7E;
+    }
+    /* Vehicle Cards Grid */
+    .vehicle-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.25rem;
+    }
+    .veh-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .veh-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+      border-color: var(--primary);
+    }
+    /* Recommendation Cards */
+    .rec-card {
+      background: var(--card-bg);
+      border-left: 4px solid #5B7C8D;
+      border-top: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      border-radius: 0 10px 10px 0;
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    /* Toast System */
+    #toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      pointer-events: none;
+    }
+    .toast {
+      pointer-events: auto;
+      background: var(--card-bg);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+      padding: 0.85rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 300px;
+      max-width: 450px;
+      font-size: 0.88rem;
+      animation: slideInToast 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes slideInToast {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    /* Modal Backdrop */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(18, 18, 18, 0.65);
+      backdrop-filter: blur(4px);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 560px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.3);
+      padding: 1.75rem;
+      animation: modalScale 0.2s ease;
+    }
+    @keyframes modalScale {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: 0.35rem;
+    }
+    .form-control, .form-select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 0.85rem;
+      font-size: 0.9rem;
+      color: var(--text-main);
+      box-sizing: border-box;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: var(--primary);
+    }
+    /* Comparison Strip */
+    .comparison-banner {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .comp-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      text-align: center;
+    }
+    .comp-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+    .comp-val {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+    .comp-sub {
+      font-size: 0.75rem;
+      margin-top: 0.2rem;
+    }
+  </style>
 </head>
 <body>
 
-  <!-- Executive Topbar Navigation (Dashboard UI) -->
+  <!-- Topbar Navigation -->
   <header class="topbar">
     <div class="wrap">
       <div class="brand">
-        <a href="landing.html" class="brand-icon" title="Landing Page" aria-label="Warehouse Optimizer home">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7.5L12 12.5l8.7-5"/><path d="M12 22V12.5"/></svg>
+        <a href="landing.html" class="brand-icon" title="Warehouse Optimizer" aria-label="Warehouse Optimizer home">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7.5L12 12.5l8.7-5"/><path d="M12 22V12.5"/>
+          </svg>
         </a>
-        <span><strong>Warehouse Optimizer</strong><small>INTELLIGENT SLOTTING &amp; TSP ROUTING</small></span>
+        <span><strong>Warehouse Optimizer</strong><small>INTELLIGENT SLOTTING &amp; FLEET ROUTING</small></span>
       </div>
-      <nav class="nav" aria-label="Manager navigation">
+      <nav class="nav" aria-label="Main navigation">
         <a href="index.html">Dashboard</a>
         <a href="products.html">Products</a>
         <a href="layout.html">Layout Optimizer</a>
@@ -35,8 +282,8 @@
         <a href="fleet.html" class="active">Fleet Balancing</a>
       </nav>
       <div class="user">
-        <span class="avatar" id="avatar" title="Manager Profile &amp; Settings">AM</span>
-        <span class="user-meta" id="userMeta" title="Manager Profile &amp; Settings"><b id="uname">Alex Morgan</b><span>Operations Manager</span></span>
+        <span class="avatar" id="avatar" title="Manager Profile">AM</span>
+        <span class="user-meta" id="userMeta"><b id="uname">Alex Morgan</b><span>Operations Manager</span></span>
         <button class="ib" id="logout" aria-label="Sign out" title="Sign out"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
         <button class="ib" id="theme" aria-label="Toggle theme"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></button>
       </div>
@@ -44,194 +291,1538 @@
   </header>
 
   <div class="container">
-    <div class="page-header">
+    
+    <!-- Executive Command Ribbon -->
+    <div class="page-header" style="align-items: flex-start; margin-bottom: 1.25rem;">
       <div>
-        <h1 class="page-title">Multi-Worker Fleet Workload Balancing</h1>
-        <p class="page-subtitle">Multiple Traveling Salesperson Problem (mTSP) solver to minimize shift completion makespan</p>
-      </div>
-      <div style="display: flex; gap: 0.75rem; align-items: center;">
-        <label for="workers-input" style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted);">Active Pickers:</label>
-        <select id="workers-input" class="form-select" style="width: 140px; padding: 0.45rem 0.65rem;" onchange="loadFleet()">
-          <option value="2">2 Pickers</option>
-          <option value="3" selected>3 Pickers</option>
-          <option value="4">4 Pickers</option>
-          <option value="5">5 Pickers</option>
-        </select>
-        <button id="btn-balance" class="btn btn-primary" onclick="loadFleet()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="23 4 23 10 17 10"></polyline>
-            <polyline points="1 20 1 14 7 14"></polyline>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        <h1 class="page-title" style="display: flex; align-items: center; gap: 0.6rem;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="3" width="15" height="13"></rect>
+            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+            <circle cx="18.5" cy="18.5" r="2.5"></circle>
           </svg>
-          Rebalance Fleet
-        </button>
+          Fleet Balancing &amp; Load Optimization Center
+        </h1>
+        <p class="page-subtitle">Algorithmic bin-packing order distribution, multi-hub fleet balancing, and operational delivery cost minimization</p>
+      </div>
+
+      <!-- Action Controls -->
+      <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+        <div>
+          <label for="select-strategy" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Strategy:</label>
+          <select id="select-strategy" class="form-select" style="width: 210px; padding: 0.45rem 0.65rem;">
+            <option value="best_fit_zone" selected>Best-Fit + Zone Affinity</option>
+            <option value="priority_first">Priority Urgency First</option>
+            <option value="greedy_bin">Greedy Bin Packing</option>
+          </select>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
+          <button id="btn-run-balancing" class="btn btn-primary" onclick="runFleetBalancing()" style="height: 38px;">
+            <svg id="icon-run-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+            </svg>
+            <span id="txt-run-balance">Run Fleet Balancing</span>
+          </button>
+
+          <button id="btn-apply-changes" class="btn btn-success" onclick="openApplyConfirmationModal()" style="display: none; height: 38px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Apply Changes
+          </button>
+
+          <button id="btn-discard-proposal" class="btn btn-secondary" onclick="discardProposedPlan()" style="display: none; height: 38px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            Discard
+          </button>
+        </div>
       </div>
     </div>
 
-    <div class="concept-tag">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-        <circle cx="9" cy="7" r="4"></circle>
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-      </svg>
-      <div>
-        <strong>Multiple Traveling Salesperson Problem (mTSP):</strong> Partitions orders across active pickers to minimize the <em>makespan</em> $\min \max_w \text{Distance}(w)$. Enforces workload equity (Gini Coefficient &lt; 0.05) and groups companion aisle orders to prevent corridor congestion.
-      </div>
-    </div>
-
-    <!-- Fleet Metrics Bar -->
-    <div class="stats-grid">
+    <!-- Live Executive KPI Cards Grid -->
+    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 1.5rem;">
+      <!-- Total & Available Vehicles -->
       <div class="stat-card highlight">
-        <div class="stat-label">Shift Makespan Time</div>
-        <div class="stat-value" id="fleet-makespan-time" style="color: var(--text-main);">-- min</div>
-        <div class="stat-desc" id="fleet-makespan-dist">Longest worker tour</div>
+        <div class="stat-label">Delivery Fleet Assets</div>
+        <div class="stat-value" id="kpi-total-vehicles">--</div>
+        <div class="stat-desc" id="kpi-avail-vehicles">-- Available &bull; -- In Transit</div>
       </div>
+
+      <!-- Fleet Utilization Percentage -->
       <div class="stat-card success">
-        <div class="stat-label">Workload Equity (Gini)</div>
-        <div class="stat-value" id="fleet-gini" style="color: #10b981;">0.000</div>
-        <div class="stat-desc" id="fleet-balance-tag">Near-Perfect Balance (G &lt; 0.05)</div>
+        <div class="stat-label">Fleet Capacity Utilization</div>
+        <div class="stat-value" id="kpi-utilization-pct">0.0%</div>
+        <div class="util-track" style="margin: 0.35rem 0;">
+          <div id="kpi-util-bar" class="util-fill util-optimal" style="width: 0%;"></div>
+        </div>
+        <div class="stat-desc" id="kpi-capacity-text">-- kg allocated / -- kg cap</div>
       </div>
-      <div class="stat-card violet">
-        <div class="stat-label">Total Fleet Distance</div>
-        <div class="stat-value" id="fleet-total-dist">-- m</div>
-        <div class="stat-desc" id="fleet-avg-dist">Across all active pickers</div>
-      </div>
+
+      <!-- Order Allocation Status -->
       <div class="stat-card warning">
-        <div class="stat-label">Orders Allocated</div>
-        <div class="stat-value" id="fleet-total-orders">--</div>
-        <div class="stat-desc">Distributed to workers</div>
+        <div class="stat-label">Fulfillment Queue</div>
+        <div class="stat-value" id="kpi-pending-orders">--</div>
+        <div class="stat-desc" id="kpi-assigned-orders">-- Assigned &bull; -- Unassigned</div>
+      </div>
+
+      <!-- Fleet Imbalance & Alerts -->
+      <div class="stat-card danger" id="card-alerts">
+        <div class="stat-label">Fleet Health &amp; Alerts</div>
+        <div class="stat-value" id="kpi-imbalance-count" style="color: #B8892F;">0 Alerts</div>
+        <div class="stat-desc" id="kpi-alerts-desc">0 Overloaded &bull; 0 Underutilized</div>
+      </div>
+
+      <!-- Delivery Cost & Savings -->
+      <div class="stat-card violet">
+        <div class="stat-label">Operating Cost &amp; Savings</div>
+        <div class="stat-value" id="kpi-est-cost">$0.00</div>
+        <div class="stat-desc" id="kpi-savings-text" style="color: #5E7A52; font-weight: 700;">Potential Savings: $0.00 (0.0%)</div>
       </div>
     </div>
 
-    <!-- Worker Cards Grid -->
-    <div id="workers-cards-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem;">
-      <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 3rem;">
-        Loading fleet workload allocation...
+    <!-- Active Proposed Optimization Banner (Revealed when a proposal is active) -->
+    <div id="proposal-banner" class="comparison-banner" style="display: none; border-color: #5B7C8D; border-width: 2px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.65rem;">
+          <span class="badge" style="background: #5B7C8D; color: #FFFFFF; font-weight: 800; padding: 0.35rem 0.75rem;">PROPOSED OPTIMIZATION READY</span>
+          <span style="font-size: 0.85rem; color: var(--text-muted);" id="proposal-meta-text">Run #-- generated just now</span>
+        </div>
+        <div style="display: flex; gap: 0.6rem;">
+          <button class="btn btn-success" style="padding: 0.45rem 1rem; font-size: 0.85rem;" onclick="openApplyConfirmationModal()">
+            Confirm &amp; Apply Proposed Assignments
+          </button>
+          <button class="btn btn-secondary" style="padding: 0.45rem 1rem; font-size: 0.85rem;" onclick="discardProposedPlan()">
+            Discard
+          </button>
+        </div>
+      </div>
+
+      <!-- Impact Metrics Comparison Grid -->
+      <div class="comparison-grid">
+        <div class="comp-item">
+          <div class="comp-label">Projected Delivery Cost</div>
+          <div class="comp-val" id="comp-cost-after" style="color: #5E7A52;">$0.00</div>
+          <div class="comp-sub" id="comp-cost-before" style="color: var(--text-muted); text-decoration: line-through;">Baseline: $0.00</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-label">Net Projected Savings</div>
+          <div class="comp-val" id="comp-savings" style="color: #5E7A52;">$0.00</div>
+          <div class="comp-sub" id="comp-savings-pct" style="color: #5E7A52; font-weight: 700;">+0.0% reduction</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-label">Fleet Transit Distance</div>
+          <div class="comp-val" id="comp-dist-after">0.0 km</div>
+          <div class="comp-sub" id="comp-dist-saved" style="color: var(--text-muted);">Saved 0.0 km vs fragmented trips</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-label">Optimized Fleet Utilization</div>
+          <div class="comp-val" id="comp-util-after">0.0%</div>
+          <div class="comp-sub" id="comp-orders-allocated" style="color: var(--text-muted);">0 / 0 orders allocated</div>
+        </div>
+      </div>
+
+      <!-- Recommendations Container -->
+      <div id="recommendations-container" style="margin-top: 1.25rem;">
+        <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.6rem;">
+          Actionable Warehouse Fleet Reallocations &amp; Logistics Directives:
+        </div>
+        <div id="recommendations-list">
+          <!-- Dynamic Recommendation Cards injected here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Visual Charts Row -->
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem;" id="charts-row">
+      <!-- Vehicle Load Utilization Distribution Visual -->
+      <div class="card" style="margin-bottom: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <div class="card-title" style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+            Active Fleet Capacity Utilization by Vehicle
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Target: 70% – 95% Balanced</span>
+        </div>
+        <div id="chart-vehicle-bars" style="min-height: 220px; display: flex; flex-direction: column; gap: 0.85rem; justify-content: center;">
+          <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">Loading vehicle utilization visual...</div>
+        </div>
+      </div>
+
+      <!-- Warehouse Hub Demand vs Fleet Capacity Chart -->
+      <div class="card" style="margin-bottom: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <div class="card-title" style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            </svg>
+            Hub Demand vs Capacity
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Multi-Warehouse</span>
+        </div>
+        <div id="chart-hub-demand" style="min-height: 220px; display: flex; flex-direction: column; gap: 1rem; justify-content: center;">
+          <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">Loading regional demand breakdown...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workspace Tabs Navigation -->
+    <div class="fleet-tabs">
+      <button class="fleet-tab-btn active" onclick="switchTab('tab-vehicles')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1" y="3" width="15" height="13"></rect>
+          <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+          <circle cx="5.5" cy="18.5" r="2.5"></circle>
+          <circle cx="18.5" cy="18.5" r="2.5"></circle>
+        </svg>
+        Fleet Vehicles Management
+        <span class="tab-badge" id="badge-tab-veh">0</span>
+      </button>
+
+      <button class="fleet-tab-btn" onclick="switchTab('tab-orders')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <path d="M16 10a4 4 0 0 1-8 0"></path>
+        </svg>
+        Order Allocation Queue
+        <span class="tab-badge" id="badge-tab-orders">0</span>
+      </button>
+
+      <button class="fleet-tab-btn" onclick="switchTab('tab-warehouses')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+        Warehouse Hubs &amp; Demand
+        <span class="tab-badge" id="badge-tab-hubs">3</span>
+      </button>
+
+      <button class="fleet-tab-btn" onclick="switchTab('tab-history')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        Optimization Run History
+        <span class="tab-badge" id="badge-tab-history">0</span>
+      </button>
+    </div>
+
+    <!-- TAB 1: VEHICLES MANAGEMENT -->
+    <div id="tab-vehicles" class="tab-content active">
+      <!-- Slicer & Filter Bar -->
+      <div class="card" style="padding: 1rem 1.25rem; margin-bottom: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            <!-- Search -->
+            <input type="text" id="veh-search" class="form-control" placeholder="Search vehicle ID, name, or type..." style="width: 240px;" oninput="applyVehicleFilters()">
+            
+            <!-- Status Filter -->
+            <select id="veh-filter-status" class="form-select" style="width: 150px;" onchange="applyVehicleFilters()">
+              <option value="all">All Statuses</option>
+              <option value="Available">Available</option>
+              <option value="In Transit">In Transit</option>
+              <option value="Maintenance">Maintenance</option>
+            </select>
+
+            <!-- Location Filter -->
+            <select id="veh-filter-loc" class="form-select" style="width: 150px;" onchange="applyVehicleFilters()">
+              <option value="all">All Hubs</option>
+              <option value="WH-01">WH-01 (Central)</option>
+              <option value="WH-02">WH-02 (North)</option>
+              <option value="WH-03">WH-03 (West)</option>
+            </select>
+
+            <!-- Type Filter -->
+            <select id="veh-filter-type" class="form-select" style="width: 150px;" onchange="applyVehicleFilters()">
+              <option value="all">All Types</option>
+              <option value="Electric Van">Electric Van</option>
+              <option value="Sprinter Van">Sprinter Van</option>
+              <option value="Box Truck">Box Truck</option>
+              <option value="Cargo Van">Cargo Van</option>
+              <option value="Heavy Hauler">Heavy Hauler</option>
+            </select>
+          </div>
+
+          <!-- Add Vehicle Action -->
+          <button class="btn btn-primary" onclick="openAddVehicleModal()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Add New Vehicle
+          </button>
+        </div>
+      </div>
+
+      <!-- Vehicles Grid -->
+      <div id="vehicles-container" class="vehicle-grid">
+        <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 3rem;">
+          Loading fleet vehicles...
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: ORDER ALLOCATION QUEUE -->
+    <div id="tab-orders" class="tab-content">
+      <div class="card" style="padding: 1rem 1.25rem; margin-bottom: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            <input type="text" id="order-search" class="form-control" placeholder="Search order ID, customer, zone..." style="width: 250px;" oninput="applyOrderFilters()">
+
+            <select id="order-filter-assign" class="form-select" style="width: 150px;" onchange="applyOrderFilters()">
+              <option value="all">All Allocation</option>
+              <option value="assigned">Assigned</option>
+              <option value="unassigned">Unassigned</option>
+            </select>
+
+            <select id="order-filter-prio" class="form-select" style="width: 140px;" onchange="applyOrderFilters()">
+              <option value="all">All Priorities</option>
+              <option value="Urgent">Urgent</option>
+              <option value="High">High</option>
+              <option value="Standard">Standard</option>
+              <option value="Low">Low</option>
+            </select>
+
+            <select id="order-filter-wh" class="form-select" style="width: 150px;" onchange="applyOrderFilters()">
+              <option value="all">All Origin Hubs</option>
+              <option value="WH-01">WH-01 (Central)</option>
+              <option value="WH-02">WH-02 (North)</option>
+              <option value="WH-03">WH-03 (West)</option>
+            </select>
+          </div>
+
+          <span style="font-size: 0.85rem; color: var(--text-muted);" id="orders-count-text">Showing 0 orders</span>
+        </div>
+      </div>
+
+      <!-- Orders Data Table -->
+      <div class="card" style="padding: 0; overflow: hidden;">
+        <div class="table-responsive">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: var(--bg); border-bottom: 1px solid var(--border);">
+                <th style="padding: 0.75rem 1rem; text-align: left; font-size: 0.78rem; color: var(--text-muted);">Order ID</th>
+                <th style="padding: 0.75rem 1rem; text-align: left; font-size: 0.78rem; color: var(--text-muted);">Customer &amp; Account</th>
+                <th style="padding: 0.75rem 1rem; text-align: left; font-size: 0.78rem; color: var(--text-muted);">Destination Zone</th>
+                <th style="padding: 0.75rem 1rem; text-align: right; font-size: 0.78rem; color: var(--text-muted);">Cargo Weight</th>
+                <th style="padding: 0.75rem 1rem; text-align: center; font-size: 0.78rem; color: var(--text-muted);">Priority</th>
+                <th style="padding: 0.75rem 1rem; text-align: center; font-size: 0.78rem; color: var(--text-muted);">Deadline</th>
+                <th style="padding: 0.75rem 1rem; text-align: center; font-size: 0.78rem; color: var(--text-muted);">Origin Hub</th>
+                <th style="padding: 0.75rem 1rem; text-align: left; font-size: 0.78rem; color: var(--text-muted);">Assigned Vehicle</th>
+                <th style="padding: 0.75rem 1rem; text-align: right; font-size: 0.78rem; color: var(--text-muted);">Action</th>
+              </tr>
+            </thead>
+            <tbody id="orders-table-body">
+              <tr>
+                <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 3rem;">Loading fulfillment queue...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: WAREHOUSE HUBS & DEMAND -->
+    <div id="tab-warehouses" class="tab-content">
+      <div id="warehouses-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.25rem;">
+        <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 3rem;">
+          Loading regional distribution hubs...
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: OPTIMIZATION RUN HISTORY -->
+    <div id="tab-history" class="tab-content">
+      <div class="card" style="padding: 0; overflow: hidden;">
+        <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="font-size: 1rem; font-weight: 700; margin: 0;">Historical Fleet Balancing Executions</h3>
+          <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;" onclick="loadBalancingHistory()">
+            Refresh History
+          </button>
+        </div>
+        <div class="table-responsive">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: var(--bg); border-bottom: 1px solid var(--border);">
+                <th style="padding: 0.75rem 1rem; text-align: left; font-size: 0.78rem; color: var(--text-muted);">Run ID</th>
+                <th style="padding: 0.75rem 1rem; text-align: left; font-size: 0.78rem; color: var(--text-muted);">Timestamp</th>
+                <th style="padding: 0.75rem 1rem; text-align: center; font-size: 0.78rem; color: var(--text-muted);">Status</th>
+                <th style="padding: 0.75rem 1rem; text-align: right; font-size: 0.78rem; color: var(--text-muted);">Fleet Mobilized</th>
+                <th style="padding: 0.75rem 1rem; text-align: right; font-size: 0.78rem; color: var(--text-muted);">Orders Assigned</th>
+                <th style="padding: 0.75rem 1rem; text-align: right; font-size: 0.78rem; color: var(--text-muted);">Fleet Utilization</th>
+                <th style="padding: 0.75rem 1rem; text-align: right; font-size: 0.78rem; color: var(--text-muted);">Operating Cost</th>
+                <th style="padding: 0.75rem 1rem; text-align: right; font-size: 0.78rem; color: var(--text-muted);">Projected Savings</th>
+              </tr>
+            </thead>
+            <tbody id="history-table-body">
+              <tr>
+                <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 3rem;">Loading run history...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- /container -->
+
+  <!-- MODAL: ADD VEHICLE -->
+  <div class="modal-overlay" id="modal-add-vehicle">
+    <div class="modal-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <h2 style="font-size: 1.2rem; font-weight: 700; margin: 0; color: var(--text-main);">Add New Fleet Vehicle</h2>
+        <button class="ib" onclick="closeModal('modal-add-vehicle')">&times;</button>
+      </div>
+
+      <form id="form-add-vehicle" onsubmit="submitAddVehicle(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="add-veh-id">Vehicle ID *</label>
+            <input type="text" id="add-veh-id" class="form-control" placeholder="e.g. VEH-109" required>
+          </div>
+          <div class="form-group">
+            <label for="add-veh-name">Vehicle Name *</label>
+            <input type="text" id="add-veh-name" class="form-control" placeholder="e.g. EcoVan Epsilon" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="add-veh-type">Vehicle Type *</label>
+            <select id="add-veh-type" class="form-select">
+              <option value="Electric Van">Electric Van (Eco City)</option>
+              <option value="Sprinter Van">Sprinter Van (Medium Delivery)</option>
+              <option value="Box Truck">Box Truck (Freight &amp; Pallets)</option>
+              <option value="Cargo Van">Cargo Van (Standard)</option>
+              <option value="Heavy Hauler">Heavy Hauler (Multi-ton)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="add-veh-cap">Max Load Capacity (kg) *</label>
+            <input type="number" id="add-veh-cap" class="form-control" placeholder="e.g. 800" min="50" step="10" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="add-veh-loc">Stationed Warehouse Hub *</label>
+            <select id="add-veh-loc" class="form-select">
+              <option value="WH-01">WH-01 &ndash; Central Hub (Downtown)</option>
+              <option value="WH-02">WH-02 &ndash; North Metro Hub</option>
+              <option value="WH-03">WH-03 &ndash; West River Freight Depot</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="add-veh-status">Operational Status *</label>
+            <select id="add-veh-status" class="form-select">
+              <option value="Available">Available</option>
+              <option value="In Transit">In Transit</option>
+              <option value="Maintenance">Maintenance</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="add-veh-cost-km">Operating Cost per km ($)</label>
+            <input type="number" id="add-veh-cost-km" class="form-control" value="1.50" min="0" step="0.05">
+          </div>
+          <div class="form-group">
+            <label for="add-veh-fixed">Fixed Base Dispatch Fee ($)</label>
+            <input type="number" id="add-veh-fixed" class="form-control" value="20.00" min="0" step="1">
+          </div>
+        </div>
+
+        <div id="add-veh-error" style="display: none; color: #A24A3E; font-size: 0.85rem; margin-bottom: 1rem;"></div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-vehicle')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-veh">Create Vehicle</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: EDIT VEHICLE -->
+  <div class="modal-overlay" id="modal-edit-vehicle">
+    <div class="modal-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <h2 style="font-size: 1.2rem; font-weight: 700; margin: 0; color: var(--text-main);">Edit Fleet Vehicle</h2>
+        <button class="ib" onclick="closeModal('modal-edit-vehicle')">&times;</button>
+      </div>
+
+      <form id="form-edit-vehicle" onsubmit="submitEditVehicle(event)">
+        <input type="hidden" id="edit-veh-id">
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Vehicle ID</label>
+            <input type="text" id="edit-veh-id-display" class="form-control" disabled style="opacity: 0.7;">
+          </div>
+          <div class="form-group">
+            <label for="edit-veh-name">Vehicle Name *</label>
+            <input type="text" id="edit-veh-name" class="form-control" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-veh-type">Vehicle Type</label>
+            <select id="edit-veh-type" class="form-select">
+              <option value="Electric Van">Electric Van</option>
+              <option value="Sprinter Van">Sprinter Van</option>
+              <option value="Box Truck">Box Truck</option>
+              <option value="Cargo Van">Cargo Van</option>
+              <option value="Heavy Hauler">Heavy Hauler</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="edit-veh-cap">Max Load Capacity (kg) *</label>
+            <input type="number" id="edit-veh-cap" class="form-control" min="50" step="10" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-veh-loc">Stationed Warehouse Hub</label>
+            <select id="edit-veh-loc" class="form-select">
+              <option value="WH-01">WH-01 &ndash; Central Hub (Downtown)</option>
+              <option value="WH-02">WH-02 &ndash; North Metro Hub</option>
+              <option value="WH-03">WH-03 &ndash; West River Freight Depot</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="edit-veh-status">Operational Status</label>
+            <select id="edit-veh-status" class="form-select">
+              <option value="Available">Available</option>
+              <option value="In Transit">In Transit</option>
+              <option value="Maintenance">Maintenance</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-veh-cost-km">Operating Cost per km ($)</label>
+            <input type="number" id="edit-veh-cost-km" class="form-control" min="0" step="0.05">
+          </div>
+          <div class="form-group">
+            <label for="edit-veh-fixed">Fixed Base Dispatch Fee ($)</label>
+            <input type="number" id="edit-veh-fixed" class="form-control" min="0" step="1">
+          </div>
+        </div>
+
+        <div id="edit-veh-error" style="display: none; color: #A24A3E; font-size: 0.85rem; margin-bottom: 1rem;"></div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-edit-vehicle')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: VIEW VEHICLE ORDERS -->
+  <div class="modal-overlay" id="modal-view-orders">
+    <div class="modal-box" style="max-width: 680px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <div>
+          <h2 style="font-size: 1.2rem; font-weight: 700; margin: 0; color: var(--text-main);" id="view-veh-title">Vehicle Load Roster</h2>
+          <span style="font-size: 0.8rem; color: var(--text-muted);" id="view-veh-subtitle">Assigned deliveries</span>
+        </div>
+        <button class="ib" onclick="closeModal('modal-view-orders')">&times;</button>
+      </div>
+
+      <div id="view-veh-stats" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.25rem; text-align: center;">
+        <!-- Injected stats -->
+      </div>
+
+      <div class="table-responsive" style="max-height: 320px;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: var(--bg); border-bottom: 1px solid var(--border);">
+              <th style="padding: 0.6rem 0.85rem; text-align: left; font-size: 0.75rem; color: var(--text-muted);">Order</th>
+              <th style="padding: 0.6rem 0.85rem; text-align: left; font-size: 0.75rem; color: var(--text-muted);">Customer</th>
+              <th style="padding: 0.6rem 0.85rem; text-align: left; font-size: 0.75rem; color: var(--text-muted);">Zone</th>
+              <th style="padding: 0.6rem 0.85rem; text-align: right; font-size: 0.75rem; color: var(--text-muted);">Weight</th>
+              <th style="padding: 0.6rem 0.85rem; text-align: center; font-size: 0.75rem; color: var(--text-muted);">Priority</th>
+            </tr>
+          </thead>
+          <tbody id="view-veh-orders-body">
+            <!-- Dynamic order rows -->
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 1.25rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-view-orders')">Close</button>
       </div>
     </div>
   </div>
 
-  <footer class="app-footer">
-    <div class="container" style="margin: 0 auto;">
-      Warehouse Layout & Order Picking Optimizer &bull; High-Performance Graph Routing Engine
+  <!-- MODAL: CONFIRM APPLY OPTIMIZATION -->
+  <div class="modal-overlay" id="modal-confirm-apply">
+    <div class="modal-box" style="max-width: 480px;">
+      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(94, 122, 82, 0.18); display: flex; align-items: center; justify-content: center; color: #5E7A52;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+        <div>
+          <h2 style="font-size: 1.15rem; font-weight: 700; margin: 0; color: var(--text-main);">Apply Fleet Balancing?</h2>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Confirm database assignment updates</span>
+        </div>
+      </div>
+
+      <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 1.25rem;" id="confirm-apply-desc">
+        This will persist the proposed vehicle allocations to the database. All eligible pending orders will be updated, vehicle loads will be adjusted, and audit records will be generated.
+      </p>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-confirm-apply')">Review Proposal</button>
+        <button type="button" class="btn btn-success" id="btn-confirm-apply-btn" onclick="executeApplyChanges()">Confirm &amp; Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: MANUAL ASSIGN ORDER -->
+  <div class="modal-overlay" id="modal-assign-order">
+    <div class="modal-box" style="max-width: 460px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <h2 style="font-size: 1.15rem; font-weight: 700; margin: 0;" id="manual-assign-title">Assign Order to Vehicle</h2>
+        <button class="ib" onclick="closeModal('modal-assign-order')">&times;</button>
+      </div>
+
+      <input type="hidden" id="manual-assign-order-id">
+      <div id="manual-assign-info" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;"></div>
+
+      <div class="form-group">
+        <label for="manual-assign-veh-select">Select Available Delivery Vehicle:</label>
+        <select id="manual-assign-veh-select" class="form-select">
+          <option value="">Choose vehicle...</option>
+        </select>
+      </div>
+
+      <div id="manual-assign-error" style="display: none; color: #A24A3E; font-size: 0.85rem; margin-bottom: 1rem;"></div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-assign-order')">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="submitManualAssign()">Assign Order</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Footer -->
+  <footer class="app-footer" style="margin-top: 3rem;">
+    <div class="container" style="margin: 0 auto; text-align: center; color: var(--text-muted); font-size: 0.8rem;">
+      Warehouse Layout &amp; Order Picking Optimizer &bull; High-Performance Operations Research Engine
     </div>
   </footer>
 
+  <!-- Fleet Balancing Center Logic Script -->
   <script>
-    async function loadFleet() {
-      const workers = document.getElementById('workers-input').value || 3;
-      const btn = document.getElementById('btn-balance');
-      btn.style.opacity = '0.7';
+    let currentDashboardData = null;
+    let currentVehicles = [];
+    let currentOrders = [];
+    let currentProposedPlan = null;
+    let activeProposedRunId = null;
 
-      try {
-        const res = await fetch(`/api/fleet/assign?workers=${workers}`);
-        const data = await res.json();
+    // Toast Notification Dispatcher
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      
+      let icon = '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>';
+      let color = '#5B7C8D';
+      if (type === 'success') {
+        icon = '<polyline points="20 6 9 17 4 12"></polyline>';
+        color = '#5E7A52';
+      } else if (type === 'danger' || type === 'error') {
+        icon = '<polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line>';
+        color = '#A24A3E';
+      } else if (type === 'warning') {
+        icon = '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>';
+        color = '#B8892F';
+      }
 
-        const m = data.metrics || {};
-        const workersList = data.workers || [];
+      toast.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>
+        <span style="flex: 1;">${message}</span>
+      `;
+      container.appendChild(toast);
 
-        // Update Top Metrics
-        document.getElementById('fleet-makespan-time').textContent = (m.makespan_time_minutes || 0) + ' min';
-        document.getElementById('fleet-makespan-dist').textContent = `Max tour: ${m.makespan_distance || 0} meters`;
-        document.getElementById('fleet-gini').textContent = m.gini_coefficient || '0.000';
-        document.getElementById('fleet-balance-tag').textContent = m.is_balanced ? '✓ Perfectly Balanced Shift' : 'Uneven Distribution';
-        document.getElementById('fleet-total-dist').textContent = (m.total_fleet_distance || 0) + ' m';
-        document.getElementById('fleet-avg-dist').textContent = `Avg ${m.avg_distance_per_worker || 0}m / picker`;
-        document.getElementById('fleet-total-orders').textContent = m.total_orders || 0;
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        toast.style.transition = 'all 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
 
-        // Render Individual Worker Cards
-        const container = document.getElementById('workers-cards-container');
-        container.innerHTML = '';
+    // Modal Helpers
+    function openModal(modalId) {
+      document.getElementById(modalId).classList.add('active');
+    }
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.remove('active');
+    }
 
-        const maxDist = Math.max(...workersList.map(w => w.total_distance), 1);
+    // Tab Switching
+    function switchTab(tabId) {
+      document.querySelectorAll('.fleet-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
-        workersList.forEach(w => {
-          const card = document.createElement('div');
-          card.className = 'card';
-          card.style.marginBottom = '0';
+      const activeBtn = Array.from(document.querySelectorAll('.fleet-tab-btn')).find(b => b.getAttribute('onclick').includes(tabId));
+      if (activeBtn) activeBtn.classList.add('active');
+      const activeContent = document.getElementById(tabId);
+      if (activeContent) activeContent.classList.add('active');
 
-          const pct = Math.round((w.total_distance / maxDist) * 100);
-
-          let ordersHtml = '';
-          (w.assigned_orders || []).forEach(o => {
-            ordersHtml += `
-              <tr>
-                <td><strong>#${o.order_id}</strong></td>
-                <td style="font-weight: 500; font-size: 0.85rem;">${o.customer_name}</td>
-                <td><span class="badge badge-primary" style="font-size:0.7rem;">${o.primary_aisle}</span></td>
-                <td style="text-align: right; font-weight: 700;">${o.distance}m</td>
-              </tr>
-            `;
-          });
-
-          card.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-              <div style="display: flex; align-items: center; gap: 0.6rem;">
-                <div style="width: 34px; height: 34px; border-radius: 8px; background: var(--primary-light); display: flex; align-items: center; justify-content: center; color: var(--primary); font-weight: 800;">
-                  W${w.worker_id}
-                </div>
-                <div>
-                  <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin: 0;">${w.worker_name}</h3>
-                  <span style="font-size: 0.75rem; color: var(--text-muted);">Stationed at Packing Hub</span>
-                </div>
-              </div>
-              <span class="badge badge-success">${w.assigned_orders.length} Orders</span>
-            </div>
-
-            <!-- Workload Meter -->
-            <div style="margin-bottom: 1.25rem;">
-              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.35rem; color: var(--text-muted);">
-                <span>Relative Shift Load</span>
-                <span><strong>${w.total_distance}m</strong> (${w.est_time_minutes} min)</span>
-              </div>
-              <div style="width: 100%; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;">
-                <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, #3A3A3C, #7A7A7E); border-radius: 4px;"></div>
-              </div>
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; margin-bottom: 1.25rem; text-align: center;">
-              <div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Distance</div>
-                <div style="font-weight: 800; color: var(--text-main);">${w.total_distance}m</div>
-              </div>
-              <div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Units</div>
-                <div style="font-weight: 800; color: var(--text-main);">${w.total_units}</div>
-              </div>
-              <div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Stops</div>
-                <div style="font-weight: 800; color: #10b981;">${w.total_stops}</div>
-              </div>
-            </div>
-
-            <div class="card-title" style="font-size: 0.9rem; margin-bottom: 0.5rem;">Assigned Pick Tour Tasks</div>
-            <div class="table-responsive" style="max-height: 200px;">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Order</th>
-                    <th>Customer</th>
-                    <th>Zone</th>
-                    <th style="text-align: right;">Distance</th>
-                  </tr>
-                </thead>
-                <tbody>${ordersHtml}</tbody>
-              </table>
-            </div>
-          `;
-
-          container.appendChild(card);
-        });
-
-      } catch (err) {
-        console.error("Failed to load fleet allocation:", err);
-      } finally {
-        btn.style.opacity = '1';
+      if (tabId === 'tab-history') {
+        loadBalancingHistory();
       }
     }
 
-    document.addEventListener('DOMContentLoaded', loadFleet);
+    // Main Data Loader
+    async function loadFleetDashboard() {
+      try {
+        const res = await fetch('/api/fleet/dashboard');
+        const data = await res.json();
+        if (data.status !== 'success') {
+          throw new Error(data.message || 'Failed to load dashboard data');
+        }
+
+        currentDashboardData = data;
+        currentVehicles = data.vehicles || [];
+        currentOrders = data.orders || [];
+
+        renderExecutiveKPIs(data.metrics, data.imbalance_alerts);
+        renderVehiclesList(currentVehicles);
+        renderOrdersList(currentOrders);
+        renderWarehouseCards(data.warehouse_summaries);
+        renderVisualCharts(data.vehicles, data.warehouse_summaries);
+
+        // Update tab badge counts
+        document.getElementById('badge-tab-veh').textContent = currentVehicles.length;
+        const pendingCount = currentOrders.filter(o => o.status === 'Pending').length;
+        document.getElementById('badge-tab-orders').textContent = pendingCount;
+
+      } catch (err) {
+        console.error("Dashboard load error:", err);
+        showToast("Error loading fleet metrics: " + err.message, 'danger');
+      }
+    }
+
+    // Render KPI Cards
+    function renderExecutiveKPIs(m, alerts) {
+      if (!m) return;
+      document.getElementById('kpi-total-vehicles').textContent = m.total_vehicles;
+      document.getElementById('kpi-avail-vehicles').textContent = `${m.available_vehicles} Available • ${m.in_transit_vehicles} In Transit • ${m.maintenance_vehicles} Maint.`;
+
+      const utilPct = m.fleet_utilization_pct || 0.0;
+      document.getElementById('kpi-utilization-pct').textContent = utilPct.toFixed(1) + '%';
+      const utilBar = document.getElementById('kpi-util-bar');
+      utilBar.style.width = Math.min(100, utilPct) + '%';
+      utilBar.className = 'util-fill ' + (utilPct > 95 ? 'util-danger' : (utilPct >= 60 ? 'util-optimal' : (utilPct > 0 ? 'util-warn' : 'util-idle')));
+      document.getElementById('kpi-capacity-text').textContent = `${m.total_assigned_load} kg allocated / ${m.total_fleet_capacity} kg cap`;
+
+      document.getElementById('kpi-pending-orders').textContent = m.pending_orders;
+      document.getElementById('kpi-assigned-orders').textContent = `${m.assigned_orders} Assigned • ${m.unassigned_orders} Unassigned`;
+
+      const alertCount = (alerts || []).length;
+      document.getElementById('kpi-imbalance-count').textContent = alertCount > 0 ? `${alertCount} Alert${alertCount > 1 ? 's' : ''}` : 'Balanced';
+      document.getElementById('kpi-imbalance-count').style.color = alertCount > 0 ? '#B8892F' : '#5E7A52';
+      document.getElementById('kpi-alerts-desc').textContent = `${m.overloaded_vehicles_count} Overloaded • ${m.underutilized_vehicles_count} Underutilized`;
+
+      document.getElementById('kpi-est-cost').textContent = '$' + (m.estimated_operating_cost || 0.0).toFixed(2);
+      const savings = m.potential_savings || 0.0;
+      const savPct = m.savings_pct || 0.0;
+      document.getElementById('kpi-savings-text').textContent = `Potential Savings: $${savings.toFixed(2)} (${savPct.toFixed(1)}%)`;
+    }
+
+    // Render Visual Charts
+    function renderVisualCharts(vehicles, hubs) {
+      // 1. Vehicle Capacity Bars
+      const vContainer = document.getElementById('chart-vehicle-bars');
+      vContainer.innerHTML = '';
+
+      const activeVehs = vehicles.filter(v => v.status === 'Available');
+      if (activeVehs.length === 0) {
+        vContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">No available vehicles active.</div>';
+      } else {
+        activeVehs.slice(0, 6).forEach(v => {
+          const pct = Math.min(100, v.utilization_pct || 0);
+          const barColor = v.is_overloaded ? '#A24A3E' : (pct >= 60 ? '#5E7A52' : (pct > 0 ? '#B8892F' : '#7A7A7E'));
+          const row = document.createElement('div');
+          row.innerHTML = `
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem;">
+              <span><strong>${v.id}</strong> (${v.name}) &bull; <small style="color: var(--text-muted);">${v.location}</small></span>
+              <span><strong>${v.current_load}</strong> / ${v.max_capacity} kg (${pct.toFixed(1)}%)</span>
+            </div>
+            <div style="width: 100%; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;">
+              <div style="width: ${pct}%; height: 100%; background: ${barColor}; border-radius: 4px; transition: width 0.3s ease;"></div>
+            </div>
+          `;
+          vContainer.appendChild(row);
+        });
+      }
+
+      // 2. Warehouse Hub Demand Breakdown
+      const hContainer = document.getElementById('chart-hub-demand');
+      hContainer.innerHTML = '';
+      (hubs || []).forEach(h => {
+        const cap = h.fleet_capacity_kg || 1;
+        const dem = h.pending_demand_kg || 0;
+        const ratio = Math.min(100, Math.round((dem / cap) * 100));
+        const statusBadge = h.status === 'Deficit' || h.status === 'Critical Deficit'
+          ? '<span class="badge badge-danger" style="font-size: 0.68rem;">Deficit</span>'
+          : (h.status === 'Surplus'
+            ? '<span class="badge" style="background: rgba(91, 124, 141, 0.2); color: #5B7C8D; font-size: 0.68rem;">Surplus</span>'
+            : '<span class="badge badge-success" style="font-size: 0.68rem;">Balanced</span>');
+
+        const card = document.createElement('div');
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; margin-bottom: 0.25rem;">
+            <span><strong>${h.warehouse_id}</strong> &bull; ${h.name.replace('Distribution Center', 'Hub').replace('Logistics Hub', 'Hub')}</span>
+            ${statusBadge}
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.2rem;">
+            <span>Demand: ${dem} kg</span>
+            <span>Capacity: ${cap} kg</span>
+          </div>
+          <div style="width: 100%; height: 7px; background: var(--border); border-radius: 4px; overflow: hidden;">
+            <div style="width: ${ratio}%; height: 100%; background: ${ratio > 90 ? '#A24A3E' : (ratio > 50 ? '#5E7A52' : '#7A7A7E')}; border-radius: 4px;"></div>
+          </div>
+        `;
+        hContainer.appendChild(card);
+      });
+    }
+
+    // Render Vehicles Grid
+    function renderVehiclesList(vehicles) {
+      const container = document.getElementById('vehicles-container');
+      container.innerHTML = '';
+
+      if (!vehicles || vehicles.length === 0) {
+        container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 3rem;">No vehicles matching criteria.</div>';
+        return;
+      }
+
+      vehicles.forEach(v => {
+        const card = document.createElement('div');
+        card.className = 'veh-card';
+
+        const statusClass = v.status === 'Available' ? 'badge-success' : (v.status === 'In Transit' ? 'badge-primary' : 'badge-danger');
+        const pct = v.utilization_pct || 0.0;
+        const barClass = v.is_overloaded ? 'util-danger' : (pct >= 60 ? 'util-optimal' : (pct > 0 ? 'util-warn' : 'util-idle'));
+
+        card.innerHTML = `
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+              <div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <strong style="font-size: 1.05rem; color: var(--text-main);">${v.id}</strong>
+                  <span class="badge ${statusClass}" style="font-size: 0.7rem;">${v.status}</span>
+                </div>
+                <h4 style="font-size: 0.95rem; font-weight: 700; margin: 0.2rem 0 0; color: var(--text-main);">${v.name}</h4>
+                <div style="font-size: 0.78rem; color: var(--text-muted);">${v.vehicle_type} &bull; Stationed at <strong>${v.location}</strong></div>
+              </div>
+            </div>
+
+            <!-- Capacity Meter -->
+            <div style="margin: 0.85rem 0;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted);">
+                <span>Load Utilization</span>
+                <span><strong>${v.current_load} kg</strong> / ${v.max_capacity} kg (${pct.toFixed(1)}%)</span>
+              </div>
+              <div class="util-track">
+                <div class="util-fill ${barClass}" style="width: ${Math.min(100, pct)}%;"></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+                <span>Available: ${v.available_capacity} kg</span>
+                <span>${v.is_overloaded ? '<b style="color: #A24A3E;">OVERLOADED</b>' : (v.is_underutilized ? '<b style="color: #B8892F;">Underutilized</b>' : (v.is_idle ? 'Idle' : 'Optimal'))}</span>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.55rem 0.75rem; font-size: 0.75rem; margin-bottom: 1rem;">
+              <div>
+                <span style="color: var(--text-muted); display: block;">Cost Rate:</span>
+                <strong style="color: var(--text-main);">$${(v.cost_per_km || 1.85).toFixed(2)} / km</strong>
+              </div>
+              <div>
+                <span style="color: var(--text-muted); display: block;">Base Dispatch:</span>
+                <strong style="color: var(--text-main);">$${(v.fixed_cost || 25.0).toFixed(2)}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 0.75rem;">
+            <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.35rem 0.65rem;" onclick="viewVehicleOrders('${v.id}')">
+              View Roster
+            </button>
+            <div style="display: flex; gap: 0.4rem;">
+              <button class="ib" title="Edit Vehicle" onclick="openEditVehicleModal('${v.id}')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+              </button>
+              <button class="ib" title="Delete Vehicle" style="color: #A24A3E;" onclick="deleteVehiclePrompt('${v.id}')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              </button>
+            </div>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+    }
+
+    // Vehicle Filtering
+    function applyVehicleFilters() {
+      const q = document.getElementById('veh-search').value.toLowerCase().trim();
+      const statusF = document.getElementById('veh-filter-status').value;
+      const locF = document.getElementById('veh-filter-loc').value;
+      const typeF = document.getElementById('veh-filter-type').value;
+
+      const filtered = currentVehicles.filter(v => {
+        if (statusF !== 'all' && v.status.toLowerCase() !== statusF.toLowerCase()) return false;
+        if (locF !== 'all' && v.location.toUpperCase() !== locF.toUpperCase()) return false;
+        if (typeF !== 'all' && v.vehicle_type.toLowerCase() !== typeF.toLowerCase()) return false;
+        if (q) {
+          const match = v.id.toLowerCase().includes(q) || v.name.toLowerCase().includes(q) || v.vehicle_type.toLowerCase().includes(q);
+          if (!match) return false;
+        }
+        return true;
+      });
+
+      renderVehiclesList(filtered);
+    }
+
+    // Render Orders Queue
+    function renderOrdersList(orders) {
+      const tbody = document.getElementById('orders-table-body');
+      tbody.innerHTML = '';
+
+      if (!orders || orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 3rem;">No orders matching criteria.</td></tr>';
+        document.getElementById('orders-count-text').textContent = 'Showing 0 orders';
+        return;
+      }
+
+      document.getElementById('orders-count-text').textContent = `Showing ${orders.length} orders`;
+
+      orders.forEach(o => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid var(--border)';
+
+        const prioBadge = o.priority === 'Urgent'
+          ? '<span class="badge badge-danger" style="font-size: 0.68rem;">Urgent</span>'
+          : (o.priority === 'High'
+            ? '<span class="badge" style="background: rgba(184, 137, 47, 0.2); color: #B8892F; font-size: 0.68rem;">High</span>'
+            : '<span class="badge" style="background: var(--soft); color: var(--text-secondary); font-size: 0.68rem;">Standard</span>');
+
+        const vehBadge = o.assigned_vehicle_id
+          ? `<span class="badge badge-success" style="font-size: 0.72rem; cursor: pointer;" onclick="viewVehicleOrders('${o.assigned_vehicle_id}')">${o.assigned_vehicle_id} (${o.vehicle_name || 'Assigned'})</span>`
+          : '<span class="badge" style="background: var(--border); color: var(--text-muted); font-size: 0.72rem;">Unassigned</span>';
+
+        const actionBtn = o.status === 'Completed'
+          ? '<span style="font-size: 0.75rem; color: #5E7A52; font-weight: 700;">✓ Completed</span>'
+          : (o.assigned_vehicle_id
+            ? `<button class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.25rem 0.5rem;" onclick="unassignOrder(${o.id})">Unassign</button>`
+            : `<button class="btn btn-primary" style="font-size: 0.7rem; padding: 0.25rem 0.5rem;" onclick="openManualAssignModal(${o.id})">Assign</button>`);
+
+        tr.innerHTML = `
+          <td style="padding: 0.75rem 1rem; font-weight: 700;">#${o.id}</td>
+          <td style="padding: 0.75rem 1rem; font-weight: 600; font-size: 0.88rem; color: var(--text-main);">${o.customer_name}</td>
+          <td style="padding: 0.75rem 1rem;"><span class="badge" style="background: rgba(91, 124, 141, 0.15); color: #5B7C8D; font-size: 0.72rem;">${o.destination_zone}</span></td>
+          <td style="padding: 0.75rem 1rem; text-align: right; font-weight: 700; color: var(--text-main);">${o.weight} kg</td>
+          <td style="padding: 0.75rem 1rem; text-align: center;">${prioBadge}</td>
+          <td style="padding: 0.75rem 1rem; text-align: center; font-size: 0.8rem; color: var(--text-secondary);">${o.deadline}</td>
+          <td style="padding: 0.75rem 1rem; text-align: center; font-weight: 600; font-size: 0.8rem;">${o.warehouse_id}</td>
+          <td style="padding: 0.75rem 1rem;">${vehBadge}</td>
+          <td style="padding: 0.75rem 1rem; text-align: right;">${actionBtn}</td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Order Filtering
+    function applyOrderFilters() {
+      const q = document.getElementById('order-search').value.toLowerCase().trim();
+      const assignF = document.getElementById('order-filter-assign').value;
+      const prioF = document.getElementById('order-filter-prio').value;
+      const whF = document.getElementById('order-filter-wh').value;
+
+      const filtered = currentOrders.filter(o => {
+        if (assignF === 'assigned' && !o.assigned_vehicle_id) return false;
+        if (assignF === 'unassigned' && o.assigned_vehicle_id) return false;
+        if (prioF !== 'all' && o.priority.toLowerCase() !== prioF.toLowerCase()) return false;
+        if (whF !== 'all' && o.warehouse_id !== whF) return false;
+        if (q) {
+          const match = String(o.id).includes(q) || o.customer_name.toLowerCase().includes(q) || o.destination_zone.toLowerCase().includes(q);
+          if (!match) return false;
+        }
+        return true;
+      });
+
+      renderOrdersList(filtered);
+    }
+
+    // Render Warehouse Cards
+    function renderWarehouseCards(warehouses) {
+      const container = document.getElementById('warehouses-grid');
+      container.innerHTML = '';
+
+      if (!warehouses || warehouses.length === 0) {
+        container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 3rem;">No warehouse data available.</div>';
+        return;
+      }
+
+      warehouses.forEach(wh => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.marginBottom = '0';
+
+        const statusBadge = wh.status === 'Deficit' || wh.status === 'Critical Deficit'
+          ? '<span class="badge badge-danger">Capacity Deficit</span>'
+          : (wh.status === 'Surplus'
+            ? '<span class="badge" style="background: rgba(91, 124, 141, 0.2); color: #5B7C8D;">Excess Fleet Capacity</span>'
+            : '<span class="badge badge-success">Balanced Fleet</span>');
+
+        const utilPct = wh.utilization_pct || 0.0;
+        const demandRatio = wh.demand_capacity_ratio || 0.0;
+
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.2rem;">
+                <span class="badge" style="background: var(--primary); color: #FFF; font-weight: 800;">${wh.warehouse_id}</span>
+                ${statusBadge}
+              </div>
+              <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0; color: var(--text-main);">${wh.name}</h3>
+              <span style="font-size: 0.78rem; color: var(--text-muted);">${wh.location}</span>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem; margin-bottom: 1rem; text-align: center;">
+            <div>
+              <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Available Fleet</span>
+              <strong style="font-size: 1.1rem; color: var(--text-main); display: block;">${wh.available_vehicles} / ${wh.total_vehicles} Veh</strong>
+            </div>
+            <div>
+              <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Fleet Capacity</span>
+              <strong style="font-size: 1.1rem; color: var(--text-main); display: block;">${wh.fleet_capacity_kg} kg</strong>
+            </div>
+            <div>
+              <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Pending Demand</span>
+              <strong style="font-size: 1.1rem; color: var(--text-main); display: block;">${wh.pending_demand_kg} kg</strong>
+            </div>
+            <div>
+              <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Unassigned</span>
+              <strong style="font-size: 1.1rem; color: ${wh.unassigned_orders_count > 0 ? '#A24A3E' : '#5E7A52'}; display: block;">${wh.unassigned_orders_count} Orders</strong>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 0.5rem;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+              <span>Hub Fleet Load Ratio</span>
+              <span><strong>${demandRatio.toFixed(1)}%</strong> of capacity</span>
+            </div>
+            <div class="util-track">
+              <div class="util-fill ${demandRatio > 95 ? 'util-danger' : (demandRatio > 40 ? 'util-optimal' : 'util-idle')}" style="width: ${Math.min(100, demandRatio)}%;"></div>
+            </div>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+    }
+
+    // RUN FLEET BALANCING ACTION
+    async function runFleetBalancing() {
+      const btn = document.getElementById('btn-run-balancing');
+      const icon = document.getElementById('icon-run-spin');
+      const txt = document.getElementById('txt-run-balance');
+      const strategy = document.getElementById('select-strategy').value;
+
+      btn.disabled = true;
+      icon.style.animation = 'spin 1s linear infinite';
+      txt.textContent = 'Optimizing Fleet...';
+
+      try {
+        const res = await fetch('/api/fleet/balance/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ strategy })
+        });
+        const data = await res.json();
+        if (data.status !== 'success') {
+          throw new Error(data.message || 'Balancing failed');
+        }
+
+        const r = data.result;
+        currentProposedPlan = r;
+        activeProposedRunId = r.run_id;
+
+        displayProposedPlanBanner(r);
+        showToast(`Optimization run #${r.run_id} generated. ${r.orders_assigned_count} orders allocated with $${r.comparison.cost_savings.toFixed(2)} savings!`, 'success');
+
+        // Enable Apply & Discard buttons
+        document.getElementById('btn-apply-changes').style.display = 'inline-flex';
+        document.getElementById('btn-discard-proposal').style.display = 'inline-flex';
+
+      } catch (err) {
+        console.error("Balancing execution failed:", err);
+        showToast("Optimization failed: " + err.message, 'danger');
+      } finally {
+        btn.disabled = false;
+        icon.style.animation = 'none';
+        txt.textContent = 'Run Fleet Balancing';
+      }
+    }
+
+    // Display Proposal Banner
+    function displayProposedPlanBanner(r) {
+      const banner = document.getElementById('proposal-banner');
+      banner.style.display = 'block';
+
+      document.getElementById('proposal-meta-text').textContent = `Run #${r.run_id} &bull; ${r.available_vehicles_count} vehicles evaluated`;
+      document.getElementById('comp-cost-after').textContent = '$' + r.comparison.cost_after.toFixed(2);
+      document.getElementById('comp-cost-before').textContent = 'Baseline: $' + r.comparison.cost_before.toFixed(2);
+      document.getElementById('comp-savings').textContent = '$' + r.comparison.cost_savings.toFixed(2);
+      document.getElementById('comp-savings-pct').textContent = `+${r.comparison.savings_pct.toFixed(1)}% savings`;
+      document.getElementById('comp-dist-after').textContent = r.comparison.distance_after_km.toFixed(1) + ' km';
+      document.getElementById('comp-dist-saved').textContent = `Saved ${r.comparison.distance_savings_km.toFixed(1)} km vs fragmented trips`;
+      document.getElementById('comp-util-after').textContent = r.comparison.utilization_pct.toFixed(1) + '%';
+      document.getElementById('comp-orders-allocated').textContent = `${r.orders_assigned_count} allocated / ${r.orders_unassigned_count} unassigned`;
+
+      // Render Reallocation Recommendations
+      const recList = document.getElementById('recommendations-list');
+      recList.innerHTML = '';
+
+      if (!r.recommendations || r.recommendations.length === 0) {
+        recList.innerHTML = '<div style="font-size: 0.85rem; color: #5E7A52; background: rgba(94, 122, 82, 0.1); border-radius: 8px; padding: 0.75rem 1rem;">✓ Regional warehouse fleets are fully balanced. No inter-hub vehicle reallocations required.</div>';
+      } else {
+        r.recommendations.forEach(rec => {
+          const div = document.createElement('div');
+          div.className = 'rec-card';
+          div.innerHTML = `
+            <div>
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                <span class="badge" style="background: #5B7C8D; color: #FFF; font-weight: 800; font-size: 0.7rem;">${rec.id}</span>
+                <strong style="color: var(--text-main); font-size: 0.95rem;">Transfer ${rec.vehicle_id} (${rec.vehicle_name})</strong>
+                <span class="badge" style="background: var(--bg); border: 1px solid var(--border); font-size: 0.72rem;">${rec.from_warehouse_id} &rarr; ${rec.to_warehouse_id}</span>
+              </div>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0.25rem 0 0; line-height: 1.4;">${rec.reason}</p>
+            </div>
+            <div style="text-align: right; font-size: 0.8rem;">
+              <span style="color: var(--text-muted); display: block;">Est. Transit: <strong>${rec.transfer_distance_km} km</strong> ($${rec.transfer_cost})</span>
+              <span style="color: #5E7A52; font-weight: 700;">+${rec.unmet_demand_covered_kg} kg capacity</span>
+            </div>
+          `;
+          recList.appendChild(div);
+        });
+      }
+
+      // Smooth scroll to banner
+      banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // APPLY CHANGES CONFIRMATION
+    function openApplyConfirmationModal() {
+      if (!currentProposedPlan || !activeProposedRunId) {
+        showToast("No active proposal to apply. Run Fleet Balancing first.", 'warning');
+        return;
+      }
+      document.getElementById('confirm-apply-desc').innerHTML = `
+        You are about to apply Optimization Run <strong>#${activeProposedRunId}</strong>.<br><br>
+        &bull; <strong>${currentProposedPlan.orders_assigned_count}</strong> orders will be committed to <strong>${currentProposedPlan.proposed_vehicle_allocations.filter(p => p.assigned_load > 0).length}</strong> vehicles.<br>
+        &bull; Projected savings: <strong>$${currentProposedPlan.comparison.cost_savings.toFixed(2)}</strong> (${currentProposedPlan.comparison.savings_pct.toFixed(1)}%).<br>
+        &bull; Completed orders will remain strictly untouched.
+      `;
+      openModal('modal-confirm-apply');
+    }
+
+    async function executeApplyChanges() {
+      const btn = document.getElementById('btn-confirm-apply-btn');
+      btn.disabled = true;
+      btn.textContent = 'Applying...';
+
+      try {
+        const res = await fetch('/api/fleet/balance/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ run_id: activeProposedRunId })
+        });
+        const data = await res.json();
+        if (data.status !== 'success') {
+          throw new Error(data.message || 'Failed to apply changes');
+        }
+
+        closeModal('modal-confirm-apply');
+        showToast(data.message, 'success');
+
+        // Hide proposal banner
+        document.getElementById('proposal-banner').style.display = 'none';
+        document.getElementById('btn-apply-changes').style.display = 'none';
+        document.getElementById('btn-discard-proposal').style.display = 'none';
+        activeProposedRunId = null;
+        currentProposedPlan = null;
+
+        // Reload fresh live data
+        await loadFleetDashboard();
+
+      } catch (err) {
+        console.error("Apply error:", err);
+        showToast("Failed to apply optimization: " + err.message, 'danger');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Confirm & Apply';
+      }
+    }
+
+    // DISCARD PROPOSAL ACTION
+    async function discardProposedPlan() {
+      if (!activeProposedRunId) {
+        document.getElementById('proposal-banner').style.display = 'none';
+        return;
+      }
+
+      try {
+        await fetch('/api/fleet/balance/discard', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ run_id: activeProposedRunId })
+        });
+
+        document.getElementById('proposal-banner').style.display = 'none';
+        document.getElementById('btn-apply-changes').style.display = 'none';
+        document.getElementById('btn-discard-proposal').style.display = 'none';
+        activeProposedRunId = null;
+        currentProposedPlan = null;
+
+        showToast("Proposed allocation plan discarded.", 'info');
+      } catch (err) {
+        console.error("Discard error:", err);
+      }
+    }
+
+    // Load Optimization Run History
+    async function loadBalancingHistory() {
+      const tbody = document.getElementById('history-table-body');
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">Loading history records...</td></tr>';
+
+      try {
+        const res = await fetch('/api/fleet/balance/runs?limit=15');
+        const data = await res.json();
+        const runs = data.runs || [];
+
+        tbody.innerHTML = '';
+        if (runs.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">No historical runs recorded yet.</td></tr>';
+          return;
+        }
+
+        runs.forEach(r => {
+          const tr = document.createElement('tr');
+          tr.style.borderBottom = '1px solid var(--border)';
+          const statusBadge = r.status === 'Applied'
+            ? '<span class="badge badge-success" style="font-size: 0.7rem;">Applied</span>'
+            : (r.status === 'Proposed'
+              ? '<span class="badge" style="background: #5B7C8D; color: #FFF; font-size: 0.7rem;">Proposed</span>'
+              : '<span class="badge" style="background: var(--border); color: var(--text-muted); font-size: 0.7rem;">Discarded</span>');
+
+          tr.innerHTML = `
+            <td style="padding: 0.75rem 1rem; font-weight: 700;">#${r.id}</td>
+            <td style="padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--text-secondary);">${r.created_at ? r.created_at.split('.')[0] : '--'}</td>
+            <td style="padding: 0.75rem 1rem; text-align: center;">${statusBadge}</td>
+            <td style="padding: 0.75rem 1rem; text-align: right; font-weight: 600;">${r.total_vehicles} Veh</td>
+            <td style="padding: 0.75rem 1rem; text-align: right; font-weight: 600;">${r.assigned_orders_count} Orders</td>
+            <td style="padding: 0.75rem 1rem; text-align: right; font-weight: 700;">${r.fleet_utilization_pct.toFixed(1)}%</td>
+            <td style="padding: 0.75rem 1rem; text-align: right; font-weight: 600;">$${r.cost_after.toFixed(2)}</td>
+            <td style="padding: 0.75rem 1rem; text-align: right; font-weight: 700; color: #5E7A52;">+$${r.cost_savings.toFixed(2)} (${r.savings_pct.toFixed(1)}%)</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+      } catch (err) {
+        console.error("History fetch error:", err);
+      }
+    }
+
+    // VEHICLE CRUD ACTIONS
+    function openAddVehicleModal() {
+      document.getElementById('form-add-vehicle').reset();
+      document.getElementById('add-veh-error').style.display = 'none';
+      openModal('modal-add-vehicle');
+    }
+
+    async function submitAddVehicle(e) {
+      e.preventDefault();
+      const errBox = document.getElementById('add-veh-error');
+      errBox.style.display = 'none';
+
+      const payload = {
+        id: document.getElementById('add-veh-id').value.trim(),
+        name: document.getElementById('add-veh-name').value.trim(),
+        vehicle_type: document.getElementById('add-veh-type').value,
+        max_capacity: parseFloat(document.getElementById('add-veh-cap').value),
+        location: document.getElementById('add-veh-loc').value,
+        status: document.getElementById('add-veh-status').value,
+        cost_per_km: parseFloat(document.getElementById('add-veh-cost-km').value || 1.50),
+        fixed_cost: parseFloat(document.getElementById('add-veh-fixed').value || 20.0)
+      };
+
+      try {
+        const res = await fetch('/api/fleet/vehicles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok || data.status !== 'success') {
+          throw new Error(data.message || 'Creation failed');
+        }
+
+        closeModal('modal-add-vehicle');
+        showToast(`Vehicle ${payload.id} created successfully!`, 'success');
+        await loadFleetDashboard();
+
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.style.display = 'block';
+      }
+    }
+
+    async function openEditVehicleModal(vehId) {
+      const v = currentVehicles.find(x => x.id === vehId);
+      if (!v) return;
+
+      document.getElementById('edit-veh-id').value = v.id;
+      document.getElementById('edit-veh-id-display').value = v.id;
+      document.getElementById('edit-veh-name').value = v.name;
+      document.getElementById('edit-veh-type').value = v.vehicle_type;
+      document.getElementById('edit-veh-cap').value = v.max_capacity;
+      document.getElementById('edit-veh-loc').value = v.location;
+      document.getElementById('edit-veh-status').value = v.status;
+      document.getElementById('edit-veh-cost-km').value = v.cost_per_km || 1.85;
+      document.getElementById('edit-veh-fixed').value = v.fixed_cost || 25.0;
+      document.getElementById('edit-veh-error').style.display = 'none';
+
+      openModal('modal-edit-vehicle');
+    }
+
+    async function submitEditVehicle(e) {
+      e.preventDefault();
+      const vehId = document.getElementById('edit-veh-id').value;
+      const errBox = document.getElementById('edit-veh-error');
+      errBox.style.display = 'none';
+
+      const payload = {
+        name: document.getElementById('edit-veh-name').value.trim(),
+        vehicle_type: document.getElementById('edit-veh-type').value,
+        max_capacity: parseFloat(document.getElementById('edit-veh-cap').value),
+        location: document.getElementById('edit-veh-loc').value,
+        status: document.getElementById('edit-veh-status').value,
+        cost_per_km: parseFloat(document.getElementById('edit-veh-cost-km').value),
+        fixed_cost: parseFloat(document.getElementById('edit-veh-fixed').value)
+      };
+
+      try {
+        const res = await fetch(`/api/fleet/vehicles/${vehId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok || data.status !== 'success') {
+          throw new Error(data.message || 'Update failed');
+        }
+
+        closeModal('modal-edit-vehicle');
+        showToast(`Vehicle ${vehId} updated successfully.`, 'success');
+        await loadFleetDashboard();
+
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.style.display = 'block';
+      }
+    }
+
+    async function deleteVehiclePrompt(vehId) {
+      if (!confirm(`Are you sure you want to delete vehicle ${vehId}?`)) return;
+
+      try {
+        const res = await fetch(`/api/fleet/vehicles/${vehId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok || data.status !== 'success') {
+          throw new Error(data.message || 'Deletion failed');
+        }
+
+        showToast(`Vehicle ${vehId} deleted successfully.`, 'success');
+        await loadFleetDashboard();
+
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+
+    // VIEW VEHICLE ORDERS ROSTER
+    async function viewVehicleOrders(vehId) {
+      try {
+        const res = await fetch(`/api/fleet/vehicles/${vehId}`);
+        const data = await res.json();
+        if (!res.ok || data.status !== 'success') {
+          throw new Error(data.message || 'Failed to fetch details');
+        }
+
+        const v = data.vehicle;
+        document.getElementById('view-veh-title').textContent = `${v.id} – ${v.name}`;
+        document.getElementById('view-veh-subtitle').textContent = `${v.vehicle_type} • Stationed at ${v.location}`;
+
+        const stats = document.getElementById('view-veh-stats');
+        stats.innerHTML = `
+          <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.65rem;">
+            <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Assigned Load</span>
+            <strong style="font-size: 1.1rem; color: var(--text-main); display: block;">${v.current_load} kg</strong>
+          </div>
+          <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.65rem;">
+            <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Max Capacity</span>
+            <strong style="font-size: 1.1rem; color: var(--text-main); display: block;">${v.max_capacity} kg</strong>
+          </div>
+          <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.65rem;">
+            <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Utilization</span>
+            <strong style="font-size: 1.1rem; color: #5E7A52; display: block;">${v.utilization_pct.toFixed(1)}%</strong>
+          </div>
+        `;
+
+        const tbody = document.getElementById('view-veh-orders-body');
+        tbody.innerHTML = '';
+        const assigned = v.assigned_orders || [];
+
+        if (assigned.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">No orders currently assigned to this vehicle.</td></tr>';
+        } else {
+          assigned.forEach(o => {
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid var(--border)';
+            tr.innerHTML = `
+              <td style="padding: 0.6rem 0.85rem; font-weight: 700;">#${o.id}</td>
+              <td style="padding: 0.6rem 0.85rem; font-weight: 600; color: var(--text-main); font-size: 0.85rem;">${o.customer_name}</td>
+              <td style="padding: 0.6rem 0.85rem;"><span class="badge" style="background: rgba(91, 124, 141, 0.15); color: #5B7C8D; font-size: 0.7rem;">${o.destination_zone}</span></td>
+              <td style="padding: 0.6rem 0.85rem; text-align: right; font-weight: 700;">${o.weight} kg</td>
+              <td style="padding: 0.6rem 0.85rem; text-align: center;"><span class="badge badge-secondary" style="font-size: 0.7rem;">${o.priority}</span></td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+
+        openModal('modal-view-orders');
+
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+
+    // MANUAL ASSIGN & UNASSIGN
+    function openManualAssignModal(orderId) {
+      const o = currentOrders.find(x => x.id === orderId);
+      if (!o) return;
+
+      document.getElementById('manual-assign-order-id').value = o.id;
+      document.getElementById('manual-assign-title').textContent = `Assign Order #${o.id}`;
+      document.getElementById('manual-assign-info').innerHTML = `
+        Customer: <strong>${o.customer_name}</strong><br>
+        Weight: <strong>${o.weight} kg</strong> &bull; Zone: <strong>${o.destination_zone}</strong> &bull; Hub: <strong>${o.warehouse_id}</strong>
+      `;
+
+      const select = document.getElementById('manual-assign-veh-select');
+      select.innerHTML = '<option value="">Choose vehicle...</option>';
+      const availVehs = currentVehicles.filter(v => v.status === 'Available');
+
+      availVehs.forEach(v => {
+        const canFit = (v.available_capacity >= o.weight);
+        const opt = document.createElement('option');
+        opt.value = v.id;
+        opt.textContent = `${v.id} (${v.name}) [${v.location}] - Avail: ${v.available_capacity} kg ${canFit ? '✓' : '(Capacity Full)'}`;
+        if (!canFit) opt.disabled = true;
+        select.appendChild(opt);
+      });
+
+      document.getElementById('manual-assign-error').style.display = 'none';
+      openModal('modal-assign-order');
+    }
+
+    async function submitManualAssign() {
+      const orderId = document.getElementById('manual-assign-order-id').value;
+      const vehId = document.getElementById('manual-assign-veh-select').value;
+      const errBox = document.getElementById('manual-assign-error');
+
+      if (!vehId) {
+        errBox.textContent = 'Please choose a valid vehicle.';
+        errBox.style.display = 'block';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/fleet/orders/${orderId}/assign`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vehicle_id: vehId })
+        });
+        const data = await res.json();
+        if (!res.ok || data.status !== 'success') {
+          throw new Error(data.message || 'Assignment failed');
+        }
+
+        closeModal('modal-assign-order');
+        showToast(data.message, 'success');
+        await loadFleetDashboard();
+
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.style.display = 'block';
+      }
+    }
+
+    async function unassignOrder(orderId) {
+      if (!confirm(`Unassign order #${orderId}?`)) return;
+
+      try {
+        const res = await fetch(`/api/fleet/orders/${orderId}/unassign`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || data.status !== 'success') {
+          throw new Error(data.message || 'Unassign failed');
+        }
+
+        showToast(data.message, 'info');
+        await loadFleetDashboard();
+
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+
+    // Keyframes for spinner
+    const styleSheet = document.createElement("style");
+    styleSheet.innerText = `
+      @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    `;
+    document.head.appendChild(styleSheet);
+
+    document.addEventListener('DOMContentLoaded', loadFleetDashboard);
   </script>
 </body>
 </html>

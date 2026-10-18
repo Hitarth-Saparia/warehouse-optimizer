@@ -1,16 +1,23 @@
 import urllib.request
 import json
 
-BASE = "http://127.0.0.1:5001"
+BASE = "http://127.0.0.1:5050"
 
 def api(path, method="GET", body=None):
-    url = f"{BASE}{path}"
-    headers = {"Content-Type": "application/json"}
-    data = json.dumps(body).encode("utf-8") if body is not None else None
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(req, timeout=10) as res:
-        raw = res.read().decode("utf-8")
-        return res.status, json.loads(raw) if raw else None
+    try:
+        from backend.app import app
+        with app.test_client() as client:
+            res = client.open(path, method=method, json=body)
+            raw = res.get_data(as_text=True)
+            return res.status_code, json.loads(raw) if raw else None
+    except Exception:
+        url = f"{BASE}{path}"
+        headers = {"Content-Type": "application/json"}
+        data = json.dumps(body).encode("utf-8") if body is not None else None
+        req = urllib.request.Request(url, data=data, headers=headers, method=method)
+        with urllib.request.urlopen(req, timeout=10) as res:
+            raw = res.read().decode("utf-8")
+            return res.status, json.loads(raw) if raw else None
 
 def test_manager_dashboard():
     print("--- 1. Testing Operations Manager Dashboard Running Data ---")
@@ -90,6 +97,19 @@ def test_simulation_lifecycle():
     assert status == 200, "Failed to reset simulated orders"
     print(f"  [PASS] Reset simulated orders: {reset.get('deleted_count')} purged, benchmark preserved")
 
+def test_wave_picking_dashboard():
+    print("--- 6. Testing Wave Picking Dashboard & Lifecycle ---")
+    status, dash = api("/api/waves/dashboard")
+    assert status == 200 and dash.get("status") == "success", "Failed to get wave dashboard"
+    m = dash.get("metrics", {})
+    assert "total_waves" in m and "orders_awaiting_picking" in m
+    print(f"  [PASS] Wave Dashboard KPIs: {m.get('total_waves')} waves, {m.get('orders_awaiting_picking')} awaiting picking")
+
+    # Test wave proposal preview
+    status, prev = api("/api/waves/preview", method="POST", body={"strategy": "Hybrid", "max_cart_capacity": 35})
+    assert status == 200 and prev.get("status") == "success", "Failed to generate proposal preview"
+    print(f"  [PASS] Wave Proposal Preview: {len(prev.get('proposal', {}).get('wave_proposals', []))} proposals synthesized")
+
 if __name__ == "__main__":
     print("=== RUNNING FULL LIVE DATA DASHBOARDS TEST SUITE ===")
     test_manager_dashboard()
@@ -97,5 +117,6 @@ if __name__ == "__main__":
     test_fleet_dashboard()
     test_layout_and_routing()
     test_simulation_lifecycle()
+    test_wave_picking_dashboard()
     print("====================================================")
     print("ALL DASHBOARDS AND BACKEND ENDPOINTS PASSED FLAWLESSLY!")

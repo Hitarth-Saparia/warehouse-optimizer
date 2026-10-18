@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Multi-Order Wave & Batch Picking Optimizer. Solves the Order Batching Problem (OBP) to consolidate multiple customer orders into optimal single-tour picking waves.">
-  <title>Wave & Batch Picking | Warehouse Optimizer</title>
+  <meta name="description" content="Intelligent Multi-Order Wave Picking System. Solves the Order Batching Problem (OBP) to eliminate redundant warehouse travel, consolidate SKU-level pick lists, validate inventory stock, and track live picking workflows.">
+  <title>Wave Picking Management | Warehouse Optimizer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -13,10 +13,156 @@
   <script src="theme.js"></script>
   <script src="auth.js"></script>
   <script src="profile-settings.js"></script>
+  <style>
+    /* Wave Picking Custom Styles */
+    .wave-tabs-bar {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0.5rem;
+      margin-bottom: 1.5rem;
+      overflow-x: auto;
+    }
+    .wave-tab-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      padding: 0.65rem 1.15rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .wave-tab-btn:hover {
+      color: var(--text-main);
+      background: var(--bg);
+      border-color: var(--border);
+    }
+    .wave-tab-btn.active {
+      color: #FFFFFF;
+      background: var(--primary);
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(94, 122, 82, 0.25);
+    }
+    .wave-tab-badge {
+      font-size: 0.72rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 10px;
+      background: var(--border);
+      color: var(--text-muted);
+    }
+    .wave-tab-btn.active .wave-tab-badge {
+      background: rgba(255, 255, 255, 0.25);
+      color: #FFFFFF;
+    }
+    .tab-pane {
+      display: none;
+    }
+    .tab-pane.active {
+      display: block;
+    }
+
+    /* Wave Progress Meter */
+    .wave-meter-track {
+      width: 100%;
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 0.35rem 0;
+    }
+    .wave-meter-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981, #059669);
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+
+    /* Status Badges */
+    .badge-draft { background: #64748b; color: #ffffff; }
+    .badge-scheduled { background: #3b82f6; color: #ffffff; }
+    .badge-active { background: #10b981; color: #ffffff; }
+    .badge-paused { background: #f59e0b; color: #ffffff; }
+    .badge-completed { background: #8b5cf6; color: #ffffff; }
+    .badge-cancelled { background: #ef4444; color: #ffffff; }
+
+    /* Modals */
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-backdrop.open {
+      display: flex;
+    }
+    .modal-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+      padding: 1.5rem;
+    }
+
+    /* Guided Picking Step Card */
+    .pick-step-banner {
+      background: linear-gradient(135deg, rgba(94, 122, 82, 0.12), rgba(16, 185, 129, 0.08));
+      border: 1px solid rgba(94, 122, 82, 0.3);
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    /* Print styles */
+    @media print {
+      .topbar, .wave-tabs-bar, .canvas-controls-bar, .btn, .nav, footer, .modal-backdrop, .no-print {
+        display: none !important;
+      }
+      body, .container {
+        background: #ffffff !important;
+        color: #000000 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .card {
+        border: 1px solid #cccccc !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+      }
+      table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+      }
+      th, td {
+        border: 1px solid #dddddd !important;
+        color: #000000 !important;
+      }
+      .tab-pane {
+        display: none !important;
+      }
+      #tab-details {
+        display: block !important;
+      }
+    }
+  </style>
 </head>
 <body>
 
-  <!-- Executive Topbar Navigation (Dashboard UI) -->
+  <!-- Topbar Navigation -->
   <header class="topbar">
     <div class="wrap">
       <div class="brand">
@@ -46,263 +192,802 @@
   <div class="container">
     <div class="page-header">
       <div>
-        <h1 class="page-title">Multi-Order Wave & Batch Picking</h1>
-        <p class="page-subtitle">Operations Research: Solve the Order Batching Problem (OBP) to eliminate redundant warehouse travel</p>
+        <h1 class="page-title">Intelligent Wave Picking Management</h1>
+        <p class="page-subtitle">Group compatible orders, consolidate SKU pick lists, eliminate travel back-tracking, and validate stock reservations.</p>
       </div>
-      <div style="display: flex; gap: 0.75rem; align-items: center;">
-        <label for="capacity-input" style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted);">Cart Capacity:</label>
-        <input type="number" id="capacity-input" class="form-input" value="35" min="10" max="80" style="width: 85px; padding: 0.45rem 0.65rem;">
-        <button id="btn-batch" class="btn btn-primary" onclick="loadWaves()">
+      <div class="no-print" style="display: flex; gap: 0.75rem; align-items: center;">
+        <button class="btn btn-outline" onclick="refreshAllWaveData()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="23 4 23 10 17 10"></polyline>
             <polyline points="1 20 1 14 7 14"></polyline>
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
           </svg>
-          Optimize Waves
+          Sync Live Data
+        </button>
+        <button class="btn btn-primary" onclick="switchWaveTab('create')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Create New Wave
         </button>
       </div>
     </div>
 
-    <div class="concept-tag">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+    <!-- Alert Banner for Inventory Shortages / Exceptions -->
+    <div id="alert-banner" style="display: none; margin-bottom: 1.25rem;" class="concept-tag">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
       </svg>
       <div>
-        <strong>Order Batching Problem (OBP):</strong> Instead of individual round-trips per order, companion orders sharing warehouse aisles are merged into single picking carts (capacity-constrained knapsack). Consolidated TSP routing achieves an additional <strong>~48% distance reduction</strong>!
+        <strong style="color: #ef4444;">Active Operational Attention:</strong>
+        <span id="alert-banner-text">Shortages or pick exceptions logged.</span>
       </div>
     </div>
 
-    <!-- Batch Summary Metrics Grid -->
-    <div class="stats-grid">
-      <div class="stat-card highlight">
-        <div class="stat-label">Total Customer Orders</div>
-        <div class="stat-value" id="res-total-orders">--</div>
-        <div class="stat-desc">Pending fulfillment orders</div>
-      </div>
-      <div class="stat-card violet">
-        <div class="stat-label">Synthesized Pick Waves</div>
-        <div class="stat-value" id="res-total-waves">--</div>
-        <div class="stat-desc" id="res-avg-orders">Consolidated picking carts</div>
-      </div>
-      <div class="stat-card success">
-        <div class="stat-label">Batching Travel Reduction</div>
-        <div class="stat-value" id="res-reduction" style="color: #10b981;">--%</div>
-        <div class="stat-desc" id="res-saved-desc">Distance reduction vs individual tours</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Consolidated Distance</div>
-        <div class="stat-value" id="res-batched-dist">-- m</div>
-        <div class="stat-desc" id="res-unbatched-desc">vs individual picking</div>
-      </div>
+    <!-- Primary Navigation Tabs -->
+    <div class="wave-tabs-bar no-print">
+      <button class="wave-tab-btn active" id="tab-btn-overview" onclick="switchWaveTab('overview')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+        Overview &amp; Floorplan Route
+      </button>
+      <button class="wave-tab-btn" id="tab-btn-manage" onclick="switchWaveTab('manage')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+        Waves Management
+        <span class="wave-tab-badge" id="tab-badge-manage">0</span>
+      </button>
+      <button class="wave-tab-btn" id="tab-btn-create" onclick="switchWaveTab('create')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+        Create &amp; Auto-Group
+        <span class="wave-tab-badge" id="tab-badge-eligible">0 Orders</span>
+      </button>
+      <button class="wave-tab-btn" id="tab-btn-details" onclick="switchWaveTab('details')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        Wave Details &amp; Pick List
+      </button>
+      <button class="wave-tab-btn" id="tab-btn-workspace" onclick="switchWaveTab('workspace')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        Guided Picking Workspace
+        <span class="wave-tab-badge" id="tab-badge-active" style="background: #10b981; color: #fff;">Active</span>
+      </button>
     </div>
 
-    <!-- Wave Selection & Interactive Route Canvas -->
-    <div style="display: grid; grid-template-columns: 2.2fr 1.8fr; gap: 1.75rem; align-items: start;">
-      
-      <!-- Wave Route Canvas with Interactive Controls -->
-      <div class="card" id="wave-canvas-card" style="padding: 1.25rem; position: relative;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-          <div class="card-title" style="margin-bottom: 0;">Consolidated Wave Floorplan Route</div>
-          <span id="wave-badge" class="badge badge-success">Optimized Wave Tour</span>
-        </div>
+    <!-- ================================================================= -->
+    <!-- TAB 1: OVERVIEW & FLOORPLAN ROUTE                                  -->
+    <!-- ================================================================= -->
+    <div id="tab-overview" class="tab-pane active">
 
-        <!-- Floating Interactive Toolbar -->
-        <div class="canvas-controls-bar">
-          <button class="canvas-ctrl-btn" id="btn-zoom-in" title="Zoom In (+)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              <line x1="11" y1="8" x2="11" y2="14"></line>
-              <line x1="8" y1="11" x2="14" y2="11"></line>
-            </svg>
-          </button>
-          <span class="canvas-zoom-label" id="zoom-level-text">100%</span>
-          <button class="canvas-ctrl-btn" id="btn-zoom-out" title="Zoom Out (-)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              <line x1="8" y1="11" x2="14" y2="11"></line>
-            </svg>
-          </button>
-          <button class="canvas-ctrl-btn" id="btn-zoom-reset" title="Reset View (1:1)" style="font-size: 0.72rem; min-width: 32px;">1:1</button>
-          <div style="width: 1px; height: 16px; background: rgba(255,255,255,0.25); margin: 0 2px;"></div>
-          <button class="canvas-ctrl-btn" id="btn-fullscreen-toggle" title="Toggle Fullscreen (F)">
-            <svg id="fs-icon-expand" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="15 3 21 3 21 9"></polyline>
-              <polyline points="9 21 3 21 3 15"></polyline>
-              <line x1="21" y1="3" x2="14" y2="10"></line>
-              <line x1="3" y1="21" x2="10" y2="14"></line>
-            </svg>
-            <svg id="fs-icon-compress" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
-              <polyline points="4 14 10 14 10 20"></polyline>
-              <polyline points="20 10 14 10 14 4"></polyline>
-              <line x1="14" y1="10" x2="21" y2="3"></line>
-              <line x1="3" y1="21" x2="10" y2="14"></line>
-            </svg>
-          </button>
+      <!-- Executive Live Metrics Grid -->
+      <div class="stats-grid">
+        <div class="stat-card highlight">
+          <div class="stat-label">Total Picking Waves</div>
+          <div class="stat-value" id="kpi-total-waves">--</div>
+          <div class="stat-desc" id="kpi-waves-breakdown">Active, Scheduled &amp; Completed</div>
         </div>
-
-        <div class="canvas-wrapper" style="overflow: hidden; cursor: grab;">
-          <canvas id="wave-canvas" width="820" height="520" style="background: var(--canvas-bg); border-radius: 8px;"></canvas>
+        <div class="stat-card violet">
+          <div class="stat-label">Orders Awaiting Picking</div>
+          <div class="stat-value" id="kpi-awaiting-orders">--</div>
+          <div class="stat-desc" id="kpi-pending-packing">-- pending packing</div>
         </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">
-          <span>Shows the single unified tour that fulfills all orders in the selected wave without returning to the packing hub.</span>
-          <span style="font-weight: 600; color: var(--primary); white-space: nowrap; margin-left: 1rem;">
-            <kbd>Scroll</kbd> Zoom &bull; 
-            <kbd>Drag</kbd> Pan &bull; 
-            <kbd>F</kbd> Fullscreen
-          </span>
+        <div class="stat-card success">
+          <div class="stat-label">Travel Distance Saved</div>
+          <div class="stat-value" id="kpi-reduction" style="color: #10b981;">--%</div>
+          <div class="stat-desc" id="kpi-dist-saved">--m saved vs individual tours</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active Workload Units</div>
+          <div class="stat-value" id="kpi-units-to-pick">--</div>
+          <div class="stat-desc" id="kpi-progress-desc">--% overall progress</div>
         </div>
       </div>
 
-      <!-- Wave Details & Order List -->
+      <!-- Wave Selection & Interactive Route Canvas -->
+      <div style="display: grid; grid-template-columns: 2.2fr 1.8fr; gap: 1.75rem; align-items: start; margin-bottom: 1.75rem;">
+        
+        <!-- Interactive Route Canvas -->
+        <div class="card" id="wave-canvas-card" style="padding: 1.25rem; position: relative;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <div class="card-title" style="margin-bottom: 0;">Consolidated Wave Floorplan Tour</div>
+            <span id="wave-badge" class="badge badge-success">Optimized TSP Tour</span>
+          </div>
+
+          <!-- Canvas Floating Controls -->
+          <div class="canvas-controls-bar">
+            <button class="canvas-ctrl-btn" id="btn-zoom-in" title="Zoom In (+)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line>
+              </svg>
+            </button>
+            <span class="canvas-zoom-label" id="zoom-level-text">100%</span>
+            <button class="canvas-ctrl-btn" id="btn-zoom-out" title="Zoom Out (-)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line>
+              </svg>
+            </button>
+            <button class="canvas-ctrl-btn" id="btn-zoom-reset" title="Reset View (1:1)" style="font-size: 0.72rem; min-width: 32px;">1:1</button>
+            <div style="width: 1px; height: 16px; background: rgba(255,255,255,0.25); margin: 0 2px;"></div>
+            <button class="canvas-ctrl-btn" id="btn-fullscreen-toggle" title="Toggle Fullscreen (F)">
+              <svg id="fs-icon-expand" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+              <svg id="fs-icon-compress" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+            </button>
+          </div>
+
+          <div class="canvas-wrapper" style="overflow: hidden; cursor: grab;">
+            <canvas id="wave-canvas" width="820" height="520" style="background: var(--canvas-bg); border-radius: 8px;"></canvas>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">
+            <span>Consolidated picker tour visiting all stops in a single round-trip without returning to packing station.</span>
+            <span style="font-weight: 600; color: var(--primary); white-space: nowrap; margin-left: 1rem;">
+              <kbd>Scroll</kbd> Zoom &bull; <kbd>Drag</kbd> Pan &bull; <kbd>F</kbd> Fullscreen
+            </span>
+          </div>
+        </div>
+
+        <!-- Wave Inspector Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>Inspect Wave Execution</span>
+            <span id="waves-count-pill" class="badge badge-primary">0 Waves</span>
+          </div>
+
+          <div style="margin-bottom: 1.25rem;">
+            <label for="wave-select" class="form-label">Select Wave:</label>
+            <select id="wave-select" class="form-select" onchange="onWaveSelectChange()" style="max-width: 100%;">
+              <option value="">Loading waves...</option>
+            </select>
+          </div>
+
+          <div id="wave-info-box" style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; align-items: center;">
+              <span style="font-weight: 700; color: var(--text-main); font-size: 1.05rem;" id="info-wave-title">No Waves Active</span>
+              <span class="badge badge-success" id="info-wave-saved">0m Saved</span>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;" id="info-wave-meta">
+              Picker: -- &bull; Status: --
+            </div>
+            <div style="display: flex; gap: 1rem; font-size: 0.85rem; margin-bottom: 0.5rem;">
+              <span>Orders: <strong id="info-wave-orders">0</strong></span>
+              <span>Units: <strong id="info-wave-units">0</strong></span>
+              <span>Stops: <strong id="info-wave-stops">0</strong></span>
+              <span>Distance: <strong id="info-wave-dist">0m</strong></span>
+            </div>
+            <div class="wave-meter-track">
+              <div class="wave-meter-fill" id="info-wave-progress-bar" style="width: 0%;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
+              <span>Progress</span>
+              <span id="info-wave-progress-text">0%</span>
+            </div>
+          </div>
+
+          <!-- Quick Actions on Selected Wave -->
+          <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;" id="wave-quick-actions">
+            <button class="btn btn-outline" style="flex: 1;" onclick="inspectSelectedWaveDetails()">
+              View Details &amp; Pick List
+            </button>
+            <button class="btn btn-primary" style="flex: 1;" id="btn-quick-workspace" onclick="openSelectedWaveWorkspace()">
+              Open Workspace
+            </button>
+          </div>
+
+          <!-- Wave Line Items Preview -->
+          <div class="card-title" style="font-size: 0.95rem; margin-bottom: 0.5rem;">Consolidated Stops Preview</div>
+          <div class="table-responsive" style="max-height: 230px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Seq</th>
+                  <th>Product</th>
+                  <th>Qty</th>
+                  <th>Shelf</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="wave-items-body">
+                <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No items to show</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Active Waves Table -->
       <div class="card">
-        <div class="card-title">
-          <span>Pick Waves (Consolidated Batches)</span>
-          <span id="waves-count-pill" class="badge badge-primary">0 Waves</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <div class="card-title" style="margin-bottom: 0;">Active &amp; Scheduled Warehouse Waves</div>
+          <span class="badge badge-primary" id="active-waves-count-pill">0 Active</span>
         </div>
-
-        <div style="margin-bottom: 1.25rem;">
-          <label for="wave-select" class="form-label">Select Wave to Inspect:</label>
-          <select id="wave-select" class="form-select" onchange="renderSelectedWave()" style="max-width: 100%;">
-            <option value="">Loading waves...</option>
-          </select>
-        </div>
-
-        <div id="wave-info-box" style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem;">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-            <span style="font-weight: 700; color: var(--text-main);" id="info-wave-title">Wave #1</span>
-            <span class="badge badge-success" id="info-wave-saved">0m Saved</span>
-          </div>
-          <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;" id="info-wave-customers">
-            Customers: --
-          </div>
-          <div style="display: flex; gap: 1rem; font-size: 0.85rem;">
-            <span>Units: <strong id="info-wave-units">0</strong></span>
-            <span>Stops: <strong id="info-wave-stops">0</strong></span>
-            <span>Tour: <strong id="info-wave-dist">0m</strong></span>
-          </div>
-        </div>
-
-        <!-- Wave Line Items Table -->
-        <div class="card-title" style="font-size: 0.95rem; margin-bottom: 0.5rem;">Wave Pick-to-Tote Items</div>
-        <div class="table-responsive" style="max-height: 250px;">
+        <div class="table-responsive">
           <table>
             <thead>
               <tr>
-                <th>Product</th>
-                <th style="width: 50px;">Qty</th>
-                <th>Shelf</th>
-                <th>Order</th>
+                <th>Wave ID</th>
+                <th>Name &amp; Strategy</th>
+                <th>Priority</th>
+                <th>Picker</th>
+                <th>Orders</th>
+                <th>Units</th>
+                <th>Progress</th>
+                <th>Status</th>
+                <th style="text-align: right;">Actions</th>
               </tr>
             </thead>
-            <tbody id="wave-items-body"></tbody>
+            <tbody id="overview-active-waves-body">
+              <tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Loading active waves...</td></tr>
+            </tbody>
           </table>
         </div>
       </div>
 
     </div>
+
+    <!-- ================================================================= -->
+    <!-- TAB 2: WAVES MANAGEMENT LIST                                      -->
+    <!-- ================================================================= -->
+    <div id="tab-manage" class="tab-pane">
+      <div class="card">
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1.25rem;">
+          <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; flex: 1;">
+            <input type="text" id="search-waves" class="form-input" placeholder="Search wave ID, name, notes..." style="max-width: 260px;" oninput="applyWaveFilters()">
+            
+            <select id="filter-status" class="form-select" style="max-width: 160px;" onchange="applyWaveFilters()">
+              <option value="">All Statuses</option>
+              <option value="Draft">Draft</option>
+              <option value="Scheduled">Scheduled</option>
+              <option value="Active">Active</option>
+              <option value="Paused">Paused</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+
+            <select id="filter-priority" class="form-select" style="max-width: 150px;" onchange="applyWaveFilters()">
+              <option value="">All Priorities</option>
+              <option value="Urgent">Urgent</option>
+              <option value="High">High</option>
+              <option value="Standard">Standard</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+
+          <div>
+            <button class="btn btn-primary" onclick="switchWaveTab('create')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              New Picking Wave
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Wave ID</th>
+                <th>Wave Name</th>
+                <th>Strategy</th>
+                <th>Priority</th>
+                <th>Picker</th>
+                <th>Orders</th>
+                <th>Units Picked</th>
+                <th>Progress</th>
+                <th>Distance Saved</th>
+                <th>Status</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="manage-waves-table-body">
+              <tr><td colspan="11" style="text-align: center; color: var(--text-muted); padding: 2rem;">Loading waves repository...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- TAB 3: CREATE & AUTO-GROUP WAVES                                  -->
+    <!-- ================================================================= -->
+    <div id="tab-create" class="tab-pane">
+      <div style="display: grid; grid-template-columns: 1.1fr 1.9fr; gap: 1.75rem; align-items: start;">
+        
+        <!-- Left: Configuration & Algorithm Selection -->
+        <div class="card">
+          <div class="card-title">Wave Configuration &amp; Grouping</div>
+          
+          <div style="margin-bottom: 1rem;">
+            <label for="create-wave-name" class="form-label">Wave Name / Description:</label>
+            <input type="text" id="create-wave-name" class="form-input" placeholder="e.g. Morning High-Velocity Wave #1">
+          </div>
+
+          <div style="margin-bottom: 1rem;">
+            <label for="create-strategy" class="form-label">Optimization Strategy:</label>
+            <select id="create-strategy" class="form-select">
+              <option value="Hybrid">Hybrid (Priority + Zone Synergy + SKU Affinity)</option>
+              <option value="Priority-based">Priority-based (Urgent &amp; High First)</option>
+              <option value="Due-date-based">Due-Date-based (Earliest Cutoff First)</option>
+              <option value="Zone-based">Zone-based (Aisle &amp; Corridor Proximity)</option>
+              <option value="SKU-based">SKU-based (Shared Common Products)</option>
+              <option value="Batch/Capacity-based">Batch/Capacity-based (Strict Cart Knapsack)</option>
+            </select>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;" id="strategy-hint">
+              Combines urgency weighting with aisle sharing to maximize pick rate and minimize round trips.
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+            <div>
+              <label for="create-cart-capacity" class="form-label">Max Cart Capacity:</label>
+              <input type="number" id="create-cart-capacity" class="form-input" value="35" min="5" max="200">
+            </div>
+            <div>
+              <label for="create-max-orders" class="form-label">Max Orders / Wave:</label>
+              <input type="number" id="create-max-orders" class="form-input" value="4" min="1" max="15">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+            <div>
+              <label for="create-picker" class="form-label">Assigned Picker:</label>
+              <select id="create-picker" class="form-select">
+                <option value="Alex Morgan">Alex Morgan</option>
+                <option value="Elena Ramos">Elena Ramos</option>
+                <option value="Marcus Vance">Marcus Vance</option>
+                <option value="David Chen">David Chen</option>
+              </select>
+            </div>
+            <div>
+              <label for="create-priority" class="form-label">Wave Priority:</label>
+              <select id="create-priority" class="form-select">
+                <option value="Standard">Standard</option>
+                <option value="High">High</option>
+                <option value="Urgent">Urgent</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 1rem;">
+            <label for="create-scheduled" class="form-label">Scheduled Start Time (Optional):</label>
+            <input type="datetime-local" id="create-scheduled" class="form-input">
+          </div>
+
+          <div style="margin-bottom: 1.25rem;">
+            <label for="create-notes" class="form-label">Picking Notes / Shift Instructions:</label>
+            <textarea id="create-notes" class="form-input" rows="2" placeholder="e.g. Use tote cart #4; inspect fragile glassware items carefully."></textarea>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem;">
+            <button class="btn btn-outline" style="flex: 1;" onclick="previewWaveProposal()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              Preview Proposal
+            </button>
+            <button class="btn btn-primary" style="flex: 1;" id="btn-save-wave" onclick="submitCreateWave()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Create Wave
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Eligible Orders Queue & Proposal Preview -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div class="card-title" style="margin-bottom: 0;">Unallocated Order Queue</div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <button class="btn btn-outline" style="padding: 0.25rem 0.65rem; font-size: 0.8rem;" onclick="selectAllEligible(true)">Select All</button>
+              <button class="btn btn-outline" style="padding: 0.25rem 0.65rem; font-size: 0.8rem;" onclick="selectAllEligible(false)">Clear</button>
+              <span class="badge badge-primary" id="selected-orders-count-pill">0 Selected</span>
+            </div>
+          </div>
+
+          <!-- Eligible Orders Table -->
+          <div class="table-responsive" style="max-height: 280px; margin-bottom: 1.5rem;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 40px;"><input type="checkbox" id="chk-select-all-orders" onchange="toggleSelectAllEligible(this.checked)"></th>
+                  <th>Order ID</th>
+                  <th>Customer</th>
+                  <th>Priority</th>
+                  <th>Deadline</th>
+                  <th>Items</th>
+                  <th>Total Units</th>
+                </tr>
+              </thead>
+              <tbody id="eligible-orders-table-body">
+                <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Loading eligible unallocated orders...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Proposal Preview Container -->
+          <div id="proposal-preview-container" style="display: none; border-top: 1px solid var(--border); padding-top: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+              <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--text-main);">Synthesized Wave Proposal</h3>
+              <span id="proposal-stock-badge" class="badge badge-success">Inventory Verified</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1rem;">
+              <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; text-align: center;">
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Orders</div>
+                <div style="font-size: 1.25rem; font-weight: 800;" id="prev-orders-cnt">--</div>
+              </div>
+              <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; text-align: center;">
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Unique SKUs</div>
+                <div style="font-size: 1.25rem; font-weight: 800;" id="prev-skus-cnt">--</div>
+              </div>
+              <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; text-align: center;">
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Total Units</div>
+                <div style="font-size: 1.25rem; font-weight: 800;" id="prev-units-cnt">--</div>
+              </div>
+              <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; text-align: center;">
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Travel Reduction</div>
+                <div style="font-size: 1.25rem; font-weight: 800; color: #10b981;" id="prev-reduction-pct">--%</div>
+              </div>
+            </div>
+
+            <!-- Consolidated Pick List Preview Table -->
+            <div class="card-title" style="font-size: 0.92rem; margin-bottom: 0.5rem;">Consolidated SKU Pick Sequence Preview</div>
+            <div class="table-responsive" style="max-height: 220px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Seq</th>
+                    <th>SKU</th>
+                    <th>Product</th>
+                    <th>Location</th>
+                    <th>Required Qty</th>
+                    <th>Available Stock</th>
+                    <th>Order Distribution</th>
+                  </tr>
+                </thead>
+                <tbody id="proposal-tasks-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- TAB 4: WAVE DETAILS & CONSOLIDATED PICK LIST                     -->
+    <!-- ================================================================= -->
+    <div id="tab-details" class="tab-pane">
+      <div class="card" id="wave-detail-sheet">
+        
+        <!-- Header & Action Ribbon -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.35rem;">
+              <h2 style="font-size: 1.4rem; font-weight: 800; margin: 0; color: var(--text-main);" id="detail-wave-title">WAVE-1001</h2>
+              <span id="detail-wave-status-badge" class="badge badge-active">Active</span>
+              <span id="detail-wave-priority-badge" class="badge badge-primary">High Priority</span>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-muted);" id="detail-wave-subhead">
+              Strategy: Hybrid &bull; Assigned Picker: Alex Morgan &bull; Created: --
+            </div>
+          </div>
+
+          <div class="no-print" style="display: flex; gap: 0.5rem; align-items: center;">
+            <button class="btn btn-outline" onclick="printPickList()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+              Print Pick List
+            </button>
+            <button class="btn btn-outline" id="btn-export-csv" onclick="exportWaveCSV()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              Export CSV
+            </button>
+            <button class="btn btn-primary" id="btn-detail-lifecycle" onclick="handleDetailLifecycleClick()">
+              Start Wave
+            </button>
+          </div>
+        </div>
+
+        <!-- Wave Workload & Efficiency Summary Tiles -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+          <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600;">BATCHED ORDERS</div>
+            <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-main);" id="detail-total-orders">--</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);" id="detail-orders-list">Orders: --</div>
+          </div>
+          <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600;">CONSOLIDATED WORKLOAD</div>
+            <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-main);" id="detail-total-units">-- Units</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);" id="detail-total-skus">-- Unique SKUs</div>
+          </div>
+          <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600;">DISTANCE EFFICIENCY</div>
+            <div style="font-size: 1.35rem; font-weight: 800; color: #10b981;" id="detail-travel-saved">--% Saved</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);" id="detail-dist-metrics">--m vs --m individual</div>
+          </div>
+          <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600;">PICKING PROGRESS</div>
+            <div style="font-size: 1.35rem; font-weight: 800; color: var(--primary);" id="detail-progress-pct">0%</div>
+            <div class="wave-meter-track" style="margin-top: 0.35rem;">
+              <div class="wave-meter-fill" id="detail-progress-bar" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Order Allocations List -->
+        <div style="margin-bottom: 1.5rem;">
+          <div class="card-title" style="font-size: 1rem; margin-bottom: 0.5rem;">Customer Orders in this Wave Batch</div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Order #</th>
+                  <th>Customer Name</th>
+                  <th>Priority</th>
+                  <th>Deadline</th>
+                  <th>Destination Zone</th>
+                  <th>Order Status</th>
+                </tr>
+              </thead>
+              <tbody id="detail-orders-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Consolidated SKU Pick List Table -->
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <div class="card-title" style="font-size: 1rem; margin-bottom: 0;">Consolidated SKU Pick List (Sorted by TSP Tour)</div>
+            <span class="badge badge-primary" id="detail-tasks-count">0 Stops</span>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Seq</th>
+                  <th>SKU</th>
+                  <th>Product Name</th>
+                  <th>Category</th>
+                  <th>Shelf Location</th>
+                  <th>Aisle / Zone</th>
+                  <th>Required</th>
+                  <th>Picked</th>
+                  <th>Remaining</th>
+                  <th>Status</th>
+                  <th>Order Allocation Breakdown</th>
+                </tr>
+              </thead>
+              <tbody id="detail-tasks-table-body">
+                <tr><td colspan="11" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Select a wave to view pick list</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- TAB 5: GUIDED PICKING WORKSPACE                                   -->
+    <!-- ================================================================= -->
+    <div id="tab-workspace" class="tab-pane">
+      <div style="display: grid; grid-template-columns: 2fr 1.3fr; gap: 1.75rem; align-items: start;">
+        
+        <!-- Left: Guided Stop Step Card -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div>
+              <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">ACTIVE PICKING SESSION</span>
+              <h2 style="font-size: 1.25rem; font-weight: 800; margin: 0; color: var(--text-main);" id="ws-wave-title">No Active Wave</h2>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <span class="badge badge-active" id="ws-status-badge">Active</span>
+              <select id="ws-wave-selector" class="form-select" style="max-width: 170px;" onchange="onWorkspaceWaveChange()">
+                <option value="">Select Wave...</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Overall Wave Progress Meter -->
+          <div style="margin-bottom: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
+              <span>Wave Completion Workload</span>
+              <strong id="ws-progress-text">0 / 0 Units (0%)</strong>
+            </div>
+            <div class="wave-meter-track" style="height: 10px;">
+              <div class="wave-meter-fill" id="ws-progress-bar" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Step Banner: Location & Product Callout -->
+          <div class="pick-step-banner" id="ws-step-banner">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <span style="font-size: 0.85rem; font-weight: 800; color: var(--primary);" id="ws-step-number">STOP #1 OF 5</span>
+              <span class="badge badge-primary" id="ws-step-status">Pending</span>
+            </div>
+            <div style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.35rem;" id="ws-shelf-location">
+              AISLE 01 &bull; SHELF #2 (Zone A)
+            </div>
+            <div style="font-size: 1.15rem; font-weight: 600; color: var(--text-main);" id="ws-product-name">
+              Heavy Industrial Motor
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;" id="ws-product-sku">
+              SKU-0001 &bull; Category: Heavy &bull; Catalog Stock: 50
+            </div>
+
+            <!-- Quantity Counter Display -->
+            <div style="display: flex; gap: 1.5rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1.25rem; margin-bottom: 1rem;">
+              <div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">REQUIRED</div>
+                <div style="font-size: 1.4rem; font-weight: 800; color: var(--text-main);" id="ws-qty-required">0</div>
+              </div>
+              <div style="border-left: 1px solid var(--border); padding-left: 1.5rem;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">ALREADY PICKED</div>
+                <div style="font-size: 1.4rem; font-weight: 800; color: #10b981;" id="ws-qty-picked">0</div>
+              </div>
+              <div style="border-left: 1px solid var(--border); padding-left: 1.5rem;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">REMAINING</div>
+                <div style="font-size: 1.4rem; font-weight: 800; color: #ef4444;" id="ws-qty-remaining">0</div>
+              </div>
+            </div>
+
+            <!-- Order Distribution Tote Guide -->
+            <div style="margin-bottom: 1.25rem;">
+              <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.35rem;">
+                CART TOTE DISTRIBUTION (DROP-OFF GUIDE):
+              </div>
+              <div id="ws-order-allocations" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                <span class="badge" style="background: var(--border); color: var(--text-main);">Order #1: 2 units</span>
+              </div>
+            </div>
+
+            <!-- Step Action Buttons -->
+            <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
+              <button class="btn btn-primary" style="flex: 2; padding: 0.75rem 1rem; font-size: 0.95rem;" id="btn-ws-full-pick" onclick="confirmCurrentTaskFullPick()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Confirm Full Pick (<span id="ws-btn-pick-qty">0</span> Units)
+              </button>
+              <button class="btn btn-outline" style="flex: 1;" onclick="openPartialPickModal()">
+                Partial Pick...
+              </button>
+              <button class="btn btn-outline" style="flex: 1; border-color: #ef4444; color: #ef4444;" onclick="openExceptionModal()">
+                Report Shortage
+              </button>
+            </div>
+          </div>
+
+          <!-- Step Navigation Controls -->
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <button class="btn btn-outline" id="btn-ws-prev" onclick="navigateTaskStep(-1)">
+              &larr; Previous Stop
+            </button>
+            <span style="font-size: 0.85rem; color: var(--text-muted);" id="ws-nav-info">Stop 1 of 5</span>
+            <button class="btn btn-outline" id="btn-ws-next" onclick="navigateTaskStep(1)">
+              Next Stop &rarr;
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Task Stop Sequence Checklist -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <div class="card-title" style="margin-bottom: 0;">Wave Stop Sequence</div>
+            <span class="badge badge-primary" id="ws-checklist-count">0 Tasks</span>
+          </div>
+
+          <div class="table-responsive" style="max-height: 480px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Seq</th>
+                  <th>Shelf</th>
+                  <th>Product</th>
+                  <th>Req</th>
+                  <th>Picked</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="ws-tasks-checklist-body">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Select an active wave to pick</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Wave Complete Action -->
+          <div style="margin-top: 1.25rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+            <button class="btn btn-primary" id="btn-ws-complete-wave" style="width: 100%; padding: 0.75rem; background: #10b981; border-color: #10b981;" onclick="submitCompleteWave()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+              Complete Wave &amp; Finalize Inventory
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- MODAL: PARTIAL PICK CONFIRMATION                                  -->
+  <!-- ================================================================= -->
+  <div class="modal-backdrop" id="modal-partial-pick">
+    <div class="modal-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin: 0; color: var(--text-main);">Confirm Partial Pick</h3>
+        <button class="ib" onclick="closeModal('modal-partial-pick')">&times;</button>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Record the exact units physically picked for <strong id="modal-partial-prod-name">Product</strong>. The remaining units will be flagged as incomplete.
+      </p>
+
+      <div style="margin-bottom: 1.25rem;">
+        <label for="partial-pick-input" class="form-label">Units Picked:</label>
+        <input type="number" id="partial-pick-input" class="form-input" min="0" value="1">
+        <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;" id="modal-partial-limit-hint">
+          Maximum required: 0 units
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button class="btn btn-outline" onclick="closeModal('modal-partial-pick')">Cancel</button>
+        <button class="btn btn-primary" onclick="submitPartialPick()">Confirm Pick</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- MODAL: REPORT EXCEPTION / SHORTAGE                                -->
+  <!-- ================================================================= -->
+  <div class="modal-backdrop" id="modal-exception">
+    <div class="modal-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin: 0; color: #ef4444;">Report Picking Exception</h3>
+        <button class="ib" onclick="closeModal('modal-exception')">&times;</button>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Log an audit exception for <strong id="modal-exc-prod-name">Product</strong> at <strong id="modal-exc-location">Shelf</strong>.
+      </p>
+
+      <div style="margin-bottom: 1rem;">
+        <label for="exc-type-select" class="form-label">Exception Type:</label>
+        <select id="exc-type-select" class="form-select">
+          <option value="Shortage">Inventory Stock Shortage</option>
+          <option value="Damaged">Damaged / Expired Product</option>
+          <option value="Location Blocked">Aisle / Shelf Access Blocked</option>
+          <option value="Mismatch">Barcode / Item Discrepancy</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom: 1.25rem;">
+        <label for="exc-details-input" class="form-label">Observation Details:</label>
+        <textarea id="exc-details-input" class="form-input" rows="3" placeholder="e.g. Storage bay bin empty upon physical inspection; requested restock."></textarea>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button class="btn btn-outline" onclick="closeModal('modal-exception')">Cancel</button>
+        <button class="btn btn-primary" style="background: #ef4444; border-color: #ef4444;" onclick="submitReportException()">Log Exception</button>
+      </div>
+    </div>
   </div>
 
   <footer class="app-footer">
     <div class="container" style="margin: 0 auto;">
-      Warehouse Layout & Order Picking Optimizer &bull; High-Performance Graph Routing Engine
+      Warehouse Layout &amp; Order Picking Optimizer &bull; High-Performance Graph Routing Engine
     </div>
   </footer>
 
+  <!-- ================================================================= -->
+  <!-- JAVASCRIPT APPLICATION LOGIC                                      -->
+  <!-- ================================================================= -->
   <script>
+    // State variables
     let graphData = { nodes: [], edges: [] };
-    let wavesData = [];
-
-    async function initializePage() {
-      // 1. Load Warehouse Graph for canvas
-      try {
-        const gRes = await fetch('/api/warehouse/graph');
-        graphData = await gRes.json();
-      } catch (err) {
-        console.error("Failed to load graph:", err);
-      }
-
-      // 2. Load Batches
-      await loadWaves();
-    }
-
-    async function loadWaves() {
-      const cap = document.getElementById('capacity-input').value || 35;
-      const btn = document.getElementById('btn-batch');
-      btn.style.opacity = '0.7';
-
-      try {
-        const res = await fetch(`/api/batch/waves?cart_capacity=${cap}`);
-        const data = await res.json();
-
-        wavesData = data.batches || [];
-        const m = data.metrics || {};
-
-        // Update Summary Cards
-        document.getElementById('res-total-orders').textContent = m.total_orders || 0;
-        document.getElementById('res-total-waves').textContent = m.total_batches || 0;
-        document.getElementById('res-avg-orders').textContent = `Avg ${m.avg_orders_per_batch || 0} orders / wave`;
-        document.getElementById('res-reduction').textContent = (m.percent_reduction || 0) + '%';
-        document.getElementById('res-saved-desc').textContent = `${m.distance_saved || 0}m saved across batches`;
-        document.getElementById('res-batched-dist').textContent = (m.batched_total_distance || 0) + ' m';
-        document.getElementById('res-unbatched-desc').textContent = `vs ${m.unbatched_total_distance || 0}m unbatched`;
-
-        // Populate Dropdown
-        const select = document.getElementById('wave-select');
-        select.innerHTML = '';
-        wavesData.forEach((w, idx) => {
-          const opt = document.createElement('option');
-          opt.value = idx;
-          opt.textContent = `${w.batch_name}: ${w.orders_count} Orders (${w.total_units} units, ${w.unique_stops} stops) — ${w.batched_distance}m`;
-          select.appendChild(opt);
-        });
-
-        document.getElementById('waves-count-pill').textContent = `${wavesData.length} Waves`;
-
-        if (wavesData.length > 0) {
-          renderSelectedWave();
-        }
-
-      } catch (err) {
-        console.error("Failed to load wave batches:", err);
-      } finally {
-        btn.style.opacity = '1';
-      }
-    }
-
-    function renderSelectedWave() {
-      const idx = document.getElementById('wave-select').value;
-      if (idx === "" || !wavesData[idx]) return;
-
-      const wave = wavesData[idx];
-
-      // Update Info Box
-      document.getElementById('info-wave-title').textContent = wave.batch_name;
-      document.getElementById('info-wave-saved').textContent = `Saved ${wave.distance_saved}m (${wave.percent_saved}%)`;
-      document.getElementById('info-wave-customers').textContent = `Orders: ${wave.customers.join(', ')}`;
-      document.getElementById('info-wave-units').textContent = `${wave.total_units} units`;
-      document.getElementById('info-wave-stops').textContent = `${wave.unique_stops} shelves`;
-      document.getElementById('info-wave-dist').textContent = `${wave.batched_distance}m`;
-
-      // Update Items Table
-      const tbody = document.getElementById('wave-items-body');
-      tbody.innerHTML = '';
-      (wave.items || []).forEach(it => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td style="font-weight: 500;">${it.product_name}</td>
-          <td><span class="badge" style="background:var(--border-light); color:var(--text-main); font-weight:700;">${it.quantity}x</span></td>
-          <td><span class="badge badge-primary">Shelf ${it.shelf_id}</span></td>
-          <td><span class="badge" style="background:var(--border-light); color:var(--text-main); font-weight:700;">#${it.order_id}</span></td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      // Draw Route on Canvas
-      drawWaveCanvas(wave);
-    }
+    let allWaves = [];
+    let eligibleOrders = [];
+    let selectedOrderIds = new Set();
+    let currentProposal = null;
+    let selectedWaveDetail = null;
+    let activeWorkspaceWave = null;
+    let currentTaskStepIdx = 0;
 
     // View Transformation State for Pan & Zoom
     let view = {
@@ -318,10 +1003,962 @@
     let isFullscreen = false;
     let hoveredNodeId = null;
 
+    document.addEventListener('DOMContentLoaded', () => {
+      initializePage();
+    });
+
+    async function initializePage() {
+      setupCanvasInteractivity();
+
+      // Load graph for floorplan visualization
+      try {
+        const gRes = await fetch('/api/warehouse/graph');
+        graphData = await gRes.json();
+      } catch (err) {
+        console.error("Failed to load graph:", err);
+      }
+
+      await refreshAllWaveData();
+      resizeCanvas();
+    }
+
+    async function refreshAllWaveData() {
+      await Promise.all([
+        loadDashboardMetrics(),
+        loadWavesList(),
+        loadEligibleOrders()
+      ]);
+    }
+
+    // -------------------------------------------------------------
+    // 1. Dashboard Metrics & Overview
+    // -------------------------------------------------------------
+
+    async function loadDashboardMetrics() {
+      try {
+        const res = await fetch('/api/waves/dashboard');
+        const data = await res.json();
+        if (data.status === 'success') {
+          const m = data.metrics;
+          document.getElementById('kpi-total-waves').textContent = m.total_waves;
+          document.getElementById('kpi-waves-breakdown').textContent = 
+            `${m.status_counts.active} Active &bull; ${m.status_counts.scheduled} Sched &bull; ${m.status_counts.completed} Comp`;
+          
+          document.getElementById('kpi-awaiting-orders').textContent = m.orders_awaiting_picking;
+          document.getElementById('kpi-pending-packing').textContent = `${m.orders_pending_packing} orders ready for packing`;
+          
+          document.getElementById('kpi-reduction').textContent = `${m.travel_reduction_pct}%`;
+          document.getElementById('kpi-dist-saved').textContent = `${m.distance_saved_m}m saved vs individual tours`;
+          
+          document.getElementById('kpi-units-to-pick').textContent = m.units_to_pick;
+          document.getElementById('kpi-progress-desc').textContent = `${m.picking_progress_pct}% overall progress`;
+
+          // Handle Alerts Banner
+          const banner = document.getElementById('alert-banner');
+          if (m.active_exceptions > 0) {
+            banner.style.display = 'flex';
+            document.getElementById('alert-banner-text').textContent = 
+              `${m.active_exceptions} active pick exception(s) require supervisor review.`;
+          } else {
+            banner.style.display = 'none';
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load dashboard metrics:", err);
+      }
+    }
+
+    async function loadWavesList() {
+      try {
+        const res = await fetch('/api/waves');
+        const data = await res.json();
+        if (data.status === 'success') {
+          allWaves = data.waves || [];
+          document.getElementById('tab-badge-manage').textContent = allWaves.length;
+          document.getElementById('waves-count-pill').textContent = `${allWaves.length} Waves`;
+
+          populateWaveSelectDropdown();
+          renderOverviewActiveWavesTable();
+          renderManageWavesTable(allWaves);
+          updateWorkspaceWaveSelector();
+
+          // Auto-select first wave if not already selected
+          if (allWaves.length > 0 && !selectedWaveDetail) {
+            inspectWave(allWaves[0].id);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load waves:", err);
+      }
+    }
+
+    function populateWaveSelectDropdown() {
+      const select = document.getElementById('wave-select');
+      select.innerHTML = '';
+      if (allWaves.length === 0) {
+        select.innerHTML = '<option value="">No waves created yet</option>';
+        return;
+      }
+      allWaves.forEach(w => {
+        const opt = document.createElement('option');
+        opt.value = w.id;
+        opt.textContent = `${w.id}: ${w.name} [${w.status}] — ${w.total_units} units (${w.travel_reduction_pct}% saved)`;
+        select.appendChild(opt);
+      });
+    }
+
+    async function onWaveSelectChange() {
+      const waveId = document.getElementById('wave-select').value;
+      if (waveId) {
+        await inspectWave(waveId);
+      }
+    }
+
+    async function inspectWave(waveId) {
+      try {
+        const res = await fetch(`/api/waves/${waveId}`);
+        const data = await res.json();
+        if (data.status === 'success') {
+          selectedWaveDetail = data.wave;
+          renderWaveInspectorCard(selectedWaveDetail);
+          renderWaveDetailTab(selectedWaveDetail);
+          drawWaveRouteOnCanvas(selectedWaveDetail);
+        }
+      } catch (err) {
+        console.error("Failed to inspect wave:", err);
+      }
+    }
+
+    function renderWaveInspectorCard(wave) {
+      if (!wave) return;
+      document.getElementById('info-wave-title').textContent = `${wave.name} (${wave.id})`;
+      document.getElementById('info-wave-saved').textContent = `Saved ${wave.distance_saved_m}m (${wave.travel_reduction_pct}%)`;
+      document.getElementById('info-wave-meta').textContent = 
+        `Picker: ${wave.assigned_picker} • Status: ${wave.status} • Priority: ${wave.priority}`;
+      document.getElementById('info-wave-orders').textContent = wave.total_orders;
+      document.getElementById('info-wave-units').textContent = wave.total_units;
+      document.getElementById('info-wave-stops').textContent = (wave.tasks || []).length;
+      document.getElementById('info-wave-dist').textContent = `${wave.estimated_distance_m}m`;
+      
+      const pct = wave.progress_pct || 0;
+      document.getElementById('info-wave-progress-bar').style.width = `${pct}%`;
+      document.getElementById('info-wave-progress-text').textContent = `${pct}% (${wave.picked_units} / ${wave.total_units} units)`;
+
+      // Quick Workspace Button
+      const btnWs = document.getElementById('btn-quick-workspace');
+      if (wave.status === 'Active') {
+        btnWs.style.display = 'inline-flex';
+        btnWs.textContent = 'Open Workspace';
+      } else if (wave.status === 'Draft' || wave.status === 'Scheduled') {
+        btnWs.style.display = 'inline-flex';
+        btnWs.textContent = 'Start & Pick';
+      } else {
+        btnWs.style.display = 'none';
+      }
+
+      // Render tasks preview table
+      const tbody = document.getElementById('wave-items-body');
+      tbody.innerHTML = '';
+      const tasks = wave.tasks || [];
+      if (tasks.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No stops in this wave</td></tr>';
+        return;
+      }
+      tasks.forEach((t, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-family: monospace; font-weight: 700;">#${idx + 1}</td>
+          <td style="font-weight: 500;">${t.product_name}</td>
+          <td><span class="badge" style="background:var(--border); color:var(--text-main); font-weight:700;">${t.required_quantity}x</span></td>
+          <td><span class="badge badge-primary">${t.shelf_label}</span></td>
+          <td><span class="badge ${getStatusBadgeClass(t.status)}">${t.status}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderOverviewActiveWavesTable() {
+      const tbody = document.getElementById('overview-active-waves-body');
+      tbody.innerHTML = '';
+      const activeWaves = allWaves.filter(w => ['Active', 'Scheduled', 'Paused'].includes(w.status));
+      document.getElementById('active-waves-count-pill').textContent = `${activeWaves.length} Active / Scheduled`;
+
+      if (activeWaves.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No active or scheduled waves. Click "Create New Wave" to begin.</td></tr>';
+        return;
+      }
+
+      activeWaves.forEach(w => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-family: monospace; font-weight: 700;">${w.id}</td>
+          <td><strong>${w.name}</strong><br><small style="color:var(--text-muted);">${w.strategy}</small></td>
+          <td><span class="badge ${getPriorityBadgeClass(w.priority)}">${w.priority}</span></td>
+          <td>${w.assigned_picker}</td>
+          <td>${w.total_orders}</td>
+          <td>${w.total_units}</td>
+          <td style="min-width: 120px;">
+            <div class="wave-meter-track">
+              <div class="wave-meter-fill" style="width: ${w.progress_pct}%;"></div>
+            </div>
+            <small style="color:var(--text-muted);">${w.progress_pct}%</small>
+          </td>
+          <td><span class="badge ${getStatusBadgeClass(w.status)}">${w.status}</span></td>
+          <td style="text-align: right;">
+            <button class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.78rem;" onclick="inspectWaveAndSwitchDetails('${w.id}')">Details</button>
+            ${w.status === 'Active' ? `<button class="btn btn-primary" style="padding: 0.25rem 0.6rem; font-size: 0.78rem;" onclick="openWaveInWorkspace('${w.id}')">Pick</button>` : ''}
+            ${w.status === 'Draft' || w.status === 'Scheduled' ? `<button class="btn btn-primary" style="padding: 0.25rem 0.6rem; font-size: 0.78rem;" onclick="startWave('${w.id}')">Start</button>` : ''}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 2. Waves Management Table & Filters
+    // -------------------------------------------------------------
+
+    function renderManageWavesTable(waves) {
+      const tbody = document.getElementById('manage-waves-table-body');
+      tbody.innerHTML = '';
+
+      if (waves.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: var(--text-muted); padding: 2rem;">No waves found matching the selected criteria.</td></tr>';
+        return;
+      }
+
+      waves.forEach(w => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-family: monospace; font-weight: 700;">${w.id}</td>
+          <td><strong>${w.name}</strong></td>
+          <td><span class="badge" style="background:var(--border); color:var(--text-main);">${w.strategy}</span></td>
+          <td><span class="badge ${getPriorityBadgeClass(w.priority)}">${w.priority}</span></td>
+          <td>${w.assigned_picker}</td>
+          <td>${w.total_orders}</td>
+          <td>${w.picked_units} / ${w.total_units}</td>
+          <td style="min-width: 110px;">
+            <div class="wave-meter-track">
+              <div class="wave-meter-fill" style="width: ${w.progress_pct}%;"></div>
+            </div>
+            <small style="color:var(--text-muted);">${w.progress_pct}%</small>
+          </td>
+          <td><strong style="color:#10b981;">${w.distance_saved_m}m</strong> (${w.travel_reduction_pct}%)</td>
+          <td><span class="badge ${getStatusBadgeClass(w.status)}">${w.status}</span></td>
+          <td style="text-align: right; white-space: nowrap;">
+            <button class="btn btn-outline" style="padding: 0.25rem 0.55rem; font-size: 0.78rem;" onclick="inspectWaveAndSwitchDetails('${w.id}')" title="Inspect wave details">Details</button>
+            ${w.status === 'Active' ? `
+              <button class="btn btn-primary" style="padding: 0.25rem 0.55rem; font-size: 0.78rem;" onclick="openWaveInWorkspace('${w.id}')">Pick</button>
+              <button class="btn btn-outline" style="padding: 0.25rem 0.55rem; font-size: 0.78rem;" onclick="pauseWave('${w.id}')">Pause</button>
+              <button class="btn btn-primary" style="padding: 0.25rem 0.55rem; font-size: 0.78rem; background:#10b981; border-color:#10b981;" onclick="completeWaveFromList('${w.id}')">Complete</button>
+            ` : ''}
+            ${w.status === 'Scheduled' || w.status === 'Draft' ? `
+              <button class="btn btn-primary" style="padding: 0.25rem 0.55rem; font-size: 0.78rem;" onclick="startWave('${w.id}')">Start</button>
+            ` : ''}
+            ${w.status === 'Paused' ? `
+              <button class="btn btn-primary" style="padding: 0.25rem 0.55rem; font-size: 0.78rem;" onclick="startWave('${w.id}')">Resume</button>
+            ` : ''}
+            ${w.status !== 'Completed' && w.status !== 'Cancelled' ? `
+              <button class="btn btn-outline" style="padding: 0.25rem 0.55rem; font-size: 0.78rem; color:#ef4444; border-color:#ef4444;" onclick="cancelWave('${w.id}')">Cancel</button>
+            ` : ''}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function applyWaveFilters() {
+      const search = document.getElementById('search-waves').value.toLowerCase().trim();
+      const status = document.getElementById('filter-status').value;
+      const prio = document.getElementById('filter-priority').value;
+
+      const filtered = allWaves.filter(w => {
+        const matchesSearch = !search || 
+          w.id.toLowerCase().includes(search) || 
+          w.name.toLowerCase().includes(search) || 
+          (w.notes && w.notes.toLowerCase().includes(search));
+        const matchesStatus = !status || w.status === status;
+        const matchesPrio = !prio || w.priority === prio;
+        return matchesSearch && matchesStatus && matchesPrio;
+      });
+
+      renderManageWavesTable(filtered);
+    }
+
+    // -------------------------------------------------------------
+    // 3. Create & Auto-Group Waves
+    // -------------------------------------------------------------
+
+    async function loadEligibleOrders() {
+      try {
+        const res = await fetch('/api/waves/eligible-orders');
+        const data = await res.json();
+        if (data.status === 'success') {
+          eligibleOrders = data.orders || [];
+          document.getElementById('tab-badge-eligible').textContent = `${eligibleOrders.length} Orders`;
+          renderEligibleOrdersTable(eligibleOrders);
+        }
+      } catch (err) {
+        console.error("Failed to load eligible orders:", err);
+      }
+    }
+
+    function renderEligibleOrdersTable(orders) {
+      const tbody = document.getElementById('eligible-orders-table-body');
+      tbody.innerHTML = '';
+
+      if (orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">All pending orders have been allocated to waves!</td></tr>';
+        return;
+      }
+
+      orders.forEach(o => {
+        const totalUnits = (o.items || []).reduce((sum, it) => sum + (it.quantity || 1), 0);
+        const tr = document.createElement('tr');
+        const isChecked = selectedOrderIds.has(o.id) ? 'checked' : '';
+        tr.innerHTML = `
+          <td><input type="checkbox" class="order-chk" value="${o.id}" ${isChecked} onchange="onOrderCheckboxChange(${o.id}, this.checked)"></td>
+          <td style="font-family: monospace; font-weight: 700;">#${o.id}</td>
+          <td><strong>${o.customer_name}</strong></td>
+          <td><span class="badge ${getPriorityBadgeClass(o.priority)}">${o.priority}</span></td>
+          <td>${o.deadline || '18:00'}</td>
+          <td>${(o.items || []).length} SKUs</td>
+          <td><strong>${totalUnits}</strong> units</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      updateSelectedOrdersCount();
+    }
+
+    function onOrderCheckboxChange(orderId, checked) {
+      if (checked) {
+        selectedOrderIds.add(orderId);
+      } else {
+        selectedOrderIds.delete(orderId);
+      }
+      updateSelectedOrdersCount();
+    }
+
+    function toggleSelectAllEligible(checked) {
+      selectAllEligible(checked);
+    }
+
+    function selectAllEligible(selectAll) {
+      if (selectAll) {
+        eligibleOrders.forEach(o => selectedOrderIds.add(o.id));
+      } else {
+        selectedOrderIds.clear();
+      }
+      document.querySelectorAll('.order-chk').forEach(c => c.checked = selectAll);
+      document.getElementById('chk-select-all-orders').checked = selectAll;
+      updateSelectedOrdersCount();
+    }
+
+    function updateSelectedOrdersCount() {
+      document.getElementById('selected-orders-count-pill').textContent = `${selectedOrderIds.size} Selected`;
+    }
+
+    async function previewWaveProposal() {
+      const strategy = document.getElementById('create-strategy').value;
+      const cartCap = parseInt(document.getElementById('create-cart-capacity').value) || 35;
+      const maxOrders = parseInt(document.getElementById('create-max-orders').value) || 4;
+      const prio = document.getElementById('create-priority').value;
+      const picker = document.getElementById('create-picker').value;
+
+      const orderIds = Array.from(selectedOrderIds);
+
+      try {
+        const res = await fetch('/api/waves/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            strategy: strategy,
+            max_cart_capacity: cartCap,
+            max_orders_per_batch: maxOrders,
+            priority: prio,
+            assigned_picker: picker,
+            order_ids: orderIds.length > 0 ? orderIds : null
+          })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          currentProposal = data.proposal;
+          renderProposalPreview(currentProposal);
+        } else {
+          alert("Proposal preview failed: " + data.message);
+        }
+      } catch (err) {
+        console.error("Failed to generate preview:", err);
+      }
+    }
+
+    function renderProposalPreview(proposal) {
+      const container = document.getElementById('proposal-preview-container');
+      container.style.display = 'block';
+
+      const summary = proposal.summary;
+      document.getElementById('prev-orders-cnt').textContent = summary.total_orders;
+      document.getElementById('prev-skus-cnt').textContent = summary.total_skus;
+      document.getElementById('prev-units-cnt').textContent = summary.total_units;
+
+      const unbatched = summary.unbatched_distance_m || 1;
+      const saved = summary.distance_saved_m || 0;
+      const redPct = Math.round((saved / unbatched) * 100);
+      document.getElementById('prev-reduction-pct').textContent = `${redPct}%`;
+
+      const firstProp = (proposal.wave_proposals || [])[0];
+      const stockBadge = document.getElementById('proposal-stock-badge');
+      if (firstProp && firstProp.stock_verified) {
+        stockBadge.className = 'badge badge-success';
+        stockBadge.textContent = 'Stock Verified (Available)';
+      } else {
+        stockBadge.className = 'badge badge-cancelled';
+        stockBadge.textContent = 'Shortage Warning Detected';
+      }
+
+      // Populate tasks preview table
+      const tbody = document.getElementById('proposal-tasks-table-body');
+      tbody.innerHTML = '';
+      const tasks = firstProp ? firstProp.tasks || [] : [];
+      tasks.forEach((t, idx) => {
+        const tr = document.createElement('tr');
+        const allocStr = Object.entries(t.order_allocations || {})
+          .map(([oid, q]) => `Order #${oid}: ${q}x`).join(', ');
+        tr.innerHTML = `
+          <td style="font-family: monospace; font-weight: 700;">#${idx + 1}</td>
+          <td><span class="badge" style="background:var(--border); font-family:monospace;">${t.sku}</span></td>
+          <td style="font-weight: 500;">${t.product_name}</td>
+          <td><span class="badge badge-primary">${t.shelf_label}</span></td>
+          <td><strong>${t.required_quantity}</strong></td>
+          <td>${t.available_stock} in stock</td>
+          <td style="font-size: 0.8rem; color: var(--text-muted);">${allocStr}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function submitCreateWave() {
+      const name = document.getElementById('create-wave-name').value.trim();
+      const strategy = document.getElementById('create-strategy').value;
+      const cartCap = parseInt(document.getElementById('create-cart-capacity').value) || 35;
+      const picker = document.getElementById('create-picker').value;
+      const priority = document.getElementById('create-priority').value;
+      const scheduled = document.getElementById('create-scheduled').value || null;
+      const notes = document.getElementById('create-notes').value.trim() || null;
+
+      let orderIds = Array.from(selectedOrderIds);
+      if (orderIds.length === 0) {
+        // If none checked, take up to 4 eligible orders automatically
+        orderIds = eligibleOrders.slice(0, 4).map(o => o.id);
+      }
+
+      if (orderIds.length === 0) {
+        alert("Please select at least one order to create a wave.");
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/waves', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: name,
+            order_ids: orderIds,
+            strategy: strategy,
+            priority: priority,
+            assigned_picker: picker,
+            max_cart_capacity: cartCap,
+            scheduled_at: scheduled,
+            notes: notes
+          })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          alert(`Success: Wave ${data.wave.id} created!`);
+          selectedOrderIds.clear();
+          await refreshAllWaveData();
+          inspectWaveAndSwitchDetails(data.wave.id);
+        } else {
+          alert("Failed to create wave: " + data.message);
+        }
+      } catch (err) {
+        console.error("Error creating wave:", err);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 4. Wave Details & Pick List
+    // -------------------------------------------------------------
+
+    function renderWaveDetailTab(wave) {
+      if (!wave) return;
+      document.getElementById('detail-wave-title').textContent = `${wave.id}: ${wave.name}`;
+      
+      const badge = document.getElementById('detail-wave-status-badge');
+      badge.className = `badge ${getStatusBadgeClass(wave.status)}`;
+      badge.textContent = wave.status;
+
+      const prioBadge = document.getElementById('detail-wave-priority-badge');
+      prioBadge.className = `badge ${getPriorityBadgeClass(wave.priority)}`;
+      prioBadge.textContent = `${wave.priority} Priority`;
+
+      document.getElementById('detail-wave-subhead').textContent = 
+        `Strategy: ${wave.strategy} • Assigned Picker: ${wave.assigned_picker} • Created: ${wave.created_at || 'Recently'}`;
+
+      document.getElementById('detail-total-orders').textContent = `${wave.total_orders} Orders`;
+      const orderIds = (wave.orders || []).map(o => `#${o.order_id}`).join(', ');
+      document.getElementById('detail-orders-list').textContent = `Orders: ${orderIds || 'None'}`;
+
+      document.getElementById('detail-total-units').textContent = `${wave.total_units} Units`;
+      document.getElementById('detail-total-skus').textContent = `${wave.total_skus} Unique SKUs`;
+
+      document.getElementById('detail-travel-saved').textContent = `${wave.travel_reduction_pct}% Saved`;
+      document.getElementById('detail-dist-metrics').textContent = 
+        `${wave.estimated_distance_m}m batched vs ${wave.unbatched_distance_m}m unbatched`;
+
+      const pct = wave.progress_pct || 0;
+      document.getElementById('detail-progress-pct').textContent = `${pct}%`;
+      document.getElementById('detail-progress-bar').style.width = `${pct}%`;
+
+      // Lifecycle Action Button in Details
+      const btnLife = document.getElementById('btn-detail-lifecycle');
+      if (wave.status === 'Draft' || wave.status === 'Scheduled') {
+        btnLife.textContent = 'Start Wave';
+        btnLife.style.display = 'inline-flex';
+      } else if (wave.status === 'Active') {
+        btnLife.textContent = 'Open in Workspace';
+        btnLife.style.display = 'inline-flex';
+      } else {
+        btnLife.style.display = 'none';
+      }
+
+      // Populate orders list table
+      const tbodyOrders = document.getElementById('detail-orders-table-body');
+      tbodyOrders.innerHTML = '';
+      (wave.orders || []).forEach(o => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-family: monospace; font-weight: 700;">#${o.order_id}</td>
+          <td><strong>${o.customer_name}</strong></td>
+          <td><span class="badge ${getPriorityBadgeClass(o.priority)}">${o.priority}</span></td>
+          <td>${o.deadline || '18:00'}</td>
+          <td>${o.destination_zone || 'Zone A'}</td>
+          <td><span class="badge" style="background:var(--border);">${o.order_status || 'Pending'}</span></td>
+        `;
+        tbodyOrders.appendChild(tr);
+      });
+
+      // Populate consolidated pick list tasks
+      const tbodyTasks = document.getElementById('detail-tasks-table-body');
+      tbodyTasks.innerHTML = '';
+      const tasks = wave.tasks || [];
+      document.getElementById('detail-tasks-count').textContent = `${tasks.length} Stops`;
+
+      tasks.forEach((t, idx) => {
+        const tr = document.createElement('tr');
+        const allocStr = Object.entries(t.order_allocations || {})
+          .map(([oid, q]) => `Order #${oid}: ${q}x`).join(', ');
+        tr.innerHTML = `
+          <td style="font-family: monospace; font-weight: 700;">#${idx + 1}</td>
+          <td><span class="badge" style="background:var(--border); font-family:monospace;">${t.sku}</span></td>
+          <td style="font-weight: 500;">${t.product_name}</td>
+          <td>${t.category}</td>
+          <td><span class="badge badge-primary">${t.shelf_label}</span></td>
+          <td>${t.aisle_zone}</td>
+          <td><strong>${t.required_quantity}</strong></td>
+          <td style="color:#10b981; font-weight:700;">${t.picked_quantity}</td>
+          <td style="color:${t.remaining_quantity > 0 ? '#ef4444' : 'var(--text-muted)'}; font-weight:700;">${t.remaining_quantity}</td>
+          <td><span class="badge ${getStatusBadgeClass(t.status)}">${t.status}</span></td>
+          <td style="font-size: 0.8rem; color: var(--text-muted);">${allocStr}</td>
+        `;
+        tbodyTasks.appendChild(tr);
+      });
+    }
+
+    function inspectWaveAndSwitchDetails(waveId) {
+      inspectWave(waveId).then(() => {
+        switchWaveTab('details');
+      });
+    }
+
+    function handleDetailLifecycleClick() {
+      if (!selectedWaveDetail) return;
+      if (selectedWaveDetail.status === 'Draft' || selectedWaveDetail.status === 'Scheduled') {
+        startWave(selectedWaveDetail.id);
+      } else if (selectedWaveDetail.status === 'Active') {
+        openWaveInWorkspace(selectedWaveDetail.id);
+      }
+    }
+
+    function exportWaveCSV() {
+      if (!selectedWaveDetail) return;
+      window.location.href = `/api/waves/${selectedWaveDetail.id}/export`;
+    }
+
+    function printPickList() {
+      window.print();
+    }
+
+    // -------------------------------------------------------------
+    // 5. Guided Picking Workspace
+    // -------------------------------------------------------------
+
+    function updateWorkspaceWaveSelector() {
+      const sel = document.getElementById('ws-wave-selector');
+      sel.innerHTML = '<option value="">Select Wave...</option>';
+      const activeWaves = allWaves.filter(w => ['Active', 'Paused'].includes(w.status));
+      activeWaves.forEach(w => {
+        const opt = document.createElement('option');
+        opt.value = w.id;
+        opt.textContent = `${w.id}: ${w.name}`;
+        sel.appendChild(opt);
+      });
+    }
+
+    async function onWorkspaceWaveChange() {
+      const waveId = document.getElementById('ws-wave-selector').value;
+      if (waveId) {
+        await loadWaveIntoWorkspace(waveId);
+      }
+    }
+
+    function openWaveInWorkspace(waveId) {
+      loadWaveIntoWorkspace(waveId).then(() => {
+        switchWaveTab('workspace');
+      });
+    }
+
+    function openSelectedWaveWorkspace() {
+      if (!selectedWaveDetail) return;
+      if (selectedWaveDetail.status === 'Draft' || selectedWaveDetail.status === 'Scheduled') {
+        startWave(selectedWaveDetail.id).then(() => {
+          openWaveInWorkspace(selectedWaveDetail.id);
+        });
+      } else {
+        openWaveInWorkspace(selectedWaveDetail.id);
+      }
+    }
+
+    async function loadWaveIntoWorkspace(waveId) {
+      try {
+        const res = await fetch(`/api/waves/${waveId}`);
+        const data = await res.json();
+        if (data.status === 'success') {
+          activeWorkspaceWave = data.wave;
+          document.getElementById('ws-wave-selector').value = waveId;
+          currentTaskStepIdx = 0;
+          renderWorkspaceUI();
+        }
+      } catch (err) {
+        console.error("Failed to load workspace wave:", err);
+      }
+    }
+
+    function renderWorkspaceUI() {
+      if (!activeWorkspaceWave) return;
+      const w = activeWorkspaceWave;
+      document.getElementById('ws-wave-title').textContent = `${w.name} (${w.id})`;
+      document.getElementById('ws-status-badge').className = `badge ${getStatusBadgeClass(w.status)}`;
+      document.getElementById('ws-status-badge').textContent = w.status;
+
+      document.getElementById('ws-progress-text').textContent = 
+        `${w.picked_units} / ${w.total_units} Units (${w.progress_pct}%)`;
+      document.getElementById('ws-progress-bar').style.width = `${w.progress_pct}%`;
+
+      const tasks = w.tasks || [];
+      document.getElementById('ws-checklist-count').textContent = `${tasks.length} Tasks`;
+
+      // Check if all tasks completed
+      const allDone = tasks.length > 0 && tasks.every(t => t.status === 'Picked' || t.status === 'Exception');
+      const btnComplete = document.getElementById('btn-ws-complete-wave');
+      if (allDone) {
+        btnComplete.style.display = 'block';
+      } else {
+        btnComplete.style.display = 'block'; // Keep accessible for partial audit completion
+      }
+
+      renderCurrentTaskStep();
+      renderWorkspaceChecklist();
+    }
+
+    function renderCurrentTaskStep() {
+      const tasks = activeWorkspaceWave ? activeWorkspaceWave.tasks || [] : [];
+      if (tasks.length === 0) {
+        document.getElementById('ws-step-banner').style.display = 'none';
+        return;
+      }
+      document.getElementById('ws-step-banner').style.display = 'block';
+
+      if (currentTaskStepIdx >= tasks.length) currentTaskStepIdx = tasks.length - 1;
+      if (currentTaskStepIdx < 0) currentTaskStepIdx = 0;
+
+      const t = tasks[currentTaskStepIdx];
+      document.getElementById('ws-step-number').textContent = `STOP #${currentTaskStepIdx + 1} OF ${tasks.length}`;
+      document.getElementById('ws-step-status').className = `badge ${getStatusBadgeClass(t.status)}`;
+      document.getElementById('ws-step-status').textContent = t.status;
+
+      document.getElementById('ws-shelf-location').textContent = 
+        `${t.aisle_zone.toUpperCase()} • ${t.shelf_label.toUpperCase()}`;
+      document.getElementById('ws-product-name').textContent = t.product_name;
+      document.getElementById('ws-product-sku').textContent = 
+        `${t.sku} • Category: ${t.category} • Catalog Stock: ${t.current_stock || '--'}`;
+
+      document.getElementById('ws-qty-required').textContent = t.required_quantity;
+      document.getElementById('ws-qty-picked').textContent = t.picked_quantity;
+      document.getElementById('ws-qty-remaining').textContent = t.remaining_quantity;
+      document.getElementById('ws-btn-pick-qty').textContent = t.remaining_quantity > 0 ? t.remaining_quantity : t.required_quantity;
+
+      // Allocations
+      const allocBox = document.getElementById('ws-order-allocations');
+      allocBox.innerHTML = '';
+      Object.entries(t.order_allocations || {}).forEach(([oid, qty]) => {
+        const span = document.createElement('span');
+        span.className = 'badge';
+        span.style.background = 'var(--border)';
+        span.style.color = 'var(--text-main)';
+        span.textContent = `Tote Order #${oid}: ${qty} units`;
+        allocBox.appendChild(span);
+      });
+
+      document.getElementById('ws-nav-info').textContent = `Stop ${currentTaskStepIdx + 1} of ${tasks.length}`;
+      document.getElementById('btn-ws-prev').disabled = currentTaskStepIdx === 0;
+      document.getElementById('btn-ws-next').disabled = currentTaskStepIdx === tasks.length - 1;
+    }
+
+    function renderWorkspaceChecklist() {
+      const tbody = document.getElementById('ws-tasks-checklist-body');
+      tbody.innerHTML = '';
+      const tasks = activeWorkspaceWave ? activeWorkspaceWave.tasks || [] : [];
+
+      tasks.forEach((t, idx) => {
+        const tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
+        if (idx === currentTaskStepIdx) {
+          tr.style.background = 'rgba(94, 122, 82, 0.15)';
+        }
+        tr.onclick = () => {
+          currentTaskStepIdx = idx;
+          renderCurrentTaskStep();
+          renderWorkspaceChecklist();
+        };
+
+        tr.innerHTML = `
+          <td style="font-family: monospace; font-weight: 700;">#${idx + 1}</td>
+          <td><span class="badge badge-primary">${t.shelf_label}</span></td>
+          <td style="font-weight: 500;">${t.product_name}</td>
+          <td><strong>${t.required_quantity}</strong></td>
+          <td style="color:#10b981; font-weight:700;">${t.picked_quantity}</td>
+          <td><span class="badge ${getStatusBadgeClass(t.status)}">${t.status}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function navigateTaskStep(delta) {
+      currentTaskStepIdx += delta;
+      renderCurrentTaskStep();
+      renderWorkspaceChecklist();
+    }
+
+    async function confirmCurrentTaskFullPick() {
+      if (!activeWorkspaceWave) return;
+      const t = activeWorkspaceWave.tasks[currentTaskStepIdx];
+      const pickQty = t.required_quantity;
+
+      try {
+        const res = await fetch(`/api/waves/${activeWorkspaceWave.id}/tasks/${t.id}/pick`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ picked_quantity: pickQty })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          activeWorkspaceWave = data.wave;
+          if (currentTaskStepIdx < activeWorkspaceWave.tasks.length - 1) {
+            currentTaskStepIdx++;
+          }
+          renderWorkspaceUI();
+          await refreshAllWaveData();
+        } else {
+          alert("Pick failed: " + data.message);
+        }
+      } catch (err) {
+        console.error("Error picking task:", err);
+      }
+    }
+
+    function openPartialPickModal() {
+      if (!activeWorkspaceWave) return;
+      const t = activeWorkspaceWave.tasks[currentTaskStepIdx];
+      document.getElementById('modal-partial-prod-name').textContent = t.product_name;
+      document.getElementById('modal-partial-limit-hint').textContent = `Maximum required: ${t.required_quantity} units`;
+      document.getElementById('partial-pick-input').max = t.required_quantity;
+      document.getElementById('partial-pick-input').value = t.picked_quantity > 0 ? t.picked_quantity : 1;
+      openModal('modal-partial-pick');
+    }
+
+    async function submitPartialPick() {
+      if (!activeWorkspaceWave) return;
+      const t = activeWorkspaceWave.tasks[currentTaskStepIdx];
+      const qty = parseInt(document.getElementById('partial-pick-input').value);
+
+      if (isNaN(qty) || qty < 0) {
+        alert("Please enter a valid non-negative quantity.");
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/waves/${activeWorkspaceWave.id}/tasks/${t.id}/pick`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ picked_quantity: qty })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          activeWorkspaceWave = data.wave;
+          closeModal('modal-partial-pick');
+          renderWorkspaceUI();
+          await refreshAllWaveData();
+        } else {
+          alert("Partial pick error: " + data.message);
+        }
+      } catch (err) {
+        console.error("Error confirming partial pick:", err);
+      }
+    }
+
+    function openExceptionModal() {
+      if (!activeWorkspaceWave) return;
+      const t = activeWorkspaceWave.tasks[currentTaskStepIdx];
+      document.getElementById('modal-exc-prod-name').textContent = t.product_name;
+      document.getElementById('modal-exc-location').textContent = `${t.shelf_label} (${t.aisle_zone})`;
+      openModal('modal-exception');
+    }
+
+    async function submitReportException() {
+      if (!activeWorkspaceWave) return;
+      const t = activeWorkspaceWave.tasks[currentTaskStepIdx];
+      const excType = document.getElementById('exc-type-select').value;
+      const details = document.getElementById('exc-details-input').value.trim() || 'Shortage reported by picker.';
+
+      try {
+        const res = await fetch(`/api/waves/${activeWorkspaceWave.id}/tasks/${t.id}/exception`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ exception_type: excType, details: details })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          activeWorkspaceWave = data.wave;
+          closeModal('modal-exception');
+          renderWorkspaceUI();
+          await refreshAllWaveData();
+        } else {
+          alert("Exception logging failed: " + data.message);
+        }
+      } catch (err) {
+        console.error("Error reporting exception:", err);
+      }
+    }
+
+    async function submitCompleteWave() {
+      if (!activeWorkspaceWave) return;
+      if (!confirm(`Complete wave ${activeWorkspaceWave.id} and finalize inventory deductions?`)) return;
+
+      try {
+        const res = await fetch(`/api/waves/${activeWorkspaceWave.id}/complete`, {
+          method: 'POST'
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          alert(`Wave ${activeWorkspaceWave.id} completed successfully!`);
+          activeWorkspaceWave = data.wave;
+          await refreshAllWaveData();
+          inspectWaveAndSwitchDetails(activeWorkspaceWave.id);
+        } else {
+          alert("Cannot complete wave: " + data.message);
+        }
+      } catch (err) {
+        console.error("Error completing wave:", err);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 6. Wave Lifecycle Actions (Start, Pause, Cancel)
+    // -------------------------------------------------------------
+
+    async function startWave(waveId) {
+      try {
+        const res = await fetch(`/api/waves/${waveId}/start`, { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'success') {
+          await refreshAllWaveData();
+          await inspectWave(waveId);
+        } else {
+          alert("Cannot start wave: " + data.message);
+        }
+      } catch (err) {
+        console.error("Error starting wave:", err);
+      }
+    }
+
+    async function pauseWave(waveId) {
+      try {
+        const res = await fetch(`/api/waves/${waveId}/pause`, { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'success') {
+          await refreshAllWaveData();
+          await inspectWave(waveId);
+        } else {
+          alert("Cannot pause wave: " + data.message);
+        }
+      } catch (err) {
+        console.error("Error pausing wave:", err);
+      }
+    }
+
+    async function cancelWave(waveId) {
+      if (!confirm(`Are you sure you want to cancel wave ${waveId}? All reservations will be safely released.`)) return;
+      try {
+        const res = await fetch(`/api/waves/${waveId}/cancel`, { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'success') {
+          await refreshAllWaveData();
+          await inspectWave(waveId);
+        } else {
+          alert("Cannot cancel wave: " + data.message);
+        }
+      } catch (err) {
+        console.error("Error cancelling wave:", err);
+      }
+    }
+
+    async function completeWaveFromList(waveId) {
+      if (!confirm(`Finalize and complete wave ${waveId}?`)) return;
+      try {
+        const res = await fetch(`/api/waves/${waveId}/complete`, { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'success') {
+          alert(`Wave ${waveId} completed!`);
+          await refreshAllWaveData();
+          await inspectWave(waveId);
+        } else {
+          alert("Cannot complete wave: " + data.message);
+        }
+      } catch (err) {
+        console.error("Error completing wave:", err);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 7. Interactive Floorplan Canvas
+    // -------------------------------------------------------------
+
     function setupCanvasInteractivity() {
       const canvas = document.getElementById('wave-canvas');
+      if (!canvas) return;
 
-      // Mouse Wheel Zoom centered at cursor
       canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
         const rect = canvas.getBoundingClientRect();
@@ -331,7 +1968,6 @@
         zoomAt(mouseX, mouseY, zoomFactor);
       }, { passive: false });
 
-      // Click & Drag Panning
       canvas.addEventListener('mousedown', (e) => {
         if (e.button === 0) {
           view.isDragging = true;
@@ -349,7 +1985,7 @@
         if (view.isDragging) {
           view.x = e.clientX - view.dragStartX;
           view.y = e.clientY - view.dragStartY;
-          renderCurrentWave();
+          renderCurrentCanvasWave();
           return;
         }
 
@@ -369,11 +2005,11 @@
           if (hovered !== hoveredNodeId) {
             hoveredNodeId = hovered;
             canvas.style.cursor = hovered ? 'pointer' : 'grab';
-            renderCurrentWave();
+            renderCurrentCanvasWave();
           }
         } else if (hoveredNodeId) {
           hoveredNodeId = null;
-          renderCurrentWave();
+          renderCurrentCanvasWave();
         }
       });
 
@@ -384,47 +2020,22 @@
         }
       });
 
-      // Double-click to reset view
-      canvas.addEventListener('dblclick', () => {
-        resetView();
-      });
-
-      // Controls toolbar buttons
       document.getElementById('btn-zoom-in').addEventListener('click', () => zoomBy(1.2));
       document.getElementById('btn-zoom-out').addEventListener('click', () => zoomBy(1 / 1.2));
       document.getElementById('btn-zoom-reset').addEventListener('click', resetView);
       document.getElementById('btn-fullscreen-toggle').addEventListener('click', toggleFullscreen);
 
-      // Keyboard shortcuts
-      document.addEventListener('keydown', (e) => {
-        if ((e.key === 'f' || e.key === 'F') && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
-          toggleFullscreen();
-        } else if (e.key === 'Escape' && isFullscreen) {
-          toggleFullscreen();
-        }
-      });
-
-      document.addEventListener('fullscreenchange', () => {
-        if (!document.fullscreenElement && isFullscreen) {
-          exitFullscreenUI();
-        }
-      });
-
-      window.addEventListener('resize', () => {
-        resizeCanvas();
-      });
+      window.addEventListener('resize', resizeCanvas);
     }
 
     function zoomAt(cx, cy, factor) {
       const newScale = Math.min(view.maxScale, Math.max(view.minScale, view.scale * factor));
       if (newScale === view.scale) return;
-
       view.x = cx - (cx - view.x) * (newScale / view.scale);
       view.y = cy - (cy - view.y) * (newScale / view.scale);
       view.scale = newScale;
-
       updateZoomLabel();
-      renderCurrentWave();
+      renderCurrentCanvasWave();
     }
 
     function zoomBy(factor) {
@@ -438,14 +2049,12 @@
       view.x = 0;
       view.y = 0;
       updateZoomLabel();
-      renderCurrentWave();
+      renderCurrentCanvasWave();
     }
 
     function updateZoomLabel() {
       const label = document.getElementById('zoom-level-text');
-      if (label) {
-        label.textContent = `${Math.round(view.scale * 100)}%`;
-      }
+      if (label) label.textContent = `${Math.round(view.scale * 100)}%`;
     }
 
     function toggleFullscreen() {
@@ -455,25 +2064,14 @@
         isFullscreen = true;
         document.getElementById('fs-icon-expand').style.display = 'none';
         document.getElementById('fs-icon-compress').style.display = 'block';
-
-        if (card.requestFullscreen) {
-          card.requestFullscreen().catch(() => {});
-        }
+        if (card.requestFullscreen) card.requestFullscreen().catch(() => {});
       } else {
-        exitFullscreenUI();
-        if (document.fullscreenElement && document.exitFullscreen) {
-          document.exitFullscreen().catch(() => {});
-        }
+        card.classList.remove('card-fullscreen');
+        isFullscreen = false;
+        document.getElementById('fs-icon-expand').style.display = 'block';
+        document.getElementById('fs-icon-compress').style.display = 'none';
+        if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
       }
-      setTimeout(resizeCanvas, 60);
-    }
-
-    function exitFullscreenUI() {
-      const card = document.getElementById('wave-canvas-card');
-      card.classList.remove('card-fullscreen');
-      isFullscreen = false;
-      document.getElementById('fs-icon-expand').style.display = 'block';
-      document.getElementById('fs-icon-compress').style.display = 'none';
       setTimeout(resizeCanvas, 60);
     }
 
@@ -492,117 +2090,14 @@
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
 
-      renderCurrentWave();
+      renderCurrentCanvasWave();
     }
 
-    function renderCurrentWave() {
-      const idx = document.getElementById('wave-select').value;
-      if (idx !== "" && wavesData[idx]) {
-        drawWaveCanvas(wavesData[idx]);
-      } else {
-        drawWaveCanvas(null);
-      }
+    function renderCurrentCanvasWave() {
+      drawWaveRouteOnCanvas(selectedWaveDetail);
     }
 
-    function drawRealisticFloor(ctx) {
-      const dark = typeof isDarkMode === 'function' && isDarkMode();
-      ctx.save();
-      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.04)' : '#f1f5f9';
-      ctx.lineWidth = 1;
-      for (let x = 0; x <= 860; x += 25) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, 560);
-        ctx.stroke();
-      }
-      for (let y = 0; y <= 560; y += 25) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(860, y);
-        ctx.stroke();
-      }
-
-      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
-      ctx.lineWidth = 1.5;
-      for (let x = 0; x <= 860; x += 100) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, 560);
-        ctx.stroke();
-      }
-      for (let y = 0; y <= 560; y += 100) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(860, y);
-        ctx.stroke();
-      }
-
-      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.12)' : '#e2e8f0';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(30, 20, 755, 480);
-
-      // Central Corridor Lane Markings
-      ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([8, 8]);
-      ctx.beginPath();
-      ctx.moveTo(135, 246);
-      ctx.lineTo(760, 246);
-      ctx.moveTo(135, 274);
-      ctx.lineTo(760, 274);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
-    }
-
-    function drawAisleSignboards(ctx) {
-      const aisles = [
-        { label: 'AISLE 01', range: 'BAYS 02-07', x: 220 },
-        { label: 'AISLE 02', range: 'BAYS 08-13', x: 380 },
-        { label: 'AISLE 03', range: 'BAYS 14-19', x: 540 },
-        { label: 'AISLE 04', range: 'BAYS 20-25', x: 700 }
-      ];
-
-      aisles.forEach(a => {
-        ctx.save();
-        const w = 82;
-        const h = 24;
-        const x = a.x - w / 2;
-        const y = 34;
-
-        ctx.strokeStyle = '#94a3b8';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(x + 10, 20);
-        ctx.lineTo(x + 10, y);
-        ctx.moveTo(x + w - 10, 20);
-        ctx.lineTo(x + w - 10, y);
-        ctx.stroke();
-
-        ctx.fillStyle = '#0f172a';
-        ctx.beginPath();
-        ctx.roundRect(x, y, w, h, 4);
-        ctx.fill();
-
-        ctx.fillStyle = '#f59e0b';
-        ctx.beginPath();
-        ctx.roundRect(x, y, w, 3, [4, 4, 0, 0]);
-        ctx.fill();
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 9.5px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(a.label, a.x, y + 10);
-
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '600 7px sans-serif';
-        ctx.fillText(a.range, a.x, y + 18);
-        ctx.restore();
-      });
-    }
-
-    function drawWaveCanvas(wave) {
+    function drawWaveRouteOnCanvas(wave) {
       const canvas = document.getElementById('wave-canvas');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
@@ -626,7 +2121,7 @@
       const nodeMap = {};
       graphData.nodes.forEach(n => { nodeMap[n.id] = n; });
 
-      // 1. Background Corridors
+      // 1. Draw corridor grid lines
       ctx.lineWidth = 2.5;
       ctx.strokeStyle = dark ? '#334155' : '#cbd5e1';
       ctx.setLineDash([4, 4]);
@@ -642,8 +2137,17 @@
       });
       ctx.setLineDash([]);
 
-      // 2. Highlight Wave Consolidated Route (Glowing Violet Ribbon)
-      if (wave && wave.full_path && wave.full_path.length > 1) {
+      // 2. Synthesize or extract wave route path
+      let routePath = [];
+      const stopShelfIds = wave && wave.tasks ? 
+        wave.tasks.map(t => t.shelf_id).filter(s => s && s !== 1) : [];
+
+      if (stopShelfIds.length > 0) {
+        // Build simple tour connecting packing hub (1) -> stops -> packing hub (1)
+        routePath = [1, ...stopShelfIds, 1];
+      }
+
+      if (routePath.length > 1) {
         ctx.save();
         // Route outer glow
         ctx.lineWidth = 8;
@@ -651,9 +2155,9 @@
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
         ctx.beginPath();
-        for (let i = 0; i < wave.full_path.length - 1; i++) {
-          const u = nodeMap[wave.full_path[i]];
-          const v = nodeMap[wave.full_path[i + 1]];
+        for (let i = 0; i < routePath.length - 1; i++) {
+          const u = nodeMap[routePath[i]];
+          const v = nodeMap[routePath[i + 1]];
           if (u && v) {
             ctx.moveTo(u.x, u.y);
             ctx.lineTo(v.x, v.y);
@@ -665,60 +2169,29 @@
         ctx.lineWidth = 3.5;
         ctx.strokeStyle = '#8b5cf6';
         ctx.beginPath();
-        for (let i = 0; i < wave.full_path.length - 1; i++) {
-          const u = nodeMap[wave.full_path[i]];
-          const v = nodeMap[wave.full_path[i + 1]];
+        for (let i = 0; i < routePath.length - 1; i++) {
+          const u = nodeMap[routePath[i]];
+          const v = nodeMap[routePath[i + 1]];
           if (u && v) {
             ctx.moveTo(u.x, u.y);
             ctx.lineTo(v.x, v.y);
           }
         }
         ctx.stroke();
-
-        // Directional chevrons along wave tour
-        for (let i = 0; i < wave.full_path.length - 1; i++) {
-          const u = nodeMap[wave.full_path[i]];
-          const v = nodeMap[wave.full_path[i + 1]];
-          if (u && v) {
-            const dx = v.x - u.x;
-            const dy = v.y - u.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist >= 30) {
-              const angle = Math.atan2(dy, dx);
-              const midX = (u.x + v.x) / 2;
-              const midY = (u.y + v.y) / 2;
-              ctx.save();
-              ctx.translate(midX, midY);
-              ctx.rotate(angle);
-              ctx.fillStyle = '#8b5cf6';
-              ctx.beginPath();
-              ctx.moveTo(-4, -5);
-              ctx.lineTo(3, 0);
-              ctx.lineTo(-4, 5);
-              ctx.lineTo(-2, 0);
-              ctx.closePath();
-              ctx.fill();
-              ctx.restore();
-            }
-          }
-        }
         ctx.restore();
       }
 
-      // 3. Draw Nodes (Packing Station & Storage Racks)
-      const routeStopsSet = new Set(wave ? wave.stops : []);
-
+      // 3. Draw Nodes (Packing Hub & Racks)
+      const stopSet = new Set(stopShelfIds);
       graphData.nodes.forEach(n => {
         const isPacking = n.id === 1;
-        const isStop = routeStopsSet.has(n.id) && !isPacking;
+        const isStop = stopSet.has(n.id) && !isPacking;
         const isHovered = n.id === hoveredNodeId;
 
         if (isPacking) {
           ctx.save();
-          const pw = 74;
-          const ph = 54;
-          const px = n.x - pw / 2;
-          const py = n.y - ph / 2;
+          const pw = 74, ph = 54;
+          const px = n.x - pw / 2, py = n.y - ph / 2;
 
           ctx.strokeStyle = '#f59e0b';
           ctx.lineWidth = 2;
@@ -727,7 +2200,6 @@
           const grad = ctx.createLinearGradient(px, py, px, py + ph);
           grad.addColorStop(0, '#10b981');
           grad.addColorStop(1, '#059669');
-
           ctx.fillStyle = grad;
           ctx.beginPath();
           ctx.roundRect(px, py, pw, ph, 8);
@@ -737,216 +2209,152 @@
           ctx.lineWidth = isHovered ? 3 : 2;
           ctx.stroke();
 
-          // Rollers
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-          ctx.lineWidth = 1.5;
-          for (let ly = py + 12; ly <= py + ph - 12; ly += 7) {
-            ctx.beginPath();
-            ctx.moveTo(px + 8, ly);
-            ctx.lineTo(px + 20, ly);
-            ctx.stroke();
-          }
-
           ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 11px monospace';
+          ctx.font = 'bold 11px sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText("PACK DOCK", n.x + 8, n.y - 6);
-
-          ctx.font = '700 8px sans-serif';
-          ctx.fillStyle = '#ecfdf5';
-          ctx.fillText("WAVE SORT HUB", n.x + 8, n.y + 8);
-
+          ctx.fillText("PACKING", n.x, n.y - 6);
+          ctx.font = '9px sans-serif';
+          ctx.fillText("STATION", n.x, n.y + 8);
           ctx.restore();
         } else {
+          // Warehouse Rack
           ctx.save();
-          const w = 54;
-          const h = 32;
-          const x = n.x - w / 2;
-          const y = n.y - h / 2;
+          const rw = 52, rh = 34;
+          const rx = n.x - rw / 2, ry = n.y - rh / 2;
 
           if (isStop) {
-            ctx.shadowColor = 'rgba(139, 92, 246, 0.7)';
-            ctx.shadowBlur = 14;
-          } else if (isHovered) {
-            ctx.shadowColor = 'rgba(59, 130, 246, 0.4)';
-            ctx.shadowBlur = 10;
-          }
-
-          const rackGrad = ctx.createLinearGradient(x, y, x, y + h);
-          if (isStop) {
-            rackGrad.addColorStop(0, '#8b5cf6');
-            rackGrad.addColorStop(1, '#6d28d9');
+            ctx.fillStyle = '#8b5cf6';
+            ctx.strokeStyle = isHovered ? '#c4b5fd' : '#ffffff';
+            ctx.lineWidth = isHovered ? 3 : 2;
           } else {
-            rackGrad.addColorStop(0, '#475569');
-            rackGrad.addColorStop(1, '#334155');
+            ctx.fillStyle = dark ? '#1e293b' : '#ffffff';
+            ctx.strokeStyle = isHovered ? '#3b82f6' : (dark ? '#475569' : '#cbd5e1');
+            ctx.lineWidth = isHovered ? 2 : 1.5;
           }
 
-          ctx.fillStyle = rackGrad;
           ctx.beginPath();
-          ctx.roundRect(x, y, w, h, 5);
+          ctx.roundRect(rx, ry, rw, rh, 6);
           ctx.fill();
-
-          ctx.strokeStyle = isStop ? '#c4b5fd' : (isHovered ? '#C0C0C0' : '#64748b');
-          ctx.lineWidth = isStop ? 2.2 : (isHovered ? 2 : 1.2);
           ctx.stroke();
 
-          ctx.shadowColor = 'transparent';
-          ctx.shadowBlur = 0;
-
-          // Uprights
-          ctx.fillStyle = isStop ? '#4c1d95' : '#1e293b';
-          ctx.fillRect(x, y, 4, h);
-          ctx.fillRect(x + w - 4, y, 4, h);
-
-          // Center Bay Divider
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(n.x, y + 3);
-          ctx.lineTo(n.x, y + h - 3);
-          ctx.stroke();
-
-          // Shelf Label
-          ctx.fillStyle = '#ffffff';
+          ctx.fillStyle = isStop ? '#ffffff' : (dark ? '#f8fafc' : '#0f172a');
           ctx.font = 'bold 11px monospace';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(`S-${String(n.id).padStart(2, '0')}`, n.x, n.y - 1);
-
-          // Sequence Badge
-          if (isStop && wave) {
-            const stopIndex = wave.stops.indexOf(n.id);
-            if (stopIndex > 0) {
-              const bx = n.x + 23;
-              const by = n.y - 13;
-
-              ctx.beginPath();
-              ctx.arc(bx, by, 11, 0, 2 * Math.PI);
-              ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
-              ctx.fill();
-
-              const badgeGrad = ctx.createLinearGradient(bx, by - 10, bx, by + 10);
-              badgeGrad.addColorStop(0, '#fbbf24');
-              badgeGrad.addColorStop(1, '#d97706');
-
-              ctx.beginPath();
-              ctx.arc(bx, by, 10, 0, 2 * Math.PI);
-              ctx.fillStyle = badgeGrad;
-              ctx.fill();
-
-              ctx.strokeStyle = '#ffffff';
-              ctx.lineWidth = 2;
-              ctx.stroke();
-
-              ctx.fillStyle = '#0f172a';
-              ctx.font = 'bold 10px sans-serif';
-              ctx.fillText(stopIndex, bx, by + 0.5);
-            }
-          }
-
+          ctx.fillText(`S-${n.id}`, n.x, n.y);
           ctx.restore();
         }
       });
 
-      ctx.restore(); // Restore world scale
-
-      // Fixed HUD Overlays
-      const logicalWidth = canvas.width / dpr;
-      const logicalHeight = canvas.height / dpr;
-      drawScreenHUD(ctx, logicalWidth, logicalHeight);
-
-      ctx.restore(); // Restore DPR
-    }
-
-    function drawScreenHUD(ctx, width, height) {
-      ctx.save();
-      const cx = 35;
-      const cy = 35;
-
-      ctx.beginPath();
-      ctx.arc(cx, cy, 14, 0, 2 * Math.PI);
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      const dark = typeof isDarkMode === 'function' && isDarkMode();
-      ctx.fillStyle = dark ? '#E5E5EA' : '#2C2C2E';
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - 10);
-      ctx.lineTo(cx - 4, cy + 3);
-      ctx.lineTo(cx, cy);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = '#94a3b8';
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - 10);
-      ctx.lineTo(cx + 4, cy + 3);
-      ctx.lineTo(cx, cy);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 7px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('N', cx, cy - 11);
-
-      ctx.fillStyle = dark ? '#F2F2F7' : '#1C1C1E';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText('FACILITY MDC-01 • WAVE BATCHING', cx + 22, cy - 2);
-      ctx.fillStyle = dark ? '#94a3b8' : '#64748b';
-      ctx.font = '600 8.5px sans-serif';
-      ctx.fillText('CONSOLIDATED MULTI-ORDER PICK TOUR', cx + 22, cy + 9);
-
-      // Scale Bar
-      const scaleX = 35;
-      const scaleY = height - 25;
-      const scaleMetersWidth = 50 * view.scale;
-
-      ctx.strokeStyle = dark ? '#64748b' : '#475569';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(scaleX, scaleY - 4);
-      ctx.lineTo(scaleX, scaleY);
-      ctx.lineTo(scaleX + scaleMetersWidth, scaleY);
-      ctx.lineTo(scaleX + scaleMetersWidth, scaleY - 4);
-      ctx.stroke();
-
-      ctx.fillStyle = dark ? '#cbd5e1' : '#475569';
-      ctx.font = 'bold 9px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('10 METERS', scaleX + scaleMetersWidth / 2, scaleY - 5);
+      ctx.restore();
       ctx.restore();
     }
 
-    async function initializePage() {
-      setupCanvasInteractivity();
-      resizeCanvas();
-
-      try {
-        const gRes = await fetch('/api/warehouse/graph');
-        graphData = await gRes.json();
-      } catch (err) {
-        console.error("Failed to load graph:", err);
+    function drawRealisticFloor(ctx) {
+      const dark = typeof isDarkMode === 'function' && isDarkMode();
+      ctx.save();
+      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.04)' : '#f1f5f9';
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= 860; x += 25) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 560); ctx.stroke();
       }
-
-      await loadWaves();
+      for (let y = 0; y <= 560; y += 25) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(860, y); ctx.stroke();
+      }
+      ctx.strokeStyle = dark ? 'rgba(255, 255, 255, 0.12)' : '#e2e8f0';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(30, 20, 755, 480);
+      ctx.restore();
     }
 
-    window.addEventListener('themechange', () => {
-      const canvas = document.getElementById('wave-canvas');
-      if (canvas) {
-        canvas.style.background = isDarkMode() ? '#161618' : '#F8F8FA';
-        renderSelectedWave();
-      }
-    });
+    function drawAisleSignboards(ctx) {
+      const aisles = [
+        { label: 'AISLE 01', range: 'BAYS 02-07', x: 220 },
+        { label: 'AISLE 02', range: 'BAYS 08-13', x: 380 },
+        { label: 'AISLE 03', range: 'BAYS 14-19', x: 540 },
+        { label: 'AISLE 04', range: 'BAYS 20-25', x: 700 }
+      ];
 
-    document.addEventListener('DOMContentLoaded', initializePage);
+      aisles.forEach(a => {
+        ctx.save();
+        const w = 82, h = 24;
+        const x = a.x - w / 2, y = 34;
+
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x + 10, 20); ctx.lineTo(x + 10, y);
+        ctx.moveTo(x + w - 10, 20); ctx.lineTo(x + w - 10, y);
+        ctx.stroke();
+
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, 4);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 9.5px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(a.label, a.x, y + 10);
+        ctx.restore();
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 8. Navigation & Tab Switching Helpers
+    // -------------------------------------------------------------
+
+    function switchWaveTab(tabName) {
+      document.querySelectorAll('.wave-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+      const btn = document.getElementById(`tab-btn-${tabName}`);
+      const pane = document.getElementById(`tab-${tabName}`);
+      if (btn) btn.classList.add('active');
+      if (pane) pane.classList.add('active');
+
+      if (tabName === 'overview') {
+        setTimeout(resizeCanvas, 60);
+      }
+    }
+
+    function openModal(id) {
+      const m = document.getElementById(id);
+      if (m) m.classList.add('open');
+    }
+
+    function closeModal(id) {
+      const m = document.getElementById(id);
+      if (m) m.classList.remove('open');
+    }
+
+    function getStatusBadgeClass(status) {
+      switch ((status || '').toLowerCase()) {
+        case 'draft': return 'badge-draft';
+        case 'scheduled': return 'badge-scheduled';
+        case 'active':
+        case 'picked': return 'badge-active';
+        case 'paused':
+        case 'partial': return 'badge-paused';
+        case 'completed': return 'badge-completed';
+        case 'cancelled':
+        case 'exception': return 'badge-cancelled';
+        default: return 'badge-draft';
+      }
+    }
+
+    function getPriorityBadgeClass(priority) {
+      switch ((priority || '').toLowerCase()) {
+        case 'urgent': return 'badge-cancelled';
+        case 'high': return 'badge-paused';
+        case 'standard': return 'badge-primary';
+        case 'low': return 'badge-draft';
+        default: return 'badge-primary';
+      }
+    }
   </script>
+
 </body>
 </html>

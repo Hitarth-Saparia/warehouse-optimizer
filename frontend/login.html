@@ -9,24 +9,32 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
-  --primary: #777C6D;
-  --primary-hover: #626659;
-  --accent: #B7B89F;
-  --bg-main: #EEEEEE;
+  --primary: #2C2C2E;
+  --primary-hover: #1C1C1E;
+  --accent: #7A7A7E;
+  --bg-main: #F8F8FA;
   --card-bg: #FFFFFF;
-  --border-color: #CBCBCB;
-  --text-main: #1E201E;
-  --text-secondary: #555555;
+  --border-color: #D8D8DC;
+  --text-main: #1C1C1E;
+  --text-secondary: #58585B;
   --danger: #A24A3E;
   --success: #5E7A52;
   --font-sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  --shadow-lg: 0 18px 40px rgba(30, 32, 30, 0.14);
+  --shadow-lg: 0 18px 40px rgba(28, 28, 30, 0.10);
+}
+[data-theme="dark"] {
+  --bg-main: #161618;
+  --card-bg: #222226;
+  --border-color: #38383D;
+  --text-main: #F2F2F7;
+  --text-secondary: #AEAEB2;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: var(--font-sans); background: var(--bg-main); color: var(--text-main);
   min-height: 100vh; -webkit-font-smoothing: antialiased; line-height: 1.5;
+  transition: background .3s, color .3s;
 }
 a { color: inherit; text-decoration: none; }
 button, input { font-family: inherit; }
@@ -36,27 +44,27 @@ svg { display: block; }
 
 /* Left brand panel */
 .brand-panel {
-  position: relative; overflow: hidden; background: #2B2E28; color: #EEE;
+  position: relative; overflow: hidden; background: #1C1C1E; color: #F2F2F7;
   padding: 40px 56px; display: flex; flex-direction: column; justify-content: space-between;
 }
 .brand-panel::before {
   content: ""; position: absolute; width: 560px; height: 560px; right: -180px; top: -160px;
-  background: radial-gradient(circle, rgba(183,184,159,.35), transparent 65%);
+  background: radial-gradient(circle, rgba(122,122,126,.25), transparent 65%);
 }
 .brand-panel::after {
   content: ""; position: absolute; inset: 0; opacity: .5;
-  background-image: linear-gradient(rgba(183,184,159,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(183,184,159,.08) 1px, transparent 1px);
+  background-image: linear-gradient(rgba(122,122,126,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(122,122,126,.08) 1px, transparent 1px);
   background-size: 36px 36px;
 }
 .brand-panel > * { position: relative; z-index: 1; }
 .brand { display: inline-flex; align-items: center; gap: 10px; }
 .brand-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--primary); display: grid; place-items: center; color: #fff; text-decoration: none; cursor: pointer; transition: transform .2s, background .2s, box-shadow .2s; }
 .brand-icon:hover { transform: translateY(-2px); background: var(--accent); box-shadow: 0 4px 12px rgba(0,0,0,.25); }
-.brand strong { display: block; font-weight: 800; line-height: 1.1; }
-.brand small { font-family: var(--font-mono); font-size: .68rem; color: #B4B6AE; }
-.panel-copy h1 { font-size: clamp(1.9rem, 3.4vw, 2.8rem); font-weight: 800; line-height: 1.12; letter-spacing: -.03em; }
+.brand strong { display: block; font-weight: 800; line-height: 1.1; color: #F2F2F7; }
+.brand small { font-family: var(--font-mono); font-size: .68rem; color: #AEAEB2; }
+.panel-copy h1 { font-size: clamp(1.9rem, 3.4vw, 2.8rem); font-weight: 800; line-height: 1.12; letter-spacing: -.03em; color: #F2F2F7; }
 .panel-copy h1 em { font-style: normal; color: var(--accent); }
-.panel-copy p { margin-top: 14px; color: #B4B6AE; max-width: 440px; }
+.panel-copy p { margin-top: 14px; color: #AEAEB2; max-width: 440px; }
 .route-art { margin-top: 28px; max-width: 420px; }
 .route { stroke-dasharray: 8 6; animation: dash 1.2s linear infinite; }
 @keyframes dash { to { stroke-dashoffset: -28; } }
@@ -64,7 +72,7 @@ svg { display: block; }
 @keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: .65; } }
 .panel-stats { display: flex; gap: 28px; flex-wrap: wrap; }
 .panel-stats div b { font-family: var(--font-mono); font-size: 1.35rem; color: var(--accent); display: block; }
-.panel-stats div span { font-size: .75rem; color: #9a9c94; }
+.panel-stats div span { font-size: .75rem; color: #AEAEB2; }
 
 /* Right form panel */
 .form-panel { display: grid; place-items: center; padding: 32px 24px; position: relative; }
@@ -94,7 +102,7 @@ svg { display: block; }
   text-align: left; cursor: pointer; transition: transform .2s, border-color .2s, box-shadow .2s; min-width: 0;
 }
 .demo-chip:hover { transform: translateY(-3px); box-shadow: 0 8px 16px rgba(30,32,30,.1); border-color: var(--accent); }
-.demo-chip[aria-pressed="true"] { border-color: var(--primary); background: rgba(183,184,159,.22); }
+.demo-chip[aria-pressed="true"] { border-color: var(--primary); background: rgba(122,122,126,.15); }
 .demo-chip b { display: block; font-size: .8rem; }
 .demo-chip span { display: block; font-family: var(--font-mono); font-size: .6rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -107,7 +115,7 @@ input[type="text"], input[type="email"], input[type="password"] {
   width: 100%; padding: 12px 44px 12px 40px; border: 1.5px solid var(--border-color); border-radius: 11px;
   font-size: .93rem; background: var(--card-bg); color: var(--text-main); transition: border-color .2s, box-shadow .2s;
 }
-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(119,124,109,.22); }
+input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(44,44,46,.2); }
 input.invalid { border-color: var(--danger); }
 .eye { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border: 0; background: transparent; color: var(--text-secondary); cursor: pointer; border-radius: 8px; display: grid; place-items: center; }
 .eye:hover { background: var(--bg-main); }
@@ -125,8 +133,8 @@ input.invalid { border-color: var(--danger); }
   transition: transform .2s, box-shadow .2s, background .2s, border-color .2s;
 }
 .btn:hover { transform: translateY(-3px); }
-.btn-primary { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(119,124,109,.35); }
-.btn-primary:hover { background: var(--primary-hover); box-shadow: 0 10px 22px rgba(98,102,89,.4); }
+.btn-primary { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(44,44,46,.35); }
+.btn-primary:hover { background: var(--primary-hover); box-shadow: 0 10px 22px rgba(28,28,30,.4); }
 .btn-outline { background: transparent; border-color: var(--border-color); color: var(--text-main); }
 .btn-outline:hover { border-color: var(--primary); box-shadow: 0 8px 18px rgba(30,32,30,.08); }
 .btn[disabled] { opacity: .7; cursor: progress; transform: none; }
@@ -168,15 +176,15 @@ input.invalid { border-color: var(--danger); }
       <h1>Shorter routes.<br><em>Balanced fleets.</em><br>Faster waves.</h1>
       <p>Sign in to run velocity slotting, 2-Opt pick routing and multi-picker balancing on your live warehouse graph.</p>
       <svg class="route-art" viewBox="0 0 420 200" fill="none">
-        <g fill="#B7B89F" opacity=".5">
+        <g fill="#7A7A7E" opacity=".5">
           <rect x="40" y="30" width="20" height="120" rx="3"/><rect x="66" y="30" width="20" height="120" rx="3"/>
           <rect x="150" y="30" width="20" height="120" rx="3"/><rect x="176" y="30" width="20" height="120" rx="3"/>
           <rect x="260" y="30" width="20" height="120" rx="3"/><rect x="286" y="30" width="20" height="120" rx="3"/>
           <rect x="360" y="30" width="20" height="120" rx="3"/>
         </g>
-        <path d="M20 180 L20 160 L110 160 L110 100 L220 100 L220 50 L330 50 L330 120 L400 120 L400 180" stroke="#EEEEEE" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="route"/>
-        <g fill="#2B2E28" stroke="#B7B89F" stroke-width="3"><circle cx="110" cy="100" r="6"/><circle cx="220" cy="50" r="6"/><circle cx="330" cy="120" r="6"/></g>
-        <circle class="pulse" cx="220" cy="100" r="5" fill="#B7B89F"/>
+        <path d="M20 180 L20 160 L110 160 L110 100 L220 100 L220 50 L330 50 L330 120 L400 120 L400 180" stroke="#F8F8FA" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="route"/>
+        <g fill="#1C1C1E" stroke="#7A7A7E" stroke-width="3"><circle cx="110" cy="100" r="6"/><circle cx="220" cy="50" r="6"/><circle cx="330" cy="120" r="6"/></g>
+        <circle class="pulse" cx="220" cy="100" r="5" fill="#7A7A7E"/>
       </svg>
     </div>
     <div class="panel-stats">

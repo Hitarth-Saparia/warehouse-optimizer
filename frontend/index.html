@@ -13,14 +13,14 @@
 <script src="auth.js"></script>
 <style>
 :root {
-  --primary: #777C6D; --primary-hover: #626659; --accent: #B7B89F;
-  --bg-main: #EEEEEE; --card-bg: #FFFFFF; --border-color: #CBCBCB;
-  --text-main: #1E201E; --text-secondary: #555555;
+  --primary: #2C2C2E; --primary-hover: #1C1C1E; --accent: #7A7A7E;
+  --bg-main: #F8F8FA; --card-bg: #FFFFFF; --border-color: #D8D8DC;
+  --text-main: #1C1C1E; --text-secondary: #58585B;
   --good: #5E7A52; --warn: #B8892F; --bad: #A24A3E; --info: #5B7C8D;
-  --nav-bg: #2B2E28; --soft: rgba(183,184,159,.22);
+  --nav-bg: #1C1C1E; --soft: rgba(122,122,126,.14);
   --font-sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  --shadow: 0 6px 18px rgba(30,32,30,.07); --shadow-lg: 0 16px 36px rgba(30,32,30,.14);
+  --shadow: 0 8px 24px rgba(28,28,30,.06); --shadow-lg: 0 18px 40px rgba(28,28,30,.10);
   /* Profile modal theme mappings */
   --pbi-tile-bg: var(--card-bg);
   --pbi-border: var(--border-color);
@@ -31,9 +31,9 @@
   --pbi-tile-hover: var(--soft);
 }
 [data-theme="dark"] {
-  --bg-main: #1A1C19; --card-bg: #242722; --border-color: #3A3E37;
-  --text-main: #EEEEEE; --text-secondary: #B4B6AE; --nav-bg: #121411; --soft: rgba(183,184,159,.14);
-  --shadow: 0 6px 18px rgba(0,0,0,.35); --shadow-lg: 0 16px 36px rgba(0,0,0,.5);
+  --bg-main: #161618; --card-bg: #222226; --border-color: #38383D;
+  --text-main: #F2F2F7; --text-secondary: #AEAEB2; --nav-bg: #161618; --soft: rgba(174,174,178,.12);
+  --shadow: 0 8px 24px rgba(0,0,0,.4); --shadow-lg: 0 18px 40px rgba(0,0,0,.6);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: var(--font-sans); background: var(--bg-main); color: var(--text-main); line-height: 1.5; -webkit-font-smoothing: antialiased; transition: background .3s, color .3s; }
@@ -43,24 +43,24 @@ svg { display: block; }
 .wrap { width: min(1280px, 100% - 40px); margin-inline: auto; }
 
 /* Top nav */
-.topbar { background: var(--nav-bg); color: #EEE; position: sticky; top: 0; z-index: 50; }
+.topbar { background: var(--nav-bg); color: #EEE; position: sticky; top: 0; z-index: 50; border-bottom: 1px solid var(--border-color); }
 .topbar .wrap { display: flex; align-items: center; gap: 20px; height: 66px; width: min(1400px, 100% - 32px); }
 .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; color: inherit; }
 .brand-icon { width: 36px; height: 36px; border-radius: 9px; background: var(--primary); display: grid; place-items: center; color: #fff; text-decoration: none; cursor: pointer; transition: transform .2s, background .2s, box-shadow .2s; }
 .brand-icon:hover { transform: translateY(-2px); background: var(--accent); box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 .brand strong { display: block; font-size: .95rem; font-weight: 800; line-height: 1.1; }
-.brand small { font-family: var(--font-mono); font-size: .6rem; color: #9a9c94; letter-spacing: .04em; }
+.brand small { font-family: var(--font-mono); font-size: .6rem; color: #AEAEB2; letter-spacing: .04em; }
 .nav { display: flex; gap: 4px; flex: 1; overflow-x: auto; scrollbar-width: none; }
 .nav::-webkit-scrollbar { display: none; }
-.nav a { padding: 8px 14px; border-radius: 9px; font-size: .86rem; font-weight: 500; color: #B4B6AE; white-space: nowrap; transition: background .2s, color .2s; }
+.nav a { padding: 8px 14px; border-radius: 9px; font-size: .86rem; font-weight: 500; color: #AEAEB2; white-space: nowrap; transition: background .2s, color .2s; }
 .nav a:hover { background: rgba(255,255,255,.07); color: #fff; }
-.nav a.active { background: rgba(183,184,159,.2); color: #fff; font-weight: 600; }
+.nav a.active { background: rgba(122,122,126,.28); color: #fff; font-weight: 600; border: 1px solid rgba(255,255,255,.12); }
 .user { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--primary); color: #fff; display: grid; place-items: center; font-size: .75rem; font-weight: 700; cursor: pointer; transition: transform .2s; }
 .avatar:hover { transform: scale(1.08); }
 .user-meta { cursor: pointer; }
 .user-meta b { display: block; font-size: .82rem; line-height: 1.1; }
-.user-meta span { font-size: .68rem; color: #9a9c94; }
+.user-meta span { font-size: .68rem; color: #AEAEB2; }
 .ib { width: 36px; height: 36px; border-radius: 9px; border: 1px solid rgba(255,255,255,.15); background: transparent; color: #EEE; display: grid; place-items: center; cursor: pointer; transition: transform .2s, border-color .2s; }
 .ib:hover { transform: translateY(-2px); border-color: var(--accent); }
 

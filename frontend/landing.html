@@ -122,19 +122,19 @@ header.site-header {
   color: var(--text-main); display: grid; place-items: center;
   cursor: pointer; transition: transform .2s, border-color .2s, background .2s;
 }
-.ib:hover { transform: translateY(-2px); border-color: var(--accent); background: rgba(183,184,159,.12); }
+.ib:hover { transform: translateY(-2px); border-color: var(--accent); background: rgba(122,122,126,.12); }
 @media (max-width: 900px) { .user-meta { display: none; } }
 
 /* Hero */
 .hero { padding: 72px 0 56px; position: relative; overflow: hidden; }
 .hero::before {
   content: ""; position: absolute; inset: -20% -10% auto auto; width: 520px; height: 520px;
-  background: radial-gradient(circle, rgba(183,184,159,.45), transparent 65%); z-index: 0; pointer-events: none;
+  background: radial-gradient(circle, rgba(122,122,126,.25), transparent 65%); z-index: 0; pointer-events: none;
 }
 .hero-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1.05fr 1fr; gap: 48px; align-items: center; }
 .badge {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px;
-  background: rgba(183,184,159,.28); border: 1px solid var(--accent); font-size: .8rem; font-weight: 600;
+  background: rgba(122,122,126,.14); border: 1px solid var(--accent); font-size: .8rem; font-weight: 600;
   font-family: var(--font-mono); margin-bottom: 20px;
 }
 .hero h1 { font-size: clamp(2.1rem, 5vw, 3.5rem); line-height: 1.1; font-weight: 800; letter-spacing: -.03em; }
@@ -179,7 +179,7 @@ header.site-header {
 .stat .desc { font-size: .83rem; color: var(--text-secondary); margin-top: 4px; }
 
 .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
-.f-icon { width: 48px; height: 48px; border-radius: 12px; background: rgba(183,184,159,.3); color: var(--primary-hover); display: grid; place-items: center; margin-bottom: 18px; }
+.f-icon { width: 48px; height: 48px; border-radius: 12px; background: rgba(122,122,126,.16); color: var(--primary-hover); display: grid; place-items: center; margin-bottom: 18px; }
 [data-theme="dark"] .f-icon { color: var(--accent); }
 .feature h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
 .feature p { color: var(--text-secondary); font-size: .92rem; }

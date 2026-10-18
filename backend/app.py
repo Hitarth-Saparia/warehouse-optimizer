@@ -9,16 +9,21 @@ import os
 import re
 from functools import wraps
 import pymysql
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
 
-from backend.models import Product, Shelf, Order, User, AuditLog
+from backend.models import (
+    Product, Shelf, Order, User, AuditLog, Vehicle, WarehouseLocation, BalancingRun,
+    Wave, PickTask, InventoryReservation, WaveException
+)
 from backend.warehouse import Warehouse
 from backend.layout_optimizer import LayoutOptimizer
 from backend.route_optimizer import RouteOptimizer
 from backend.comparison import calculate_comparison_statistics
 from backend.batch_optimizer import BatchOptimizer
 from backend.fleet_allocator import FleetAllocator
+from backend.fleet_balancer import FleetBalancer
+from backend.wave_manager import WaveManager
 from backend.security import (
     hash_password,
     verify_password,
@@ -436,7 +441,7 @@ def fetch_warehouse(conn):
 
 def fetch_all_orders(conn):
     with conn.cursor() as cur:
-        cur.execute("SELECT id, customer_name, status FROM orders ORDER BY id ASC")
+        cur.execute("SELECT * FROM orders ORDER BY id ASC")
         orders_raw = cur.fetchall()
 
         cur.execute("""
@@ -465,7 +470,13 @@ def fetch_all_orders(conn):
             id=o["id"],
             customer_name=o["customer_name"],
             status=o["status"],
-            items=items_by_order.get(o["id"], [])
+            items=items_by_order.get(o["id"], []),
+            weight=o.get("weight"),
+            destination_zone=o.get("destination_zone", "Zone A - Downtown"),
+            priority=o.get("priority", "Standard"),
+            deadline=o.get("deadline", "18:00"),
+            warehouse_id=o.get("warehouse_id", "WH-01"),
+            assigned_vehicle_id=o.get("assigned_vehicle_id")
         ))
     return orders
 
@@ -1435,6 +1446,785 @@ def assign_fleet_waves():
             "wave_metrics": wave_metrics,
             "cart_capacity": cart_capacity
         })
+    finally:
+        conn.close()
+
+# -------------------------------------------------------------
+# Fleet Balancing & Vehicle Management REST API Routes
+# -------------------------------------------------------------
+
+@app.route("/api/fleet/dashboard", methods=["GET"])
+def get_fleet_dashboard():
+    """
+    Returns live executive Fleet Balancing dashboard metrics, warehouse distributions,
+    active alerts, vehicles, and order assignments.
+    """
+    balancer = FleetBalancer()
+    summary = balancer.get_dashboard_summary()
+    vehicles = [v.to_dict() for v in balancer.fetch_vehicles()]
+    orders = [o.to_dict() for o in balancer.fetch_orders(only_pending=False)]
+    return jsonify({
+        "status": "success",
+        "metrics": summary["metrics"],
+        "warehouse_summaries": summary["warehouse_summaries"],
+        "imbalance_alerts": summary["imbalance_alerts"],
+        "vehicles": vehicles,
+        "orders": orders
+    })
+
+@app.route("/api/fleet/vehicles", methods=["GET"])
+def get_fleet_vehicles():
+    """
+    Lists delivery fleet vehicles with optional search and filtering.
+    """
+    search = request.args.get("search", "").strip().lower()
+    status_filter = request.args.get("status", "").strip()
+    loc_filter = request.args.get("location", "").strip()
+    type_filter = request.args.get("type", "").strip()
+
+    balancer = FleetBalancer()
+    vehicles = balancer.fetch_vehicles()
+
+    filtered = []
+    for v in vehicles:
+        if status_filter and status_filter.lower() != "all" and v.status.lower() != status_filter.lower():
+            continue
+        if loc_filter and loc_filter.lower() != "all" and v.location.upper() != loc_filter.upper():
+            continue
+        if type_filter and type_filter.lower() != "all" and v.vehicle_type.lower() != type_filter.lower():
+            continue
+        if search:
+            if search not in v.id.lower() and search not in v.name.lower() and search not in v.vehicle_type.lower():
+                continue
+        filtered.append(v.to_dict())
+
+    return jsonify({"status": "success", "count": len(filtered), "vehicles": filtered})
+
+@app.route("/api/fleet/vehicles", methods=["POST"])
+def create_fleet_vehicle():
+    """
+    Creates a new vehicle with input validation.
+    """
+    data = request.get_json(silent=True) or {}
+    veh_id = str(data.get("id", "")).strip().upper()
+    name = str(data.get("name", "")).strip()
+    v_type = str(data.get("vehicle_type", "Electric Van")).strip()
+    raw_capacity = data.get("max_capacity")
+    location = str(data.get("location", "WH-01")).strip().upper()
+    status = str(data.get("status", "Available")).strip().title()
+    cost_per_km = data.get("cost_per_km", 1.85)
+    fixed_cost = data.get("fixed_cost", 25.0)
+
+    # Validations
+    if not veh_id:
+        return jsonify({"status": "error", "message": "Vehicle ID is required."}), 400
+    if not re.match(r'^[A-Z0-9_\-]+$', veh_id):
+        return jsonify({"status": "error", "message": "Vehicle ID must contain only alphanumeric characters, underscores, and hyphens."}), 400
+    if not name:
+        return jsonify({"status": "error", "message": "Vehicle name is required."}), 400
+
+    try:
+        max_capacity = float(raw_capacity)
+        if max_capacity <= 0:
+            raise ValueError()
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Maximum capacity must be a positive number."}), 400
+
+    try:
+        cost_per_km = float(cost_per_km)
+        fixed_cost = float(fixed_cost)
+        if cost_per_km < 0 or fixed_cost < 0:
+            raise ValueError()
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Operating costs must be non-negative numbers."}), 400
+
+    if status not in ["Available", "In Transit", "Maintenance"]:
+        return jsonify({"status": "error", "message": "Status must be 'Available', 'In Transit', or 'Maintenance'."}), 400
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            # Check for duplicate ID
+            cur.execute("SELECT id FROM vehicles WHERE id = %s", (veh_id,))
+            if cur.fetchone():
+                return jsonify({"status": "error", "message": f"Vehicle ID '{veh_id}' already exists."}), 409
+
+            # Verify warehouse exists
+            cur.execute("SELECT id FROM warehouses WHERE id = %s", (location,))
+            if not cur.fetchone():
+                return jsonify({"status": "error", "message": f"Warehouse location '{location}' does not exist."}), 400
+
+            cur.execute("""
+                INSERT INTO vehicles (id, name, vehicle_type, max_capacity, current_load, location, status, cost_per_km, fixed_cost)
+                VALUES (%s, %s, %s, %s, 0.0, %s, %s, %s, %s)
+            """, (veh_id, name, v_type, max_capacity, location, status, cost_per_km, fixed_cost))
+            conn.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": f"Vehicle {veh_id} ({name}) created successfully.",
+            "vehicle": {
+                "id": veh_id,
+                "name": name,
+                "vehicle_type": v_type,
+                "max_capacity": max_capacity,
+                "current_load": 0.0,
+                "location": location,
+                "status": status,
+                "cost_per_km": cost_per_km,
+                "fixed_cost": fixed_cost
+            }
+        }), 201
+    finally:
+        conn.close()
+
+@app.route("/api/fleet/vehicles/<vehicle_id>", methods=["GET"])
+def get_fleet_vehicle_detail(vehicle_id):
+    """
+    Returns details of a specific vehicle including currently assigned orders.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, name, vehicle_type, max_capacity, current_load,
+                       location, status, cost_per_km, fixed_cost, created_at
+                FROM vehicles WHERE id = %s
+            """, (vehicle_id,))
+            row = cur.fetchone()
+            if not row:
+                return jsonify({"status": "error", "message": f"Vehicle '{vehicle_id}' not found."}), 404
+
+            cur.execute("""
+                SELECT id, customer_name, status, weight, destination_zone, priority, deadline, warehouse_id
+                FROM orders WHERE assigned_vehicle_id = %s
+                ORDER BY id ASC
+            """, (vehicle_id,))
+            orders_raw = cur.fetchall()
+
+        v = Vehicle(
+            id=row["id"],
+            name=row["name"],
+            vehicle_type=row["vehicle_type"],
+            max_capacity=row["max_capacity"],
+            current_load=row["current_load"],
+            location=row["location"],
+            status=row["status"],
+            cost_per_km=row["cost_per_km"],
+            fixed_cost=row["fixed_cost"],
+            created_at=row.get("created_at")
+        )
+        res = v.to_dict()
+        res["assigned_orders"] = orders_raw
+        return jsonify({"status": "success", "vehicle": res})
+    finally:
+        conn.close()
+
+@app.route("/api/fleet/vehicles/<vehicle_id>", methods=["PUT"])
+def update_fleet_vehicle(vehicle_id):
+    """
+    Updates vehicle details with capacity and status validation.
+    """
+    data = request.get_json(silent=True) or {}
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM vehicles WHERE id = %s", (vehicle_id,))
+            existing = cur.fetchone()
+            if not existing:
+                return jsonify({"status": "error", "message": f"Vehicle '{vehicle_id}' not found."}), 404
+
+            name = data.get("name", existing["name"]).strip()
+            v_type = data.get("vehicle_type", existing["vehicle_type"]).strip()
+            raw_capacity = data.get("max_capacity", existing["max_capacity"])
+            location = str(data.get("location", existing["location"])).strip().upper()
+            status = str(data.get("status", existing["status"])).strip().title()
+            cost_per_km = data.get("cost_per_km", existing["cost_per_km"])
+            fixed_cost = data.get("fixed_cost", existing["fixed_cost"])
+
+            try:
+                max_capacity = float(raw_capacity)
+                if max_capacity <= 0:
+                    raise ValueError()
+            except (TypeError, ValueError):
+                return jsonify({"status": "error", "message": "Max capacity must be a positive number."}), 400
+
+            if max_capacity < float(existing["current_load"]):
+                return jsonify({
+                    "status": "error",
+                    "message": f"Cannot reduce capacity below currently assigned load ({existing['current_load']} kg)."
+                }), 400
+
+            if status not in ["Available", "In Transit", "Maintenance"]:
+                return jsonify({"status": "error", "message": "Invalid status."}), 400
+
+            cur.execute("""
+                UPDATE vehicles
+                SET name = %s, vehicle_type = %s, max_capacity = %s,
+                    location = %s, status = %s, cost_per_km = %s, fixed_cost = %s
+                WHERE id = %s
+            """, (name, v_type, max_capacity, location, status, float(cost_per_km), float(fixed_cost), vehicle_id))
+            conn.commit()
+
+        return jsonify({"status": "success", "message": f"Vehicle '{vehicle_id}' updated successfully."})
+    finally:
+        conn.close()
+
+@app.route("/api/fleet/vehicles/<vehicle_id>", methods=["DELETE"])
+def delete_fleet_vehicle(vehicle_id):
+    """
+    Deletes a vehicle if no pending orders are currently assigned to it.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, current_load FROM vehicles WHERE id = %s", (vehicle_id,))
+            veh = cur.fetchone()
+            if not veh:
+                return jsonify({"status": "error", "message": f"Vehicle '{vehicle_id}' not found."}), 404
+
+            cur.execute("SELECT COUNT(*) as cnt FROM orders WHERE assigned_vehicle_id = %s AND status = 'Pending'", (vehicle_id,))
+            cnt = cur.fetchone()["cnt"]
+            if cnt > 0:
+                return jsonify({
+                    "status": "error",
+                    "message": f"Cannot delete vehicle '{vehicle_id}' because it has {cnt} assigned pending orders. Please reassign or unassign first."
+                }), 400
+
+            cur.execute("DELETE FROM vehicle_assignments WHERE vehicle_id = %s", (vehicle_id,))
+            cur.execute("DELETE FROM vehicles WHERE id = %s", (vehicle_id,))
+            conn.commit()
+
+        return jsonify({"status": "success", "message": f"Vehicle '{vehicle_id}' deleted successfully."})
+    finally:
+        conn.close()
+
+@app.route("/api/fleet/orders", methods=["GET"])
+def get_fleet_orders():
+    """
+    Lists orders with vehicle allocation information and filter capabilities.
+    """
+    status_filter = request.args.get("status", "").strip()
+    assigned_filter = request.args.get("assigned", "").strip().lower()
+    wh_filter = request.args.get("warehouse_id", "").strip().upper()
+    priority_filter = request.args.get("priority", "").strip()
+    search = request.args.get("search", "").strip().lower()
+
+    conn = get_db()
+    try:
+        from backend.app import fetch_all_orders
+        orders = fetch_all_orders(conn)
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, name, vehicle_type FROM vehicles")
+            veh_map = {v["id"]: v for v in cur.fetchall()}
+
+        filtered = []
+        for o in orders:
+            if status_filter and status_filter.lower() != "all" and o.status.lower() != status_filter.lower():
+                continue
+            if assigned_filter == "assigned" and not o.assigned_vehicle_id:
+                continue
+            if assigned_filter == "unassigned" and o.assigned_vehicle_id:
+                continue
+            if wh_filter and wh_filter != "ALL" and o.warehouse_id != wh_filter:
+                continue
+            if priority_filter and priority_filter.lower() != "all" and o.priority.lower() != priority_filter.lower():
+                continue
+            if search:
+                if (search not in str(o.id).lower() and
+                    search not in o.customer_name.lower() and
+                    search not in o.destination_zone.lower()):
+                    continue
+
+            d = o.to_dict()
+            if o.assigned_vehicle_id and o.assigned_vehicle_id in veh_map:
+                d["vehicle_name"] = veh_map[o.assigned_vehicle_id]["name"]
+                d["vehicle_type"] = veh_map[o.assigned_vehicle_id]["vehicle_type"]
+            else:
+                d["vehicle_name"] = None
+                d["vehicle_type"] = None
+            filtered.append(d)
+
+        return jsonify({"status": "success", "count": len(filtered), "orders": filtered})
+    finally:
+        conn.close()
+
+@app.route("/api/fleet/orders/<int:order_id>/assign", methods=["POST"])
+def manually_assign_order(order_id):
+    """
+    Manually assigns a pending order to a vehicle with capacity validation.
+    """
+    data = request.get_json(silent=True) or {}
+    vehicle_id = str(data.get("vehicle_id", "")).strip().upper()
+
+    if not vehicle_id:
+        return jsonify({"status": "error", "message": "vehicle_id is required."}), 400
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, status, weight, assigned_vehicle_id FROM orders WHERE id = %s", (order_id,))
+            order = cur.fetchone()
+            if not order:
+                return jsonify({"status": "error", "message": f"Order #{order_id} not found."}), 404
+
+            if order["status"] != "Pending":
+                return jsonify({"status": "error", "message": f"Cannot assign order #{order_id} because status is '{order['status']}'."}), 400
+
+            cur.execute("SELECT id, name, max_capacity, current_load, status FROM vehicles WHERE id = %s", (vehicle_id,))
+            veh = cur.fetchone()
+            if not veh:
+                return jsonify({"status": "error", "message": f"Vehicle '{vehicle_id}' not found."}), 404
+
+            if veh["status"] != "Available":
+                return jsonify({"status": "error", "message": f"Vehicle '{vehicle_id}' is '{veh['status']}' and cannot accept assignments."}), 400
+
+            order_weight = float(order.get("weight", 15.0))
+            old_veh_id = order.get("assigned_vehicle_id")
+
+            # Check capacity
+            current_veh_load = float(veh["current_load"])
+            if old_veh_id == vehicle_id:
+                return jsonify({"status": "success", "message": f"Order #{order_id} is already assigned to {vehicle_id}."})
+
+            if current_veh_load + order_weight > float(veh["max_capacity"]):
+                return jsonify({
+                    "status": "error",
+                    "message": f"Capacity violation: {veh['name']} has {round(veh['max_capacity'] - current_veh_load, 1)} kg available, but order requires {order_weight} kg."
+                }), 400
+
+            # Decrement old vehicle load if it was assigned elsewhere
+            if old_veh_id:
+                cur.execute("UPDATE vehicles SET current_load = GREATEST(0, current_load - %s) WHERE id = %s", (order_weight, old_veh_id))
+
+            # Assign to new vehicle
+            cur.execute("UPDATE orders SET assigned_vehicle_id = %s WHERE id = %s", (vehicle_id, order_id))
+            cur.execute("UPDATE vehicles SET current_load = current_load + %s WHERE id = %s", (order_weight, vehicle_id))
+            cur.execute("INSERT INTO vehicle_assignments (vehicle_id, order_id, status) VALUES (%s, %s, 'Assigned')", (vehicle_id, order_id))
+            conn.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": f"Order #{order_id} assigned to vehicle {vehicle_id} ({veh['name']})."
+        })
+    finally:
+        conn.close()
+
+@app.route("/api/fleet/orders/<int:order_id>/unassign", methods=["POST"])
+def manually_unassign_order(order_id):
+    """
+    Unassigns an order from its current vehicle and updates capacity.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, status, weight, assigned_vehicle_id FROM orders WHERE id = %s", (order_id,))
+            order = cur.fetchone()
+            if not order:
+                return jsonify({"status": "error", "message": f"Order #{order_id} not found."}), 404
+
+            veh_id = order.get("assigned_vehicle_id")
+            if not veh_id:
+                return jsonify({"status": "success", "message": f"Order #{order_id} is already unassigned."})
+
+            weight = float(order.get("weight", 15.0))
+            cur.execute("UPDATE orders SET assigned_vehicle_id = NULL WHERE id = %s", (order_id,))
+            cur.execute("UPDATE vehicles SET current_load = GREATEST(0, current_load - %s) WHERE id = %s", (weight, veh_id))
+            cur.execute("UPDATE vehicle_assignments SET status = 'Unassigned' WHERE order_id = %s", (order_id,))
+            conn.commit()
+
+        return jsonify({"status": "success", "message": f"Order #{order_id} unassigned successfully."})
+    finally:
+        conn.close()
+
+@app.route("/api/fleet/warehouses", methods=["GET"])
+def get_fleet_warehouses():
+    """
+    Returns warehouses with fleet capacity and pending order demand breakdown.
+    """
+    balancer = FleetBalancer()
+    summary = balancer.get_dashboard_summary()
+    return jsonify({
+        "status": "success",
+        "warehouses": summary["warehouse_summaries"]
+    })
+
+@app.route("/api/fleet/balance/run", methods=["POST"])
+def run_fleet_balancing_action():
+    """
+    Runs the Fleet Balancing Optimization Algorithm.
+    Generates proposed allocation, metrics, comparisons, and recommendations.
+    Saves a 'Proposed' balancing run record in the database.
+    """
+    data = request.get_json(silent=True) or {}
+    strategy = data.get("strategy", "best_fit_zone")
+
+    balancer = FleetBalancer()
+    result = balancer.run_balancing(strategy=strategy)
+
+    return jsonify({
+        "status": "success",
+        "result": result
+    })
+
+@app.route("/api/fleet/balance/apply", methods=["POST"])
+def apply_fleet_balancing_action():
+    """
+    Applies the proposed Fleet Balancing plan into the live database.
+    Requires user confirmation and run_id.
+    """
+    data = request.get_json(silent=True) or {}
+    run_id = data.get("run_id")
+
+    if not run_id:
+        return jsonify({"status": "error", "message": "run_id is required."}), 400
+
+    try:
+        balancer = FleetBalancer()
+        result = balancer.apply_balancing(int(run_id))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+@app.route("/api/fleet/balance/discard", methods=["POST"])
+def discard_fleet_balancing_action():
+    """
+    Discards a proposed Fleet Balancing run.
+    """
+    data = request.get_json(silent=True) or {}
+    run_id = data.get("run_id")
+
+    if not run_id:
+        return jsonify({"status": "error", "message": "run_id is required."}), 400
+
+    try:
+        balancer = FleetBalancer()
+        result = balancer.discard_balancing(int(run_id))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+@app.route("/api/fleet/balance/runs", methods=["GET"])
+def get_fleet_balancing_runs():
+    """
+    Returns history of Fleet Balancing optimization executions.
+    """
+    limit = parse_int_arg("limit", default=20, min_val=1, max_val=100)
+    balancer = FleetBalancer()
+    runs = balancer.get_runs_history(limit=limit)
+    return jsonify({
+        "status": "success",
+        "count": len(runs),
+        "runs": runs
+    })
+
+
+# -------------------------------------------------------------
+# Wave Picking REST API Endpoints
+# -------------------------------------------------------------
+
+@app.route("/api/waves/dashboard", methods=["GET"])
+def get_waves_dashboard():
+    """Returns live KPI metrics calculated from real database records."""
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        manager = WaveManager(conn, warehouse)
+        metrics = manager.get_dashboard_metrics()
+        return jsonify({
+            "status": "success",
+            "metrics": metrics
+        })
+    finally:
+        conn.close()
+
+@app.route("/api/waves", methods=["GET"])
+def get_waves_list():
+    """Lists picking waves with search, status, priority, and picker filters."""
+    status = request.args.get("status")
+    priority = request.args.get("priority")
+    picker = request.args.get("picker")
+    search = request.args.get("search")
+
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        manager = WaveManager(conn, warehouse)
+        waves = manager.list_waves(status=status, priority=priority, picker=picker, search=search)
+        return jsonify({
+            "status": "success",
+            "count": len(waves),
+            "waves": waves
+        })
+    finally:
+        conn.close()
+
+@app.route("/api/waves/eligible-orders", methods=["GET"])
+def get_eligible_wave_orders():
+    """Returns all unallocated Pending customer orders ready to be formed into waves."""
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        manager = WaveManager(conn, warehouse)
+        orders = manager.get_eligible_orders()
+        return jsonify({
+            "status": "success",
+            "count": len(orders),
+            "orders": [o.to_dict() for o in orders]
+        })
+    finally:
+        conn.close()
+
+@app.route("/api/waves/preview", methods=["POST"])
+def preview_wave_proposal():
+    """
+    Synthesizes wave proposals without persisting to database.
+    Evaluates groupings, stock verification, and TSP travel savings.
+    """
+    body = request.get_json(silent=True) or {}
+    strategy = body.get("strategy", "Hybrid")
+    max_cart_capacity = parse_int_arg("max_cart_capacity", default=35, min_val=5, max_val=200)
+    max_orders_per_batch = parse_int_arg("max_orders_per_batch", default=4, min_val=1, max_val=20)
+    priority = body.get("priority", "Standard")
+    assigned_picker = body.get("assigned_picker", "Alex Morgan")
+    selected_order_ids = body.get("order_ids")
+
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        manager = WaveManager(conn, warehouse)
+
+        if selected_order_ids:
+            all_orders = fetch_all_orders(conn)
+            orders = [o for o in all_orders if o.id in selected_order_ids]
+        else:
+            orders = manager.get_eligible_orders()
+
+        products = fetch_all_products(conn)
+        shelf_mapping = {p.id: p.assigned_shelf_id for p in products}
+
+        proposal = manager.generate_wave_proposal(
+            orders=orders,
+            strategy=strategy,
+            max_cart_capacity=max_cart_capacity,
+            max_orders_per_batch=max_orders_per_batch,
+            priority=priority,
+            assigned_picker=assigned_picker,
+            shelf_mapping=shelf_mapping
+        )
+        return jsonify({
+            "status": "success",
+            "proposal": proposal
+        })
+    finally:
+        conn.close()
+
+@app.route("/api/waves", methods=["POST"])
+def create_wave():
+    """Creates and persists a new wave batch with consolidated pick tasks."""
+    body = request.get_json(silent=True) or {}
+    order_ids = body.get("order_ids")
+    if not order_ids or not isinstance(order_ids, list):
+        return jsonify({"status": "error", "message": "order_ids list is required"}), 400
+
+    name = body.get("name")
+    strategy = body.get("strategy", "Hybrid")
+    priority = body.get("priority", "Standard")
+    assigned_picker = body.get("assigned_picker", "Alex Morgan")
+    max_cart_capacity = int(body.get("max_cart_capacity", 35))
+    scheduled_at = body.get("scheduled_at")
+    deadline = body.get("deadline")
+    notes = body.get("notes")
+
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        manager = WaveManager(conn, warehouse)
+        wave = manager.create_wave(
+            name=name,
+            order_ids=order_ids,
+            strategy=strategy,
+            priority=priority,
+            assigned_picker=assigned_picker,
+            max_cart_capacity=max_cart_capacity,
+            scheduled_at=scheduled_at,
+            deadline=deadline,
+            notes=notes
+        )
+        return jsonify({
+            "status": "success",
+            "message": f"Wave {wave['id']} successfully created.",
+            "wave": wave
+        }), 201
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/waves/<wave_id>", methods=["GET"])
+def get_wave_detail(wave_id):
+    """Retrieves full details of a specific Wave by ID."""
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        manager = WaveManager(conn, warehouse)
+        wave = manager.get_wave(wave_id)
+        if not wave:
+            return jsonify({"status": "error", "message": f"Wave {wave_id} not found"}), 404
+        return jsonify({
+            "status": "success",
+            "wave": wave
+        })
+    finally:
+        conn.close()
+
+@app.route("/api/waves/<wave_id>/start", methods=["POST"])
+def start_wave(wave_id):
+    """Starts a wave, verifies stock, builds reservations, and activates orders."""
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        manager = WaveManager(conn, warehouse)
+        wave = manager.start_wave(wave_id)
+        return jsonify({
+            "status": "success",
+            "message": f"Wave {wave_id} is now Active.",
+            "wave": wave
+        })
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/waves/<wave_id>/pause", methods=["POST"])
+def pause_wave(wave_id):
+    """Pauses an active wave."""
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        manager = WaveManager(conn, warehouse)
+        wave = manager.pause_wave(wave_id)
+        return jsonify({
+            "status": "success",
+            "message": f"Wave {wave_id} paused.",
+            "wave": wave
+        })
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/waves/<wave_id>/tasks/<int:task_id>/pick", methods=["POST"])
+def pick_wave_task(wave_id, task_id):
+    """Confirms picked quantity for an individual SKU-level pick task."""
+    body = request.get_json(silent=True) or {}
+    picked_quantity = body.get("picked_quantity")
+    if picked_quantity is None:
+        return jsonify({"status": "error", "message": "picked_quantity is required"}), 400
+
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        manager = WaveManager(conn, warehouse)
+        wave = manager.pick_task(wave_id, task_id, picked_quantity=picked_quantity)
+        return jsonify({
+            "status": "success",
+            "message": f"Task {task_id} updated.",
+            "wave": wave
+        })
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/waves/<wave_id>/tasks/<int:task_id>/exception", methods=["POST"])
+def report_wave_task_exception(wave_id, task_id):
+    """Records an exception (shortage, damaged, blocked aisle) for a pick task."""
+    body = request.get_json(silent=True) or {}
+    exception_type = body.get("exception_type", "Shortage")
+    details = body.get("details", "Stock shortage reported by picker.")
+
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        manager = WaveManager(conn, warehouse)
+        wave = manager.report_task_exception(wave_id, task_id, exception_type=exception_type, details=details)
+        return jsonify({
+            "status": "success",
+            "message": f"Exception recorded for task {task_id}.",
+            "wave": wave
+        })
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/waves/<wave_id>/complete", methods=["POST"])
+def complete_wave(wave_id):
+    """Completes wave, deducts inventory, fulfills reservations, marks orders Picked."""
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        manager = WaveManager(conn, warehouse)
+        wave = manager.complete_wave(wave_id)
+        return jsonify({
+            "status": "success",
+            "message": f"Wave {wave_id} completed and inventory updated.",
+            "wave": wave
+        })
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/waves/<wave_id>/cancel", methods=["POST"])
+def cancel_wave(wave_id):
+    """Cancels wave, releases reservations, and restores orders to Pending."""
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        manager = WaveManager(conn, warehouse)
+        wave = manager.cancel_wave(wave_id)
+        return jsonify({
+            "status": "success",
+            "message": f"Wave {wave_id} cancelled and reservations released.",
+            "wave": wave
+        })
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/waves/<wave_id>/export", methods=["GET"])
+def export_wave_csv(wave_id):
+    """Exports consolidated pick list as a CSV file download."""
+    conn = get_db()
+    try:
+        warehouse = fetch_warehouse(conn)
+        manager = WaveManager(conn, warehouse)
+        csv_data = manager.export_wave_csv(wave_id)
+        return Response(
+            csv_data,
+            mimetype="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={wave_id}_pick_list.csv"}
+        )
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 404
     finally:
         conn.close()
 

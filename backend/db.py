@@ -202,7 +202,147 @@ def init_sqlite_database():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
         );
+
+        CREATE TABLE IF NOT EXISTS warehouses (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            location TEXT NOT NULL,
+            coord_x REAL NOT NULL DEFAULT 0.0,
+            coord_y REAL NOT NULL DEFAULT 0.0,
+            service_zones TEXT NOT NULL DEFAULT 'Zone A, Zone B'
+        );
+
+        CREATE TABLE IF NOT EXISTS vehicles (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            vehicle_type TEXT NOT NULL,
+            max_capacity REAL NOT NULL,
+            current_load REAL NOT NULL DEFAULT 0.0,
+            location TEXT NOT NULL DEFAULT 'WH-01',
+            status TEXT NOT NULL DEFAULT 'Available',
+            cost_per_km REAL NOT NULL DEFAULT 1.85,
+            fixed_cost REAL NOT NULL DEFAULT 25.00,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (location) REFERENCES warehouses(id) ON DELETE RESTRICT
+        );
+
+        CREATE TABLE IF NOT EXISTS vehicle_assignments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            vehicle_id TEXT NOT NULL,
+            order_id INTEGER NOT NULL,
+            run_id INTEGER NULL,
+            assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            status TEXT NOT NULL DEFAULT 'Assigned',
+            FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE,
+            FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS balancing_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            status TEXT NOT NULL DEFAULT 'Proposed',
+            total_vehicles INTEGER NOT NULL DEFAULT 0,
+            assigned_orders_count INTEGER NOT NULL DEFAULT 0,
+            unassigned_orders_count INTEGER NOT NULL DEFAULT 0,
+            fleet_utilization_pct REAL NOT NULL DEFAULT 0.0,
+            cost_before REAL NOT NULL DEFAULT 0.0,
+            cost_after REAL NOT NULL DEFAULT 0.0,
+            cost_savings REAL NOT NULL DEFAULT 0.0,
+            distance_before REAL NOT NULL DEFAULT 0.0,
+            distance_after REAL NOT NULL DEFAULT 0.0,
+            summary_json TEXT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS waves (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Draft',
+            strategy TEXT NOT NULL DEFAULT 'Hybrid',
+            priority TEXT NOT NULL DEFAULT 'Standard',
+            assigned_picker TEXT NULL,
+            max_cart_capacity INTEGER NOT NULL DEFAULT 35,
+            total_orders INTEGER NOT NULL DEFAULT 0,
+            total_skus INTEGER NOT NULL DEFAULT 0,
+            total_units INTEGER NOT NULL DEFAULT 0,
+            picked_units INTEGER NOT NULL DEFAULT 0,
+            estimated_distance_m REAL NOT NULL DEFAULT 0.0,
+            unbatched_distance_m REAL NOT NULL DEFAULT 0.0,
+            distance_saved_m REAL NOT NULL DEFAULT 0.0,
+            scheduled_at TIMESTAMP NULL,
+            deadline TIMESTAMP NULL,
+            started_at TIMESTAMP NULL,
+            completed_at TIMESTAMP NULL,
+            notes TEXT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS wave_orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            wave_id TEXT NOT NULL,
+            order_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Assigned',
+            assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (wave_id) REFERENCES waves(id) ON DELETE CASCADE,
+            FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS pick_tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            wave_id TEXT NOT NULL,
+            product_id INTEGER NOT NULL,
+            required_quantity INTEGER NOT NULL DEFAULT 1,
+            picked_quantity INTEGER NOT NULL DEFAULT 0,
+            shelf_id INTEGER NULL,
+            status TEXT NOT NULL DEFAULT 'Pending',
+            aisle_zone TEXT NULL,
+            sequence_order INTEGER NOT NULL DEFAULT 0,
+            exception_reason TEXT NULL,
+            picked_at TIMESTAMP NULL,
+            order_allocations TEXT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (wave_id) REFERENCES waves(id) ON DELETE CASCADE,
+            FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS inventory_reservations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            wave_id TEXT NOT NULL,
+            product_id INTEGER NOT NULL,
+            quantity INTEGER NOT NULL DEFAULT 1,
+            status TEXT NOT NULL DEFAULT 'Reserved',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (wave_id) REFERENCES waves(id) ON DELETE CASCADE,
+            FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS wave_exceptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            wave_id TEXT NOT NULL,
+            task_id INTEGER NULL,
+            product_id INTEGER NULL,
+            exception_type TEXT NOT NULL,
+            details TEXT NOT NULL,
+            resolved INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (wave_id) REFERENCES waves(id) ON DELETE CASCADE
+        );
     """)
+    conn.commit()
+
+    # Migrate orders table columns if missing
+    cur.execute("PRAGMA table_info(orders)")
+    existing_cols = {col[1] for col in cur.fetchall()}
+    columns_to_add = [
+        ("weight", "REAL NOT NULL DEFAULT 15.0"),
+        ("destination_zone", "TEXT NOT NULL DEFAULT 'Zone A - Downtown'"),
+        ("priority", "TEXT NOT NULL DEFAULT 'Standard'"),
+        ("deadline", "TEXT NOT NULL DEFAULT '18:00'"),
+        ("warehouse_id", "TEXT NOT NULL DEFAULT 'WH-01'"),
+        ("assigned_vehicle_id", "TEXT NULL")
+    ]
+    for col_name, col_def in columns_to_add:
+        if col_name not in existing_cols:
+            cur.execute(f"ALTER TABLE orders ADD COLUMN {col_name} {col_def}")
     conn.commit()
 
     # Ensure demo user accounts are always seeded if missing
@@ -225,6 +365,68 @@ def init_sqlite_database():
             sqlite_users_data
         )
         conn.commit()
+
+    # Seed Warehouses if empty
+    cur.execute("SELECT COUNT(*) FROM warehouses")
+    if cur.fetchone()[0] == 0:
+        warehouses_seed = [
+            ("WH-01", "Central Distribution Center", "Downtown Logistics District", 0.0, 0.0, "Zone A - Downtown, Zone B - East Industrial"),
+            ("WH-02", "North Metro Logistics Hub", "North Industrial Park", 15.0, 22.0, "Zone C - North Suburbs, Zone D - Airport Logistics"),
+            ("WH-03", "West River Freight Depot", "West Port Corridor", -18.0, 10.0, "Zone E - West Harbor, Zone F - Tech Corridor")
+        ]
+        cur.executemany(
+            "INSERT INTO warehouses (id, name, location, coord_x, coord_y, service_zones) VALUES (?, ?, ?, ?, ?, ?)",
+            warehouses_seed
+        )
+        conn.commit()
+
+    # Seed Vehicles if empty
+    cur.execute("SELECT COUNT(*) FROM vehicles")
+    if cur.fetchone()[0] == 0:
+        vehicles_seed = [
+            ("VEH-101", "EcoVan Alpha", "Electric Van", 650.0, 0.0, "WH-01", "Available", 1.25, 15.00),
+            ("VEH-102", "Sprinter Beta", "Sprinter Van", 1200.0, 0.0, "WH-01", "Available", 1.75, 25.00),
+            ("VEH-103", "BoxMaster 01", "Box Truck", 2500.0, 0.0, "WH-01", "Available", 2.60, 40.00),
+            ("VEH-104", "Transporter Gamma", "Electric Van", 750.0, 0.0, "WH-02", "Available", 1.30, 18.00),
+            ("VEH-105", "HeavyHaul 01", "Heavy Hauler", 4000.0, 0.0, "WH-02", "Available", 3.50, 60.00),
+            ("VEH-106", "MetroVan Delta", "Cargo Van", 1000.0, 0.0, "WH-03", "Available", 1.65, 22.00),
+            ("VEH-107", "Express Cruiser", "Sprinter Van", 1100.0, 0.0, "WH-03", "Maintenance", 1.80, 25.00),
+            ("VEH-108", "City Runner 02", "Electric Van", 700.0, 0.0, "WH-03", "In Transit", 1.20, 16.00),
+        ]
+        cur.executemany(
+            "INSERT INTO vehicles (id, name, vehicle_type, max_capacity, current_load, location, status, cost_per_km, fixed_cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            vehicles_seed
+        )
+        conn.commit()
+
+    # Backfill or update sample orders 1 to 12 if they have default values
+    cur.execute("SELECT id, weight, warehouse_id FROM orders WHERE id <= 12")
+    existing_orders = cur.fetchall()
+    if existing_orders:
+        orders_meta = [
+            (1, 140.0, "Zone A - Downtown", "Urgent", "14:00", "WH-01"),
+            (2, 85.0, "Zone A - Downtown", "High", "16:00", "WH-01"),
+            (3, 210.0, "Zone B - East Industrial", "Standard", "18:00", "WH-01"),
+            (4, 95.0, "Zone B - East Industrial", "Standard", "18:00", "WH-01"),
+            (5, 320.0, "Zone A - Downtown", "High", "15:00", "WH-01"),
+            (6, 175.0, "Zone C - North Suburbs", "Urgent", "13:30", "WH-02"),
+            (7, 480.0, "Zone D - Airport Logistics", "Standard", "18:00", "WH-02"),
+            (8, 260.0, "Zone C - North Suburbs", "High", "16:30", "WH-02"),
+            (9, 115.0, "Zone D - Airport Logistics", "Low", "Tomorrow 10:00", "WH-02"),
+            (10, 520.0, "Zone E - West Harbor", "Standard", "17:00", "WH-03"),
+            (11, 180.0, "Zone F - Tech Corridor", "High", "15:30", "WH-03"),
+            (12, 290.0, "Zone E - West Harbor", "Urgent", "14:00", "WH-03"),
+        ]
+        # Only update if they appear un-migrated (e.g. weight == 15.0 for all)
+        cur.execute("SELECT COUNT(DISTINCT weight) FROM orders WHERE id <= 12")
+        distinct_weights = cur.fetchone()[0]
+        if distinct_weights <= 1:
+            for o_id, wt, zone, prio, dl, wh in orders_meta:
+                cur.execute(
+                    "UPDATE orders SET weight = ?, destination_zone = ?, priority = ?, deadline = ?, warehouse_id = ? WHERE id = ?",
+                    (wt, zone, prio, dl, wh, o_id)
+                )
+            conn.commit()
 
     # Check if warehouse topology is already seeded
     cur.execute("SELECT COUNT(*) FROM shelves")
