@@ -223,7 +223,7 @@
       <div style="display: grid; grid-template-columns: 2.3fr 1.7fr; gap: 1.75rem; align-items: start; margin-bottom: 2rem;">
         
         <!-- Floorplan Route Canvas with Interactive Controls -->
-        <div class="card" id="route-canvas-card" style="padding: 1.25rem; position: relative; display: flex; flex-direction: column;">
+        <div class="card" id="route-canvas-card" style="padding: 1.25rem; position: relative;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
             <div>
               <div class="card-title" style="margin-bottom: 0.15rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
@@ -277,8 +277,8 @@
             </button>
           </div>
 
-          <div class="canvas-wrapper" style="overflow: hidden; cursor: grab; flex: 1; min-height: 440px; border-radius: 8px; border: 1px solid var(--border); box-shadow: inset 0 2px 8px rgba(0,0,0,0.15);">
-            <canvas id="route-canvas" width="820" height="520" style="background: var(--canvas-bg); border-radius: 7px; width: 100%; height: 100%; display: block;" tabindex="0" aria-label="Interactive Warehouse Floorplan Canvas"></canvas>
+          <div class="canvas-wrapper" style="position: relative; overflow: hidden; cursor: grab; height: 540px; border-radius: 8px; border: 1px solid var(--border); box-shadow: inset 0 2px 8px rgba(0,0,0,0.15);">
+            <canvas id="route-canvas" width="860" height="540" style="background: var(--canvas-bg); border-radius: 7px; display: block;" tabindex="0" aria-label="Interactive Warehouse Floorplan Canvas"></canvas>
           </div>
 
           <!-- Animation Scrubber & Playback Controls Bar -->
@@ -684,6 +684,20 @@
         resizeCanvas();
         fitView();
       });
+
+      if (window.ResizeObserver) {
+        const ro = new ResizeObserver(() => {
+          resizeCanvas();
+        });
+        const wrapper = canvas.parentElement;
+        if (wrapper) ro.observe(wrapper);
+      }
+
+      if (document.fonts) {
+        document.fonts.ready.then(() => {
+          drawRouteCanvas();
+        });
+      }
     }
 
     function zoomAt(cx, cy, factor) {
@@ -712,13 +726,13 @@
       const logicalHeight = canvas.height / dpr;
 
       view.scale = 1.0;
-      view.x = (logicalWidth - 820) / 2;
-      view.y = (logicalHeight - 520) / 2;
+      view.x = (logicalWidth - 860) / 2;
+      view.y = (logicalHeight - 540) / 2;
       updateZoomLabel();
       drawRouteCanvas();
     }
 
-    // Tight Bounding Box Auto-Fit (~5% margin, no loose blank padding)
+    // Tight Bounding Box Auto-Fit (~5% margin, strictly uniform 1:1 aspect ratio)
     function fitView() {
       const canvas = document.getElementById('route-canvas');
       if (!canvas) return;
@@ -730,12 +744,15 @@
 
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
       graphData.nodes.forEach(n => {
-        const r = (n.id === 1) ? 44 : 32;
+        const r = (n.id === 1) ? 55 : 36;
         if (n.x - r < minX) minX = n.x - r;
         if (n.x + r > maxX) maxX = n.x + r;
         if (n.y - r < minY) minY = n.y - r;
         if (n.y + r > maxY) maxY = n.y + r;
       });
+
+      // Account for overhead aisle signboards at y ~ 20-50
+      if (minY > 20) minY = 20;
 
       const boxW = Math.max(100, maxX - minX);
       const boxH = Math.max(100, maxY - minY);
@@ -745,6 +762,7 @@
       const targetW = boxW + padW * 2;
       const targetH = boxH + padH * 2;
 
+      // Uniform aspect ratio scaling (identical scale for both axes)
       const scaleX = logicalWidth / targetW;
       const scaleY = logicalHeight / targetH;
       const targetScale = Math.min(scaleX, scaleY);
@@ -803,11 +821,12 @@
       const canvas = document.getElementById('route-canvas');
       if (!canvas) return;
       const wrapper = canvas.parentElement;
+      if (!wrapper) return;
       const rect = wrapper.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
 
-      const w = Math.floor(rect.width > 0 ? rect.width : 820);
-      const h = isFullscreen ? Math.floor(window.innerHeight - 90) : Math.max(440, Math.floor(rect.height > 0 ? rect.height : 520));
+      const w = Math.floor(rect.width > 0 ? rect.width : 860);
+      const h = isFullscreen ? Math.floor(window.innerHeight - 90) : (rect.height > 0 ? Math.floor(rect.height) : 540);
 
       canvas.width = Math.floor(w * dpr);
       canvas.height = Math.floor(h * dpr);
@@ -1282,7 +1301,7 @@
 
       // Zone Label
       ctx.fillStyle = dark ? '#6ee7b7' : '#059669';
-      ctx.font = 'bold 8.5px monospace';
+      ctx.font = '700 8.5px "JetBrains Mono", monospace';
       ctx.fillText("INBOUND & PACKING DOCK", 25, 192);
 
       // Central Express Corridor dividing lanes (y = 260)
@@ -1323,12 +1342,12 @@
         ctx.stroke();
 
         ctx.fillStyle = '#f8fafc';
-        ctx.font = 'bold 8.5px sans-serif';
+        ctx.font = '700 9px "Plus Jakarta Sans", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(a.label, a.cx, by + 10);
 
         ctx.fillStyle = '#94a3b8';
-        ctx.font = '600 6.5px monospace';
+        ctx.font = '600 7px "JetBrains Mono", monospace';
         ctx.fillText(a.range, a.cx, by + 17);
         ctx.restore();
       });
@@ -1357,12 +1376,12 @@
         ctx.strokeStyle = dark ? '#475569' : '#94a3b8';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.roundRect(mx - 15, my - 7, 30, 14, 4);
+        ctx.roundRect(mx - 16, my - 8, 32, 16, 4);
         ctx.fill();
         ctx.stroke();
 
         ctx.fillStyle = dark ? '#94a3b8' : '#475569';
-        ctx.font = 'bold 8px monospace';
+        ctx.font = '700 8.5px "JetBrains Mono", monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(`${e.distance}m`, mx, my);
@@ -1405,7 +1424,7 @@
     // --- Sub-renderer: Packing & Dispatch Hub (Packing Dock #1) (Identical to graph.html) ---
     function drawPackingStation(ctx, n, isHovered) {
       ctx.save();
-      const pw = 96;
+      const pw = 104;
       const ph = 56;
       const px = n.x - pw / 2;
       const py = n.y - ph / 2;
@@ -1448,12 +1467,12 @@
 
       // Labels
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 10px monospace';
+      ctx.font = '700 11px "JetBrains Mono", monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText("PACK DOCK #1", n.x + 4, n.y - 6);
 
-      ctx.font = '700 7px sans-serif';
+      ctx.font = '700 7.5px "Plus Jakarta Sans", sans-serif';
       ctx.fillStyle = '#ecfdf5';
       ctx.fillText("ORIGIN & DISPATCH", n.x + 4, n.y + 8);
 
@@ -1463,7 +1482,7 @@
     // --- Sub-renderer: Pallet Storage Racks (Identical to graph.html + Pick Stop Overlays) ---
     function drawPalletRack(ctx, n, isStop, isHovered, dark) {
       ctx.save();
-      const w = 58;
+      const w = 62;
       const h = 34;
       const x = n.x - w / 2;
       const y = n.y - h / 2;
@@ -1506,7 +1525,7 @@
 
       // Shelf Label
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 10px monospace';
+      ctx.font = '700 11px "JetBrains Mono", monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(`S-${String(n.id).padStart(2, '0')}`, n.x, n.y - 3);
@@ -1515,14 +1534,14 @@
       const load = n.current_load || 0;
       const cap = n.capacity || 5;
       ctx.fillStyle = (load >= cap) ? '#ef4444' : '#94a3b8';
-      ctx.font = '600 7px sans-serif';
+      ctx.font = '600 8px "Plus Jakarta Sans", sans-serif';
       ctx.fillText(`${load}/${cap} SKUs`, n.x, n.y + 8);
 
       // Stop Visit Sequence Number Medal (Amber Pill Tag at Top-Right)
       if (isStop && currentRoute && currentRoute.stops) {
         const stopIndex = currentRoute.stops.indexOf(n.id);
         if (stopIndex > 0) {
-          const bx = n.x + 23;
+          const bx = n.x + 25;
           const by = n.y - 12;
 
           // Drop shadow
@@ -1548,7 +1567,7 @@
 
           // Sequence Order Number
           ctx.fillStyle = '#0f172a';
-          ctx.font = 'bold 9.5px -apple-system, sans-serif';
+          ctx.font = '800 9.5px "JetBrains Mono", monospace';
           ctx.fillText(stopIndex, bx, by + 0.5);
         }
       }
@@ -1632,12 +1651,12 @@
       const cy = 30;
 
       ctx.fillStyle = dark ? '#F2F2F7' : '#1C1C1E';
-      ctx.font = 'bold 11px sans-serif';
+      ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
       ctx.textAlign = 'left';
       ctx.fillText('FACILITY MDC-01 • FLOORPLAN DIGITAL TWIN', cx + 18, cy - 2);
 
       ctx.fillStyle = dark ? '#94a3b8' : '#64748b';
-      ctx.font = '600 8.5px sans-serif';
+      ctx.font = '600 8px "JetBrains Mono", monospace';
       ctx.fillText('DISCRETE METRIC GRAPH MODEL & TSP ROUTING MATRIX', cx + 18, cy + 9);
 
       // Clean, High-Visibility Scale Bar at Bottom-Left in a Translucent Pill
