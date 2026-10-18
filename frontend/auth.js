@@ -599,6 +599,9 @@ function renderNavAuth() {
         if (typeof openProfileSettingsModal === 'function') openProfileSettingsModal('settings');
       });
     }
+
+    // Initialize global notification center
+    initGlobalNotificationCenter();
   }
 
   // 2. Synchronize Landing Page Navigation (.nav-actions) if present
@@ -727,6 +730,146 @@ function renderNavAuth() {
       <span>Sign In</span>
     `;
     rightActions.insertBefore(authBtn, rightActions.firstChild);
+  }
+}
+
+/**
+ * Global Topbar Notification Center
+ */
+function initGlobalNotificationCenter() {
+  const userContainer = document.querySelector('.topbar .user') || document.querySelector('.user');
+  if (!userContainer) return;
+  if (document.getElementById('notif-center-wrap')) return;
+
+  const notifWrap = document.createElement('div');
+  notifWrap.id = 'notif-center-wrap';
+  notifWrap.className = 'notif-center-wrap';
+  notifWrap.style.position = 'relative';
+  notifWrap.style.display = 'inline-block';
+
+  notifWrap.innerHTML = `
+    <button class="ib notif-bell-btn" id="notif-bell-btn" aria-label="Notifications" title="Operational Alerts &amp; Notifications" style="position: relative;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+      </svg>
+      <span class="notif-badge" id="notif-badge" style="display: none; position: absolute; top: -3px; right: -3px; background: #ef4444; color: #fff; font-size: 0.65rem; font-weight: 800; border-radius: 999px; padding: 1px 5px; line-height: 1.2; font-family: var(--font-mono, monospace); box-shadow: 0 0 0 2px var(--nav-bg, #1C1C1E);">0</span>
+    </button>
+    <div class="notif-dropdown" id="notif-dropdown" style="display: none; position: absolute; right: 0; top: calc(100% + 8px); width: 340px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #D8D8DC); border-radius: 14px; box-shadow: 0 12px 36px rgba(0,0,0,0.25); z-index: 99999; overflow: hidden; color: var(--text-main, #1c1c1e);">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border-color, #eee); background: var(--bg, rgba(0,0,0,0.02));">
+        <div style="font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
+          <span>Facility Alerts</span>
+          <span id="notif-count-pill" style="font-size: 0.7rem; background: var(--primary, #2c2c2e); color: #fff; padding: 1px 6px; border-radius: 999px; font-family: var(--font-mono, monospace);">0</span>
+        </div>
+        <button type="button" id="notif-mark-all" style="background: transparent; border: none; font-size: 0.74rem; font-weight: 600; color: var(--primary, #5E7A52); cursor: pointer; padding: 2px 4px;">Mark all read</button>
+      </div>
+      <div id="notif-items-list" style="max-height: 320px; overflow-y: auto; padding: 4px 0;">
+        <div style="text-align: center; padding: 24px 16px; font-size: 0.82rem; color: var(--text-secondary, #666);">
+          Loading notifications...
+        </div>
+      </div>
+    </div>
+  `;
+
+  const logoutBtn = document.getElementById('logout');
+  if (logoutBtn && logoutBtn.parentNode === userContainer) {
+    userContainer.insertBefore(notifWrap, logoutBtn);
+  } else {
+    userContainer.appendChild(notifWrap);
+  }
+
+  const bellBtn = document.getElementById('notif-bell-btn');
+  const dropdown = document.getElementById('notif-dropdown');
+  const markAllBtn = document.getElementById('notif-mark-all');
+
+  bellBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = dropdown.style.display !== 'none';
+    dropdown.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) {
+      loadNotificationsList();
+    }
+  });
+
+  markAllBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    try {
+      await fetch('/api/notifications/read-all', { method: 'POST' });
+      await loadNotificationsList();
+    } catch (err) {
+      console.warn('Failed to mark all notifications read:', err);
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!notifWrap.contains(e.target)) {
+      dropdown.style.display = 'none';
+    }
+  });
+
+  loadNotificationsList();
+}
+
+async function loadNotificationsList() {
+  const badge = document.getElementById('notif-badge');
+  const countPill = document.getElementById('notif-count-pill');
+  const list = document.getElementById('notif-items-list');
+  if (!badge || !list) return;
+
+  try {
+    const res = await fetch('/api/notifications');
+    if (!res.ok) return;
+    const data = await res.json();
+    const unread = data.unread_count || 0;
+    const items = data.notifications || [];
+
+    if (unread > 0) {
+      badge.textContent = unread > 99 ? '99+' : unread;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+    if (countPill) countPill.textContent = unread;
+
+    if (items.length === 0) {
+      list.innerHTML = `
+        <div style="text-align: center; padding: 28px 16px; font-size: 0.82rem; color: var(--text-secondary, #888);">
+          No active facility notifications
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = items.map(n => {
+      const sevColor = n.severity === 'CRITICAL' ? '#ef4444' : (n.severity === 'WARNING' ? '#f59e0b' : '#5E7A52');
+      const timeStr = n.created_at ? n.created_at.slice(11, 16) : '';
+      const unreadBg = !n.is_read ? 'background: rgba(94, 122, 82, 0.08);' : '';
+      return `
+        <div style="padding: 10px 16px; border-bottom: 1px solid var(--border-color, #eee); display: flex; align-items: flex-start; gap: 10px; ${unreadBg}">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: ${sevColor}; margin-top: 5px; flex-shrink: 0;"></span>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-main, #111); display: flex; justify-content: space-between; align-items: baseline;">
+              <span>${n.title}</span>
+              <span style="font-size: 0.7rem; font-family: var(--font-mono, monospace); color: var(--text-secondary, #888); font-weight: normal;">${timeStr}</span>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary, #666); margin-top: 2px; line-height: 1.35;">${n.message}</div>
+          </div>
+          <button type="button" onclick="dismissNotificationItem(${n.id}, event)" title="Dismiss alert" style="background: transparent; border: none; color: var(--text-secondary, #999); cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 2px;">&times;</button>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    console.warn('Error loading notifications:', err);
+  }
+}
+
+async function dismissNotificationItem(id, e) {
+  if (e) e.stopPropagation();
+  try {
+    await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
+    loadNotificationsList();
+  } catch (err) {
+    console.warn('Error dismissing notification:', err);
   }
 }
 

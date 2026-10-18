@@ -10,7 +10,9 @@ Core Object-Oriented Domain Entities matching the database tables:
 """
 
 class Product:
-    def __init__(self, id, name, category, assigned_shelf_id=None, pick_frequency=0, stock_quantity=50, volume=1.0):
+    def __init__(self, id, name, category, assigned_shelf_id=None, pick_frequency=0,
+                 stock_quantity=50, volume=1.0, sku=None, reorder_threshold=15,
+                 unit_price=19.99, is_archived=0, **kwargs):
         self.id = id
         self.name = name
         self.category = category
@@ -18,6 +20,14 @@ class Product:
         self.pick_frequency = float(pick_frequency or 0)
         self.stock_quantity = int(stock_quantity if stock_quantity is not None else 50)
         self.volume = float(volume if volume is not None else 1.0)
+        self.sku = str(sku).strip() if sku else f"SKU-{id:04d}"
+        self.reorder_threshold = int(reorder_threshold if reorder_threshold is not None else 15)
+        self.unit_price = float(unit_price if unit_price is not None else 19.99)
+        self.is_archived = int(is_archived or 0)
+
+    @property
+    def is_low_stock(self):
+        return self.stock_quantity <= self.reorder_threshold
 
     def to_dict(self):
         return {
@@ -27,7 +37,12 @@ class Product:
             "assigned_shelf_id": self.assigned_shelf_id,
             "pick_frequency": self.pick_frequency,
             "stock_quantity": self.stock_quantity,
-            "volume": self.volume
+            "volume": self.volume,
+            "sku": self.sku,
+            "reorder_threshold": self.reorder_threshold,
+            "unit_price": self.unit_price,
+            "is_archived": self.is_archived,
+            "is_low_stock": self.is_low_stock
         }
 
 class Shelf:
@@ -55,7 +70,8 @@ class Shelf:
 class Order:
     def __init__(self, id, customer_name, status="Pending", items=None,
                  weight=None, destination_zone="Zone A - Downtown", priority="Standard",
-                 deadline="18:00", warehouse_id="WH-01", assigned_vehicle_id=None):
+                 deadline="18:00", warehouse_id="WH-01", assigned_vehicle_id=None,
+                 total_amount=0.0, created_at=None, **kwargs):
         self.id = id
         self.customer_name = customer_name
         self.status = status
@@ -73,6 +89,8 @@ class Order:
         self.deadline = deadline or "18:00"
         self.warehouse_id = warehouse_id or "WH-01"
         self.assigned_vehicle_id = str(assigned_vehicle_id) if assigned_vehicle_id else None
+        self.total_amount = float(total_amount or 0.0)
+        self.created_at = created_at
 
     @property
     def item_count(self):
@@ -96,7 +114,71 @@ class Order:
             "deadline": self.deadline,
             "warehouse_id": self.warehouse_id,
             "assigned_vehicle_id": self.assigned_vehicle_id,
+            "total_amount": self.total_amount,
+            "created_at": self.created_at,
             "items": self.items
+        }
+
+class InventoryTransaction:
+    """
+    Audit log of all physical stock movements:
+    inbound receipts, order picking deductions, cycle count adjustments, restocks.
+    """
+    def __init__(self, id, product_id, movement_type, quantity_change,
+                 previous_quantity, new_quantity, reason=None, reference_id=None,
+                 user_email=None, created_at=None, product_name=None, sku=None):
+        self.id = id
+        self.product_id = product_id
+        self.movement_type = movement_type
+        self.quantity_change = quantity_change
+        self.previous_quantity = previous_quantity
+        self.new_quantity = new_quantity
+        self.reason = reason or ""
+        self.reference_id = reference_id or ""
+        self.user_email = user_email or "system@warehouse.io"
+        self.created_at = created_at
+        self.product_name = product_name
+        self.sku = sku
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "product_id": self.product_id,
+            "movement_type": self.movement_type,
+            "quantity_change": self.quantity_change,
+            "previous_quantity": self.previous_quantity,
+            "new_quantity": self.new_quantity,
+            "reason": self.reason,
+            "reference_id": self.reference_id,
+            "user_email": self.user_email,
+            "created_at": self.created_at,
+            "product_name": self.product_name,
+            "sku": self.sku
+        }
+
+class Notification:
+    """
+    System alert for operational events: low-stock thresholds, pending task batches,
+    corridor blockages, and wave exceptions.
+    """
+    def __init__(self, id, type, title, message, severity="info", is_read=0, created_at=None):
+        self.id = id
+        self.type = type
+        self.title = title
+        self.message = message
+        self.severity = severity
+        self.is_read = int(is_read or 0)
+        self.created_at = created_at
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "type": self.type,
+            "title": self.title,
+            "message": self.message,
+            "severity": self.severity,
+            "is_read": self.is_read,
+            "created_at": self.created_at
         }
 
 class Vehicle:

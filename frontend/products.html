@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Warehouse Product Catalog. Item master with shelf assignments, categories, and Pareto pick velocity.">
-  <title>Products Catalog | Warehouse Optimizer</title>
+  <meta name="description" content="Warehouse Product Catalog & Inventory Master with shelf assignments, stock movements, and Pareto pick velocity.">
+  <title>Products Catalog &amp; Inventory | Warehouse Optimizer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -14,10 +14,67 @@
   <script src="auth.js"></script>
   <script src="profile-settings.js"></script>
   <style>
+    /* Executive Summary KPI Ribbon */
+    .kpi-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 1.15rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .kpi-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 1.15rem 1.35rem;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+      position: relative;
+    }
+
+    .kpi-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--accent);
+    }
+
+    .kpi-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.74rem;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .kpi-card-value {
+      font-family: var(--font-mono);
+      font-size: 1.85rem;
+      font-weight: 800;
+      color: var(--text-main);
+      line-height: 1.1;
+      margin-bottom: 0.35rem;
+    }
+
+    .kpi-card-sub {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
     /* Product Tiles Grid System */
     .product-tiles-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(295px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(315px, 1fr));
       gap: 1.25rem;
       margin-bottom: 2.5rem;
     }
@@ -41,23 +98,44 @@
       border-color: var(--accent);
     }
 
+    .product-tile.is-low-stock {
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+
     .product-tile-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 0.5rem;
-      margin-bottom: 0.85rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .product-tile-id-group {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
     }
 
     .product-tile-id {
       font-family: var(--font-mono);
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 700;
       color: var(--text-main);
       background: rgba(122, 122, 126, 0.14);
       border: 1px solid var(--border-color);
-      padding: 2px 8px;
+      padding: 2px 7px;
       border-radius: 6px;
+    }
+
+    .product-tile-sku {
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: var(--primary);
+      background: rgba(94, 122, 82, 0.12);
+      border: 1px solid rgba(94, 122, 82, 0.25);
+      padding: 2px 6px;
+      border-radius: 5px;
     }
 
     .product-tile-name {
@@ -65,7 +143,7 @@
       font-weight: 700;
       color: var(--text-main);
       line-height: 1.35;
-      margin-bottom: 0.85rem;
+      margin-bottom: 0.75rem;
       min-height: 2.85rem;
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -78,18 +156,39 @@
       align-items: center;
       justify-content: space-between;
       gap: 0.5rem;
-      margin-bottom: 1rem;
+      margin-bottom: 0.85rem;
+      flex-wrap: wrap;
+    }
+
+    .product-tile-stock-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+    }
+
+    .product-tile-stock-badge.warning {
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: #ef4444;
     }
 
     .product-tile-shelf {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0.65rem 0.85rem;
+      padding: 0.6rem 0.8rem;
       background: var(--bg);
       border-radius: 9px;
       border: 1px solid var(--border-color);
-      margin-bottom: 1.1rem;
+      margin-bottom: 0.9rem;
     }
 
     .product-tile-shelf-info {
@@ -109,8 +208,9 @@
     .product-tile-velocity-card {
       background: var(--bg);
       border-radius: 10px;
-      padding: 0.85rem;
+      padding: 0.8rem;
       border: 1px solid var(--border-color);
+      margin-bottom: 0.9rem;
     }
 
     .product-tile-velocity-header {
@@ -118,20 +218,20 @@
       justify-content: space-between;
       align-items: baseline;
       margin-bottom: 0.45rem;
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       color: var(--text-secondary);
     }
 
     .product-tile-velocity-number {
       font-family: var(--font-mono);
-      font-size: 0.98rem;
+      font-size: 0.92rem;
       font-weight: 800;
       color: var(--text-main);
     }
 
     .product-tile-progress-track {
       width: 100%;
-      height: 7px;
+      height: 6px;
       background: rgba(0, 0, 0, 0.08);
       border-radius: 4px;
       overflow: hidden;
@@ -166,6 +266,53 @@
       align-items: center;
       font-size: 0.72rem;
       color: var(--text-muted);
+    }
+
+    /* Product Action Buttons Bar */
+    .product-tile-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .btn-tile-action {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 6px 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border-radius: 7px;
+      border: 1px solid var(--border-color);
+      background: var(--card-bg);
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-tile-action:hover {
+      background: var(--bg);
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .btn-tile-action.primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .btn-tile-action.primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-tile-action.danger:hover {
+      color: #ef4444;
+      border-color: rgba(239, 68, 68, 0.5);
     }
 
     /* View Switcher Controls */
@@ -209,11 +356,173 @@
       background: var(--card-hover, #2D312B);
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
     }
+
+    /* Modal System */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      width: 92%;
+      max-width: 580px;
+      max-height: 88vh;
+      overflow-y: auto;
+      padding: 1.75rem;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35);
+      transform: translateY(14px) scale(0.98);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .modal-box.wide {
+      max-width: 860px;
+    }
+
+    .modal-overlay.active .modal-box {
+      transform: translateY(0) scale(1);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.85rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .modal-title {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin: 0;
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      font-size: 1.25rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .modal-close:hover {
+      background: var(--bg);
+      color: var(--text-main);
+    }
+
+    .form-group-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .form-group input, .form-group select, .form-group textarea {
+      padding: 0.65rem 0.85rem;
+      border-radius: 9px;
+      border: 1.5px solid var(--border-color);
+      background: var(--bg);
+      color: var(--text-main);
+      font-size: 0.9rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(94, 122, 82, 0.15);
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    /* Toast */
+    .toast-msg {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translate(-50%, 20px);
+      background: var(--nav-bg);
+      color: #fff;
+      padding: 11px 20px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s;
+      z-index: 100000;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toast-msg.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    @media (max-width: 640px) {
+      .form-group-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
 
-  <!-- Executive Topbar Navigation (Dashboard UI) -->
+  <!-- Executive Topbar Navigation -->
   <header class="topbar">
     <div class="wrap">
       <div class="brand">
@@ -240,31 +549,70 @@
     </div>
   </header>
 
-  <div class="container">
-    <div class="page-header">
+  <div class="container" style="max-width: 1400px; margin: 0 auto; padding: 1.75rem 1.25rem;">
+    <!-- Page Header & Main Controls -->
+    <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
       <div>
-        <h1 class="page-title">Warehouse Product Catalog</h1>
-        <p class="page-subtitle">Inventory master, categories, assigned shelf locations, and pick frequencies</p>
+        <h1 class="page-title" style="font-size: 1.75rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.25rem;">Warehouse Product Catalog &amp; Inventory</h1>
+        <p class="page-subtitle" style="color: var(--text-secondary); font-size: 0.92rem;">SKU item master, shelf allocations, stock movements, and Pareto velocity slotting</p>
       </div>
-      <div>
-        <a href="layout.html" class="btn btn-primary">
-          Optimize Layout
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-            <polyline points="12 5 19 12 12 19"></polyline>
-          </svg>
+      <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <button class="btn btn-secondary" onclick="openInventoryHistoryModal()" style="display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+          Audit History
+        </button>
+        <button class="btn btn-primary" onclick="openAddProductModal()" style="display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          + Add Product
+        </button>
+        <a href="layout.html" class="btn" style="border: 1.5px solid var(--border-color); display: inline-flex; align-items: center; gap: 6px;">
+          Optimize Slotting
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
         </a>
       </div>
     </div>
 
-    <div class="concept-tag">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
-        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
-        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
-      </svg>
-      <div>
-        <strong>DBMS &amp; Catalog Concept:</strong> Products are mapped to storage shelves in MySQL (<code>products.assigned_shelf_id</code>). The pick frequency is dynamically computed via <code>SUM(sales.units_sold)</code> across historical transactions to drive greedy slotting.
+    <!-- Executive KPI Summary Ribbon -->
+    <div class="kpi-summary-grid">
+      <div class="kpi-card">
+        <div class="kpi-card-header">
+          <span>Active Catalog SKUs</span>
+          <span>🏷️</span>
+        </div>
+        <div class="kpi-card-value" id="kpi-total-skus">--</div>
+        <div class="kpi-card-sub">
+          <span>Unique catalog articles</span>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card-header">
+          <span>Total Units in Stock</span>
+          <span>📦</span>
+        </div>
+        <div class="kpi-card-value" id="kpi-total-units">--</div>
+        <div class="kpi-card-sub">
+          <span>Aggregated storage volume</span>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card-header">
+          <span>Inventory Valuation</span>
+          <span>💰</span>
+        </div>
+        <div class="kpi-card-value" id="kpi-total-value">$--</div>
+        <div class="kpi-card-sub">
+          <span>Asset carrying valuation</span>
+        </div>
+      </div>
+      <div class="kpi-card" id="kpi-card-low-stock" style="cursor: pointer;" onclick="toggleLowStockFilter()" title="Click to filter low stock items">
+        <div class="kpi-card-header">
+          <span>Low Stock Warnings</span>
+          <span>⚠️</span>
+        </div>
+        <div class="kpi-card-value" id="kpi-low-stock" style="color: #ef4444;">--</div>
+        <div class="kpi-card-sub">
+          <span id="kpi-low-stock-sub">Items at or below reorder threshold</span>
+        </div>
       </div>
     </div>
 
@@ -272,14 +620,14 @@
     <div class="card" style="padding: 1.25rem 1.5rem; margin-bottom: 1.75rem;">
       <div style="display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;">
         <div style="display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: flex-end; flex: 1;">
-          <div style="flex: 1; min-width: 220px; max-width: 400px;">
-            <label for="search-input" class="form-label">Search Catalog Item:</label>
-            <input type="text" id="search-input" class="form-input" placeholder="Search by product name..." oninput="applyFilters()">
+          <div style="flex: 1; min-width: 220px; max-width: 380px;">
+            <label for="search-input" class="form-label" style="font-size: 0.75rem; font-weight: 700; font-family: var(--font-mono); text-transform: uppercase; color: var(--text-secondary); margin-bottom: 4px; display: block;">Search Catalog / SKU:</label>
+            <input type="text" id="search-input" class="form-input" placeholder="Search by name or SKU..." oninput="applyFilters()">
           </div>
-          <div style="min-width: 200px;">
-            <label for="category-filter" class="form-label">Filter Category:</label>
+          <div style="min-width: 180px;">
+            <label for="category-filter" class="form-label" style="font-size: 0.75rem; font-weight: 700; font-family: var(--font-mono); text-transform: uppercase; color: var(--text-secondary); margin-bottom: 4px; display: block;">Filter Category:</label>
             <select id="category-filter" class="form-select" onchange="applyFilters()">
-              <option value="ALL">All Categories (60 items)</option>
+              <option value="ALL">All Categories</option>
               <option value="Electronics">Electronics</option>
               <option value="Fasteners">Fasteners</option>
               <option value="Heavy">Heavy (Special Handling)</option>
@@ -288,9 +636,19 @@
               <option value="Safety">Safety</option>
             </select>
           </div>
+          <div style="min-width: 170px;">
+            <label for="stock-filter" class="form-label" style="font-size: 0.75rem; font-weight: 700; font-family: var(--font-mono); text-transform: uppercase; color: var(--text-secondary); margin-bottom: 4px; display: block;">Stock Status:</label>
+            <select id="stock-filter" class="form-select" onchange="applyFilters()">
+              <option value="ALL">All Inventory Levels</option>
+              <option value="LOW">Low Stock Only (≤ Threshold)</option>
+              <option value="ADEQUATE">Adequate Stock</option>
+            </select>
+          </div>
         </div>
-        <div style="font-size: 0.875rem; font-weight: 600; color: var(--text-muted); background: var(--bg); padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--border);" id="product-count-label">
-          Showing 0 products
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); background: var(--bg); padding: 0.5rem 0.85rem; border-radius: 8px; border: 1px solid var(--border-color); font-family: var(--font-mono);" id="product-count-label">
+            Showing 0 products
+          </div>
         </div>
       </div>
     </div>
@@ -320,21 +678,25 @@
 
     <!-- Products Table (Optional Alternate View) -->
     <div class="card" id="products-table-card" style="display: none; margin-bottom: 2.5rem;">
-      <div class="table-responsive">
-        <table>
+      <div class="table-responsive" style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
           <thead>
             <tr>
               <th style="width: 70px;">ID</th>
+              <th>SKU</th>
               <th>Product Name</th>
               <th>Category</th>
-              <th>Assigned Shelf</th>
-              <th style="min-width: 220px;">Pick Velocity (Units Sold)</th>
-              <th>Priority Tier</th>
+              <th>Shelf Location</th>
+              <th>Unit Price</th>
+              <th>Stock Status</th>
+              <th style="min-width: 180px;">Pick Velocity</th>
+              <th>Tier</th>
+              <th style="text-align: right; width: 140px;">Actions</th>
             </tr>
           </thead>
           <tbody id="products-table-body">
             <tr>
-              <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+              <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 2rem;">
                 Loading catalog products from /api/products...
               </td>
             </tr>
@@ -344,7 +706,233 @@
     </div>
   </div>
 
-  <footer class="app-footer">
+  <!-- ================================================================= -->
+  <!-- MODAL 1: ADD PRODUCT                                              -->
+  <!-- ================================================================= -->
+  <div class="modal-overlay" id="modal-add-product" onclick="if(event.target === this) closeModals()">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Add New Product
+        </h3>
+        <button type="button" class="modal-close" onclick="closeModals()">&times;</button>
+      </div>
+      <form id="form-add-product" onsubmit="submitAddProduct(event)">
+        <div class="form-group">
+          <label for="add-prod-name">Product Name *</label>
+          <input type="text" id="add-prod-name" required placeholder="e.g. High-Torque Servo Motor 24V">
+        </div>
+        <div class="form-group-grid">
+          <div class="form-group">
+            <label for="add-prod-sku">SKU Code (optional)</label>
+            <input type="text" id="add-prod-sku" placeholder="Auto-generated if empty">
+          </div>
+          <div class="form-group">
+            <label for="add-prod-category">Category *</label>
+            <select id="add-prod-category" required>
+              <option value="Electronics">Electronics</option>
+              <option value="Fasteners">Fasteners</option>
+              <option value="Heavy">Heavy</option>
+              <option value="Fragile">Fragile</option>
+              <option value="Tools">Tools</option>
+              <option value="Safety">Safety</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="add-prod-shelf">Assigned Storage Shelf *</label>
+          <select id="add-prod-shelf" required>
+            <option value="">Loading shelves...</option>
+          </select>
+        </div>
+        <div class="form-group-grid">
+          <div class="form-group">
+            <label for="add-prod-stock">Initial Stock Quantity *</label>
+            <input type="number" id="add-prod-stock" value="50" min="0" required>
+          </div>
+          <div class="form-group">
+            <label for="add-prod-price">Unit Price ($) *</label>
+            <input type="number" id="add-prod-price" value="25.00" min="0.01" step="0.01" required>
+          </div>
+        </div>
+        <div class="form-group-grid">
+          <div class="form-group">
+            <label for="add-prod-volume">Unit Volume *</label>
+            <input type="number" id="add-prod-volume" value="1.0" min="0.1" step="0.1" required>
+          </div>
+          <div class="form-group">
+            <label for="add-prod-threshold">Reorder Threshold *</label>
+            <input type="number" id="add-prod-threshold" value="15" min="1" required>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeModals()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Product</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- MODAL 2: EDIT PRODUCT                                             -->
+  <!-- ================================================================= -->
+  <div class="modal-overlay" id="modal-edit-product" onclick="if(event.target === this) closeModals()">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          Edit Product <span id="edit-prod-id-label" style="font-family: var(--font-mono); color: var(--primary);">#--</span>
+        </h3>
+        <button type="button" class="modal-close" onclick="closeModals()">&times;</button>
+      </div>
+      <form id="form-edit-product" onsubmit="submitEditProduct(event)">
+        <input type="hidden" id="edit-prod-id">
+        <div class="form-group">
+          <label for="edit-prod-name">Product Name *</label>
+          <input type="text" id="edit-prod-name" required>
+        </div>
+        <div class="form-group-grid">
+          <div class="form-group">
+            <label for="edit-prod-sku">SKU Code</label>
+            <input type="text" id="edit-prod-sku" readonly style="opacity: 0.75; cursor: not-allowed;">
+          </div>
+          <div class="form-group">
+            <label for="edit-prod-category">Category *</label>
+            <select id="edit-prod-category" required>
+              <option value="Electronics">Electronics</option>
+              <option value="Fasteners">Fasteners</option>
+              <option value="Heavy">Heavy</option>
+              <option value="Fragile">Fragile</option>
+              <option value="Tools">Tools</option>
+              <option value="Safety">Safety</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="edit-prod-shelf">Assigned Storage Shelf *</label>
+          <select id="edit-prod-shelf" required>
+            <option value="">Loading shelves...</option>
+          </select>
+        </div>
+        <div class="form-group-grid">
+          <div class="form-group">
+            <label for="edit-prod-price">Unit Price ($) *</label>
+            <input type="number" id="edit-prod-price" min="0.01" step="0.01" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-prod-threshold">Reorder Threshold *</label>
+            <input type="number" id="edit-prod-threshold" min="1" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="edit-prod-volume">Unit Volume *</label>
+          <input type="number" id="edit-prod-volume" min="0.1" step="0.1" required>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeModals()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- MODAL 3: ADJUST STOCK                                             -->
+  <!-- ================================================================= -->
+  <div class="modal-overlay" id="modal-adjust-stock" onclick="if(event.target === this) closeModals()">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Adjust Inventory Stock
+        </h3>
+        <button type="button" class="modal-close" onclick="closeModals()">&times;</button>
+      </div>
+      <form id="form-adjust-stock" onsubmit="submitAdjustStock(event)">
+        <input type="hidden" id="adjust-prod-id">
+        <div style="background: var(--bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+          <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);" id="adjust-prod-title">--</div>
+          <div style="font-size: 0.78rem; font-family: var(--font-mono); color: var(--text-secondary); margin-top: 3px;">
+            SKU: <span id="adjust-prod-sku">--</span> &bull; Current Stock: <strong id="adjust-prod-current" style="color: var(--primary);">--</strong> units
+          </div>
+        </div>
+
+        <div class="form-group-grid">
+          <div class="form-group">
+            <label for="adjust-movement-type">Movement Type *</label>
+            <select id="adjust-movement-type" required onchange="updateMovementDeltaSign()">
+              <option value="RESTOCK">Restock Inbound (+)</option>
+              <option value="CYCLE_COUNT">Inventory Count Adjustment (+/-)</option>
+              <option value="DAMAGE">Damaged Goods Scrap (-)</option>
+              <option value="INTERNAL_USE">Internal Warehouse Use (-)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="adjust-quantity" id="adjust-qty-label">Quantity to Add *</label>
+            <input type="number" id="adjust-quantity" min="1" value="10" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="adjust-reason">Audit Reason Note *</label>
+          <input type="text" id="adjust-reason" required placeholder="e.g. PO #8492 Supplier delivery received">
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeModals()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-adjust">Confirm Stock Adjustment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- MODAL 4: INVENTORY TRANSACTION HISTORY LOG                        -->
+  <!-- ================================================================= -->
+  <div class="modal-overlay" id="modal-history" onclick="if(event.target === this) closeModals()">
+    <div class="modal-box wide">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+          Facility Inventory Transaction Audit Trail
+        </h3>
+        <button type="button" class="modal-close" onclick="closeModals()">&times;</button>
+      </div>
+      <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.82rem; color: var(--text-secondary);">Immutable stock movements and pick consumptions:</span>
+        <button class="btn btn-secondary" onclick="loadHistoryTransactions()" style="padding: 4px 10px; font-size: 0.78rem;">Refresh Log</button>
+      </div>
+      <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+          <thead>
+            <tr>
+              <th style="padding: 8px;">Time</th>
+              <th>Product / SKU</th>
+              <th>Movement</th>
+              <th>Change</th>
+              <th>Balance</th>
+              <th>Reason &amp; User</th>
+            </tr>
+          </thead>
+          <tbody id="history-table-body">
+            <tr>
+              <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                Loading transaction history...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModals()">Close Audit Trail</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-msg" id="toast-msg"></div>
+
+  <footer class="app-footer" style="padding: 2.5rem 0; border-top: 1px solid var(--border-color); text-align: center; color: var(--text-secondary); font-size: 0.82rem;">
     <div class="container" style="margin: 0 auto;">
       Warehouse Layout &amp; Order Picking Optimizer &bull; High-Performance Graph Routing Engine
     </div>
@@ -352,24 +940,93 @@
 
   <script>
     let allProducts = [];
+    let allShelves = [];
     let maxUnits = 1;
+    let isLowStockOnly = false;
+
+    // Toast helper
+    function showToast(msg) {
+      const t = document.getElementById('toast-msg');
+      if (!t) return;
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(window._toastTimeout);
+      window._toastTimeout = setTimeout(() => {
+        t.classList.remove('show');
+      }, 2600);
+    }
+
+    async function loadShelves() {
+      try {
+        const res = await fetch('/api/shelves');
+        allShelves = await res.json();
+        populateShelfDropdowns();
+      } catch (err) {
+        console.error("Failed to load shelves:", err);
+      }
+    }
+
+    function populateShelfDropdowns() {
+      const addSelect = document.getElementById('add-prod-shelf');
+      const editSelect = document.getElementById('edit-prod-shelf');
+      if (!addSelect || !editSelect) return;
+
+      const optionsHtml = allShelves
+        .filter(s => s.id > 1) // Shelf 1 is packing dock
+        .map(s => {
+          const avail = s.capacity - (s.current_load || 0);
+          return `<option value="${s.id}">Shelf #${s.id} (Zone ${s.zone}) &bull; ${avail} slots avail / cap ${s.capacity}</option>`;
+        })
+        .join('');
+
+      addSelect.innerHTML = optionsHtml;
+      editSelect.innerHTML = optionsHtml;
+    }
 
     async function loadProducts() {
       try {
         const res = await fetch('/api/products');
         allProducts = await res.json();
-        
-        // Find max units sold for relative meter sizing
-        maxUnits = Math.max(...allProducts.map(p => p.pick_frequency || 0), 1);
-        
-        renderProducts(allProducts);
 
-        // Restore user view preference if present
+        // Max units for relative meter
+        maxUnits = Math.max(...allProducts.map(p => p.pick_frequency || 0), 1);
+
+        updateExecutiveKpiRibbon();
+        applyFilters();
+
         const savedView = localStorage.getItem('wo-products-view') || 'tiles';
         switchView(savedView);
       } catch (err) {
         console.error("Failed to load products:", err);
+        showToast("Error loading products catalog");
       }
+    }
+
+    function updateExecutiveKpiRibbon() {
+      const totalSkus = allProducts.length;
+      const totalUnits = allProducts.reduce((sum, p) => sum + (p.stock_quantity || 0), 0);
+      const totalValuation = allProducts.reduce((sum, p) => sum + ((p.stock_quantity || 0) * (p.unit_price || 0)), 0);
+      const lowStockCount = allProducts.filter(p => (p.stock_quantity || 0) <= (p.reorder_threshold || 15)).length;
+
+      const skuEl = document.getElementById('kpi-total-skus');
+      const unitsEl = document.getElementById('kpi-total-units');
+      const valEl = document.getElementById('kpi-total-value');
+      const lowEl = document.getElementById('kpi-low-stock');
+
+      if (skuEl) skuEl.textContent = totalSkus.toLocaleString();
+      if (unitsEl) unitsEl.textContent = totalUnits.toLocaleString();
+      if (valEl) valEl.textContent = '$' + totalValuation.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (lowEl) lowEl.textContent = lowStockCount;
+    }
+
+    function toggleLowStockFilter() {
+      const stockSelect = document.getElementById('stock-filter');
+      if (stockSelect.value === 'LOW') {
+        stockSelect.value = 'ALL';
+      } else {
+        stockSelect.value = 'LOW';
+      }
+      applyFilters();
     }
 
     function switchView(view) {
@@ -405,15 +1062,14 @@
         tilesContainer.innerHTML = `
           <div style="grid-column: 1 / -1; text-align: center; padding: 3.5rem 1.5rem; background: var(--card-bg); border-radius: 14px; border: 1px solid var(--border-color); color: var(--text-muted);">
             <p style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.35rem; color: var(--text-main);">No matching products found</p>
-            <p style="font-size: 0.85rem;">Try adjusting your search query or category filter.</p>
+            <p style="font-size: 0.85rem;">Try adjusting your search query or category / stock filters.</p>
           </div>
         `;
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">No matching products found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">No matching products found.</td></tr>';
         return;
       }
 
       items.forEach(p => {
-        // Dynamic category badges
         let catBadge = 'badge-primary';
         if (p.category === 'Fragile') catBadge = 'badge-warning';
         if (p.category === 'Heavy') catBadge = 'badge-danger';
@@ -421,7 +1077,6 @@
         if (p.category === 'Electronics') catBadge = 'badge-cyan';
         if (p.category === 'Safety') catBadge = 'badge-success';
 
-        // Velocity bar ratio
         const freq = p.pick_frequency || 0;
         const pct = Math.min(100, Math.round((freq / maxUnits) * 100));
         let meterClass = 'low';
@@ -443,21 +1098,32 @@
         const shelfBadgeHtml = shelfId 
           ? `<span class="badge badge-primary" style="font-weight: 700; font-size: 0.8rem;">Shelf ${shelfId}</span>`
           : `<span class="badge" style="background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25); font-weight: 700; font-size: 0.8rem;">Unassigned</span>`;
+        
         const stockQty = p.stock_quantity !== undefined ? p.stock_quantity : 50;
+        const threshold = p.reorder_threshold || 15;
+        const isLow = stockQty <= threshold;
+        const unitPrice = p.unit_price !== undefined ? Number(p.unit_price).toFixed(2) : '15.00';
+        const skuStr = p.sku || `SKU-${p.id}`;
 
         // 1. Tile card rendering
         const tile = document.createElement('div');
-        tile.className = 'product-tile';
+        tile.className = `product-tile ${isLow ? 'is-low-stock' : ''}`;
         tile.innerHTML = `
           <div>
             <div class="product-tile-header">
-              <span class="product-tile-id">#${p.id}</span>
+              <div class="product-tile-id-group">
+                <span class="product-tile-id">#${p.id}</span>
+                <span class="product-tile-sku">${skuStr}</span>
+              </div>
               ${tierBadge}
             </div>
             <div class="product-tile-name" title="${p.name}">${p.name}</div>
             <div class="product-tile-meta">
               <span class="badge ${catBadge}">${p.category}</span>
-              <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); font-family: var(--font-mono);">${stockQty} in stock</span>
+              <span class="product-tile-stock-badge ${isLow ? 'warning' : ''}">
+                ${isLow ? '⚠️ ' : ''}${stockQty} in stock ${isLow ? '(Low)' : ''}
+              </span>
+              <span style="font-family: var(--font-mono); font-weight: 700; font-size: 0.82rem; color: var(--text-main);">$${unitPrice}</span>
             </div>
             <div class="product-tile-shelf">
               <div class="product-tile-shelf-info">
@@ -467,57 +1133,350 @@
               ${shelfBadgeHtml}
             </div>
           </div>
-          <div class="product-tile-velocity-card">
-            <div class="product-tile-velocity-header">
-              <span>Pick Velocity</span>
-              <span class="product-tile-velocity-number">${freq.toLocaleString()} units</span>
+          <div>
+            <div class="product-tile-velocity-card">
+              <div class="product-tile-velocity-header">
+                <span>Pick Velocity</span>
+                <span class="product-tile-velocity-number">${freq.toLocaleString()} units</span>
+              </div>
+              <div class="product-tile-progress-track">
+                <div class="product-tile-progress-fill ${meterClass}" style="width: ${pct}%;"></div>
+              </div>
+              <div class="product-tile-velocity-sub">
+                <span>Demand: ${pct}%</span>
+                <span>${throughputText}</span>
+              </div>
             </div>
-            <div class="product-tile-progress-track">
-              <div class="product-tile-progress-fill ${meterClass}" style="width: ${pct}%;"></div>
-            </div>
-            <div class="product-tile-velocity-sub">
-              <span>Demand: ${pct}%</span>
-              <span>${throughputText}</span>
+            <div class="product-tile-actions">
+              <button class="btn-tile-action primary" onclick="openAdjustStockModal(${p.id})">
+                ⚡ Adjust Stock
+              </button>
+              <button class="btn-tile-action" onclick="openEditProductModal(${p.id})">
+                Edit
+              </button>
+              <button class="btn-tile-action danger" onclick="confirmDeleteProduct(${p.id})" title="Archive product">
+                &times;
+              </button>
             </div>
           </div>
         `;
         tilesContainer.appendChild(tile);
 
-        // 2. Table row rendering (for alternate table view)
+        // 2. Table row rendering
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td><strong>#${p.id}</strong></td>
+          <td><span class="product-tile-sku">${skuStr}</span></td>
           <td style="font-weight: 600; color: var(--text-main);">${p.name}</td>
           <td><span class="badge ${catBadge}">${p.category}</span></td>
-          <td><span class="badge badge-primary" style="font-weight: 700;">${shelfLabel}</span></td>
+          <td>${shelfBadgeHtml}</td>
+          <td style="font-family: var(--font-mono); font-weight: 700;">$${unitPrice}</td>
           <td>
-            <div class="velocity-meter">
-              <div class="velocity-bar">
-                <div class="velocity-fill ${meterClass}" style="width: ${pct}%;"></div>
+            <span class="product-tile-stock-badge ${isLow ? 'warning' : ''}">
+              ${isLow ? '⚠️ ' : ''}${stockQty} ${isLow ? '(Low)' : ''}
+            </span>
+          </td>
+          <td>
+            <div class="velocity-meter" style="display: flex; align-items: center; gap: 8px;">
+              <div class="velocity-bar" style="flex: 1; height: 6px; background: rgba(0,0,0,0.08); border-radius: 4px; overflow: hidden;">
+                <div class="velocity-fill ${meterClass}" style="width: ${pct}%; height: 100%;"></div>
               </div>
-              <span style="font-weight: 700; font-size: 0.85rem; min-width: 60px;">${freq} units</span>
+              <span style="font-weight: 700; font-size: 0.8rem; min-width: 50px; font-family: var(--font-mono);">${freq}</span>
             </div>
           </td>
           <td>${tierBadge}</td>
+          <td style="text-align: right;">
+            <div style="display: inline-flex; gap: 4px;">
+              <button class="btn-tile-action primary" style="padding: 4px 8px; font-size: 0.72rem;" onclick="openAdjustStockModal(${p.id})">Stock</button>
+              <button class="btn-tile-action" style="padding: 4px 8px; font-size: 0.72rem;" onclick="openEditProductModal(${p.id})">Edit</button>
+              <button class="btn-tile-action danger" style="padding: 4px 8px; font-size: 0.72rem;" onclick="confirmDeleteProduct(${p.id})">&times;</button>
+            </div>
+          </td>
         `;
         tbody.appendChild(tr);
       });
     }
 
     function applyFilters() {
-      const search = document.getElementById('search-input').value.toLowerCase().trim();
+      const search = (document.getElementById('search-input').value || '').toLowerCase().trim();
       const cat = document.getElementById('category-filter').value;
+      const stockStatus = document.getElementById('stock-filter').value;
 
       const filtered = allProducts.filter(p => {
-        const matchesSearch = !search || p.name.toLowerCase().includes(search);
+        const pSku = (p.sku || '').toLowerCase();
+        const pName = (p.name || '').toLowerCase();
+        const matchesSearch = !search || pName.includes(search) || pSku.includes(search);
         const matchesCat = (cat === 'ALL') || (p.category === cat);
-        return matchesSearch && matchesCat;
+        
+        const stockQty = p.stock_quantity !== undefined ? p.stock_quantity : 50;
+        const threshold = p.reorder_threshold || 15;
+        const isLow = stockQty <= threshold;
+
+        let matchesStock = true;
+        if (stockStatus === 'LOW') matchesStock = isLow;
+        if (stockStatus === 'ADEQUATE') matchesStock = !isLow;
+
+        return matchesSearch && matchesCat && matchesStock;
       });
 
       renderProducts(filtered);
     }
 
-    document.addEventListener('DOMContentLoaded', loadProducts);
+    // Modal Control Helpers
+    function closeModals() {
+      document.querySelectorAll('.modal-overlay').forEach(el => el.classList.remove('active'));
+    }
+
+    function openAddProductModal() {
+      document.getElementById('form-add-product').reset();
+      populateShelfDropdowns();
+      document.getElementById('modal-add-product').classList.add('active');
+    }
+
+    async function submitAddProduct(e) {
+      e.preventDefault();
+      const name = document.getElementById('add-prod-name').value.trim();
+      const sku = document.getElementById('add-prod-sku').value.trim();
+      const category = document.getElementById('add-prod-category').value;
+      const shelfId = parseInt(document.getElementById('add-prod-shelf').value);
+      const stock = parseInt(document.getElementById('add-prod-stock').value) || 0;
+      const price = parseFloat(document.getElementById('add-prod-price').value) || 10.0;
+      const volume = parseFloat(document.getElementById('add-prod-volume').value) || 1.0;
+      const threshold = parseInt(document.getElementById('add-prod-threshold').value) || 15;
+
+      try {
+        const res = await fetch('/api/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            sku: sku || undefined,
+            category,
+            assigned_shelf_id: shelfId,
+            stock_quantity: stock,
+            unit_price: price,
+            volume,
+            reorder_threshold: threshold
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          showToast("Error: " + (data.error || "Failed to create product"));
+          return;
+        }
+
+        showToast("✓ " + data.message);
+        closeModals();
+        await loadProducts();
+        await loadShelves();
+      } catch (err) {
+        console.error("Add product error:", err);
+        showToast("Network error creating product");
+      }
+    }
+
+    function openEditProductModal(id) {
+      const p = allProducts.find(x => x.id === id);
+      if (!p) return;
+
+      document.getElementById('edit-prod-id').value = p.id;
+      document.getElementById('edit-prod-id-label').textContent = `#${p.id}`;
+      document.getElementById('edit-prod-name').value = p.name || '';
+      document.getElementById('edit-prod-sku').value = p.sku || `SKU-${p.id}`;
+      document.getElementById('edit-prod-category').value = p.category || 'Electronics';
+      document.getElementById('edit-prod-shelf').value = p.assigned_shelf_id || p.shelf_id || '';
+      document.getElementById('edit-prod-price').value = p.unit_price || 15.0;
+      document.getElementById('edit-prod-threshold').value = p.reorder_threshold || 15;
+      document.getElementById('edit-prod-volume').value = p.volume || 1.0;
+
+      document.getElementById('modal-edit-product').classList.add('active');
+    }
+
+    async function submitEditProduct(e) {
+      e.preventDefault();
+      const id = document.getElementById('edit-prod-id').value;
+      const name = document.getElementById('edit-prod-name').value.trim();
+      const category = document.getElementById('edit-prod-category').value;
+      const shelfId = parseInt(document.getElementById('edit-prod-shelf').value);
+      const price = parseFloat(document.getElementById('edit-prod-price').value) || 10.0;
+      const threshold = parseInt(document.getElementById('edit-prod-threshold').value) || 15;
+      const volume = parseFloat(document.getElementById('edit-prod-volume').value) || 1.0;
+
+      try {
+        const res = await fetch(`/api/products/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            category,
+            assigned_shelf_id: shelfId,
+            unit_price: price,
+            reorder_threshold: threshold,
+            volume
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          showToast("Error: " + (data.error || "Failed to update product"));
+          return;
+        }
+
+        showToast("✓ Product #" + id + " updated successfully");
+        closeModals();
+        await loadProducts();
+        await loadShelves();
+      } catch (err) {
+        console.error("Edit product error:", err);
+        showToast("Network error updating product");
+      }
+    }
+
+    function openAdjustStockModal(id) {
+      const p = allProducts.find(x => x.id === id);
+      if (!p) return;
+
+      document.getElementById('adjust-prod-id').value = p.id;
+      document.getElementById('adjust-prod-title').textContent = p.name;
+      document.getElementById('adjust-prod-sku').textContent = p.sku || `SKU-${p.id}`;
+      document.getElementById('adjust-prod-current').textContent = p.stock_quantity !== undefined ? p.stock_quantity : 50;
+      document.getElementById('adjust-movement-type').value = 'RESTOCK';
+      document.getElementById('adjust-quantity').value = 10;
+      document.getElementById('adjust-reason').value = '';
+      updateMovementDeltaSign();
+
+      document.getElementById('modal-adjust-stock').classList.add('active');
+    }
+
+    function updateMovementDeltaSign() {
+      const type = document.getElementById('adjust-movement-type').value;
+      const label = document.getElementById('adjust-qty-label');
+      const btn = document.getElementById('btn-submit-adjust');
+
+      if (type === 'DAMAGE' || type === 'INTERNAL_USE') {
+        label.textContent = "Quantity to Deduct *";
+        btn.textContent = "Confirm Stock Reduction (-)";
+      } else if (type === 'RESTOCK') {
+        label.textContent = "Quantity to Add *";
+        btn.textContent = "Confirm Stock Replenishment (+)";
+      } else {
+        label.textContent = "Count Difference (+/- units) *";
+        btn.textContent = "Confirm Inventory Count";
+      }
+    }
+
+    async function submitAdjustStock(e) {
+      e.preventDefault();
+      const id = document.getElementById('adjust-prod-id').value;
+      const type = document.getElementById('adjust-movement-type').value;
+      let qty = parseInt(document.getElementById('adjust-quantity').value);
+      const reason = document.getElementById('adjust-reason').value.trim();
+
+      if (type === 'DAMAGE' || type === 'INTERNAL_USE') {
+        qty = -Math.abs(qty);
+      }
+
+      try {
+        const res = await fetch(`/api/products/${id}/stock`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            change_amount: qty,
+            movement_type: type,
+            reason: reason || undefined
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          showToast("Error: " + (data.error || "Failed to adjust stock"));
+          return;
+        }
+
+        showToast("✓ " + data.message);
+        closeModals();
+        await loadProducts();
+      } catch (err) {
+        console.error("Stock adjustment error:", err);
+        showToast("Network error adjusting stock");
+      }
+    }
+
+    async function confirmDeleteProduct(id) {
+      const p = allProducts.find(x => x.id === id);
+      const name = p ? p.name : `Product #${id}`;
+      if (!confirm(`Are you sure you want to archive "${name}" from the active catalog?`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) {
+          showToast("Error: " + (data.error || "Failed to archive product"));
+          return;
+        }
+
+        showToast("✓ " + data.message);
+        await loadProducts();
+        await loadShelves();
+      } catch (err) {
+        console.error("Delete product error:", err);
+        showToast("Network error archiving product");
+      }
+    }
+
+    async function openInventoryHistoryModal() {
+      document.getElementById('modal-history').classList.add('active');
+      await loadHistoryTransactions();
+    }
+
+    async function loadHistoryTransactions() {
+      const tbody = document.getElementById('history-table-body');
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Fetching immutable transaction logs...</td></tr>';
+
+      try {
+        const res = await fetch('/api/inventory/transactions?limit=40');
+        const data = await res.json();
+        const items = data.transactions || [];
+
+        if (items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">No stock movements recorded yet.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = items.map(tx => {
+          const deltaSign = tx.change_amount > 0 ? `+${tx.change_amount}` : `${tx.change_amount}`;
+          const deltaColor = tx.change_amount > 0 ? '#5E7A52' : (tx.change_amount < 0 ? '#ef4444' : 'var(--text-secondary)');
+          const dateStr = tx.created_at ? tx.created_at.replace('T', ' ').slice(5, 16) : '--';
+          return `
+            <tr>
+              <td style="font-family: var(--font-mono); font-size: 0.76rem; color: var(--text-secondary); padding: 8px;">${dateStr}</td>
+              <td>
+                <strong style="color: var(--text-main); font-size: 0.82rem;">${tx.product_name || `Product #${tx.product_id}`}</strong>
+                <span class="product-tile-sku" style="margin-left: 4px; font-size: 0.7rem;">${tx.sku || ''}</span>
+              </td>
+              <td><span class="badge badge-primary" style="font-size: 0.7rem;">${tx.movement_type}</span></td>
+              <td style="font-family: var(--font-mono); font-weight: 800; color: ${deltaColor};">${deltaSign}</td>
+              <td style="font-family: var(--font-mono); font-size: 0.78rem;">${tx.quantity_before} &rarr; <b>${tx.quantity_after}</b></td>
+              <td style="font-size: 0.78rem; color: var(--text-secondary);">
+                <span>${tx.reason || 'Movement'}</span>
+                <span style="font-family: var(--font-mono); font-size: 0.72rem; display: block; color: var(--text-muted);">${tx.user_email || 'system'}</span>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error("Failed to load inventory transactions:", err);
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #ef4444;">Failed to load transaction audit history.</td></tr>';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadShelves();
+      loadProducts();
+    });
   </script>
 </body>
 </html>

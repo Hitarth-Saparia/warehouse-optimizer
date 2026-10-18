@@ -226,6 +226,9 @@ def seed_database():
     random.seed(42) # Deterministic for reproducible execution
 
     shelf_load_counter = {s: 0 for s in available_shelves}
+    cat_prefix = {"Heavy": "HV", "Fragile": "FR", "Electronics": "EL", "Tools": "TL", "Fasteners": "FA", "Safety": "SF"}
+    price_map = {"Heavy": 89.99, "Fragile": 129.50, "Electronics": 49.99, "Tools": 34.50, "Fasteners": 12.00, "Safety": 24.75}
+    sku_counter = {}
 
     for name, cat, avg_units in product_templates:
         # Pick a random shelf that hasn't exceeded initial load limit
@@ -236,16 +239,44 @@ def seed_database():
         shelf_load_counter[assigned_shelf] = shelf_load_counter.get(assigned_shelf, 0) + 1
         vol_map = {"Heavy": 3.5, "Fragile": 1.5, "Tools": 1.0, "Electronics": 0.5, "Fasteners": 0.1}
         vol = vol_map.get(cat, 1.0)
-        products_data.append((name, cat, assigned_shelf, vol))
+        p_idx = sku_counter.get(cat, 0) + 1
+        sku_counter[cat] = p_idx
+        sku = f"SKU-{cat_prefix.get(cat, 'GN')}-{p_idx:03d}"
+        u_price = price_map.get(cat, 19.99)
+        reorder_th = 15
+        stock_qty = 50
+        products_data.append((name, cat, assigned_shelf, stock_qty, vol, sku, reorder_th, u_price, 0))
 
     cursor.executemany(
-        "INSERT INTO products (name, category, assigned_shelf_id, volume) VALUES (%s, %s, %s, %s)",
+        "INSERT INTO products (name, category, assigned_shelf_id, stock_quantity, volume, sku, reorder_threshold, unit_price, is_archived) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
         products_data
     )
 
     # Update current_load on shelves
     for s_id, load in shelf_load_counter.items():
         cursor.execute("UPDATE shelves SET current_load = %s WHERE id = %s", (load, s_id))
+
+    # Seed initial inbound inventory transactions
+    cursor.execute("SELECT id, stock_quantity FROM products ORDER BY id ASC")
+    seeded_prods = cursor.fetchall()
+    inv_tx_data = [
+        (p_row[0], "INBOUND", p_row[1], 0, p_row[1], "Initial warehouse stock receipt", "system@warehouse.io")
+        for p_row in seeded_prods
+    ]
+    cursor.executemany(
+        "INSERT INTO inventory_transactions (product_id, movement_type, quantity_change, previous_quantity, new_quantity, reason, user_email) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+        inv_tx_data
+    )
+
+    # Seed initial operational notifications
+    notifications_data = [
+        ("SYSTEM", "Warehouse Engine Active", "Facility Digital Twin online with 24 storage shelves and Packing Dock S-01.", "success"),
+        ("LOW_STOCK", "Reorder Threshold Policy Active", "Standard reorder threshold set to 15 units across all catalog items.", "info")
+    ]
+    cursor.executemany(
+        "INSERT INTO notifications (type, title, message, severity) VALUES (%s, %s, %s, %s)",
+        notifications_data
+    )
 
     print("Seeding monthly sales records for pick frequency calculation...")
     # Fetch inserted product IDs

@@ -5,6 +5,14 @@ CREATE DATABASE IF NOT EXISTS wareopt;
 USE wareopt;
 
 SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS inventory_transactions;
+DROP TABLE IF EXISTS layout_snapshots;
+DROP TABLE IF EXISTS wave_exceptions;
+DROP TABLE IF EXISTS inventory_reservations;
+DROP TABLE IF EXISTS pick_tasks;
+DROP TABLE IF EXISTS wave_orders;
+DROP TABLE IF EXISTS waves;
 DROP TABLE IF EXISTS balancing_runs;
 DROP TABLE IF EXISTS vehicle_assignments;
 DROP TABLE IF EXISTS vehicles;
@@ -38,6 +46,10 @@ CREATE TABLE products (
     assigned_shelf_id INT NULL,
     stock_quantity INT NOT NULL DEFAULT 50,
     volume FLOAT NOT NULL DEFAULT 1.0,
+    sku VARCHAR(50) NOT NULL UNIQUE,
+    reorder_threshold INT NOT NULL DEFAULT 15,
+    unit_price FLOAT NOT NULL DEFAULT 19.99,
+    is_archived TINYINT(1) NOT NULL DEFAULT 0,
     CONSTRAINT fk_prod_shelf FOREIGN KEY (assigned_shelf_id) 
         REFERENCES shelves(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
@@ -62,7 +74,9 @@ CREATE TABLE orders (
     priority VARCHAR(50) NOT NULL DEFAULT 'Standard',
     deadline VARCHAR(50) NOT NULL DEFAULT '18:00',
     warehouse_id VARCHAR(50) NOT NULL DEFAULT 'WH-01',
-    assigned_vehicle_id VARCHAR(50) NULL
+    assigned_vehicle_id VARCHAR(50) NULL,
+    total_amount FLOAT NOT NULL DEFAULT 0.0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
 -- 5. Order items: line items in each customer order
@@ -268,5 +282,32 @@ CREATE TABLE layout_snapshots (
     reduction_pct FLOAT NOT NULL DEFAULT 0.0,
     user_email VARCHAR(120) NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'applied',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- 19. Inventory Transactions table: audit trail for all stock movements
+CREATE TABLE inventory_transactions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
+    movement_type VARCHAR(50) NOT NULL, -- 'INBOUND', 'OUTBOUND', 'ADJUSTMENT', 'PICK', 'RESTOCK'
+    quantity_change INT NOT NULL,
+    previous_quantity INT NOT NULL,
+    new_quantity INT NOT NULL,
+    reason VARCHAR(255) NULL,
+    reference_id VARCHAR(100) NULL,
+    user_email VARCHAR(120) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_inv_prod FOREIGN KEY (product_id)
+        REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 20. Notifications table: system events, low stock, and operational alerts
+CREATE TABLE notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    type VARCHAR(50) NOT NULL, -- 'LOW_STOCK', 'ORDER_PENDING', 'WAVE_EXCEPTION', 'FLEET_ALERT', 'SYSTEM'
+    title VARCHAR(150) NOT NULL,
+    message TEXT NOT NULL,
+    severity VARCHAR(20) NOT NULL DEFAULT 'info', -- 'info', 'warning', 'danger', 'success'
+    is_read TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;

@@ -128,6 +128,8 @@ def init_sqlite_database():
     """Initializes schema and seeds default data into the SQLite database."""
     os.makedirs(os.path.dirname(SQLITE_DB_PATH), exist_ok=True)
     conn = sqlite3.connect(SQLITE_DB_PATH)
+    conn.create_function("GREATEST", -1, lambda *args: max(args) if args else 0)
+    conn.create_function("LEAST", -1, lambda *args: min(args) if args else 0)
     cur = conn.cursor()
 
     # Create tables
@@ -339,6 +341,30 @@ def init_sqlite_database():
             status TEXT NOT NULL DEFAULT 'applied',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS inventory_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL,
+            movement_type TEXT NOT NULL,
+            quantity_change INTEGER NOT NULL,
+            previous_quantity INTEGER NOT NULL,
+            new_quantity INTEGER NOT NULL,
+            reason TEXT NULL,
+            reference_id TEXT NULL,
+            user_email TEXT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT NOT NULL,
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            severity TEXT NOT NULL DEFAULT 'info',
+            is_read INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
     """)
     conn.commit()
 
@@ -354,6 +380,28 @@ def init_sqlite_database():
         cur.execute("UPDATE products SET volume = 0.1 WHERE category = 'Fasteners'")
         conn.commit()
 
+    # Migrate products table sku, reorder_threshold, unit_price, is_archived if missing
+    if "sku" not in existing_prod_cols:
+        cur.execute("ALTER TABLE products ADD COLUMN sku TEXT NULL")
+        cur.execute("ALTER TABLE products ADD COLUMN reorder_threshold INTEGER NOT NULL DEFAULT 15")
+        cur.execute("ALTER TABLE products ADD COLUMN unit_price REAL NOT NULL DEFAULT 19.99")
+        cur.execute("ALTER TABLE products ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0")
+        conn.commit()
+
+        # Backfill default SKUs and unit prices for existing catalog items
+        cur.execute("SELECT id, name, category FROM products ORDER BY id ASC")
+        all_p = cur.fetchall()
+        cat_pfx = {"Heavy": "HV", "Fragile": "FR", "Electronics": "EL", "Tools": "TL", "Fasteners": "FA", "Safety": "SF"}
+        pr_map = {"Heavy": 89.99, "Fragile": 129.50, "Electronics": 49.99, "Tools": 34.50, "Fasteners": 12.00, "Safety": 24.75}
+        counts = {}
+        for p_id, p_nm, p_cat in all_p:
+            c = counts.get(p_cat, 0) + 1
+            counts[p_cat] = c
+            p_sku = f"SKU-{cat_pfx.get(p_cat, 'GN')}-{c:03d}"
+            p_price = pr_map.get(p_cat, 19.99)
+            cur.execute("UPDATE products SET sku = ?, unit_price = ?, reorder_threshold = 15, is_archived = 0 WHERE id = ?", (p_sku, p_price, p_id))
+        conn.commit()
+
     # Migrate orders table columns if missing
     cur.execute("PRAGMA table_info(orders)")
     existing_cols = {col[1] for col in cur.fetchall()}
@@ -363,12 +411,37 @@ def init_sqlite_database():
         ("priority", "TEXT NOT NULL DEFAULT 'Standard'"),
         ("deadline", "TEXT NOT NULL DEFAULT '18:00'"),
         ("warehouse_id", "TEXT NOT NULL DEFAULT 'WH-01'"),
-        ("assigned_vehicle_id", "TEXT NULL")
+        ("assigned_vehicle_id", "TEXT NULL"),
+        ("total_amount", "REAL NOT NULL DEFAULT 0.0"),
+        ("created_at", "TEXT DEFAULT NULL")
     ]
     for col_name, col_def in columns_to_add:
         if col_name not in existing_cols:
             cur.execute(f"ALTER TABLE orders ADD COLUMN {col_name} {col_def}")
+    cur.execute("UPDATE orders SET created_at = datetime('now') WHERE created_at IS NULL")
     conn.commit()
+
+    # Seed initial inventory transactions if empty
+    cur.execute("SELECT COUNT(*) FROM inventory_transactions")
+    if cur.fetchone()[0] == 0:
+        cur.execute("SELECT id, stock_quantity FROM products")
+        for p_id, s_qty in cur.fetchall():
+            cur.execute("""
+                INSERT INTO inventory_transactions (product_id, movement_type, quantity_change, previous_quantity, new_quantity, reason, user_email)
+                VALUES (?, 'INBOUND', ?, 0, ?, 'Initial warehouse stock receipt', 'system@warehouse.io')
+            """, (p_id, s_qty or 50, s_qty or 50))
+        conn.commit()
+
+    # Seed initial notifications if empty
+    cur.execute("SELECT COUNT(*) FROM notifications")
+    if cur.fetchone()[0] == 0:
+        cur.executemany("""
+            INSERT INTO notifications (type, title, message, severity) VALUES (?, ?, ?, ?)
+        """, [
+            ("SYSTEM", "Warehouse Engine Active", "Facility Digital Twin online with 24 storage shelves and Packing Dock S-01.", "success"),
+            ("LOW_STOCK", "Reorder Threshold Policy Active", "Standard reorder threshold set to 15 units across all catalog items.", "info")
+        ])
+        conn.commit()
 
     # Ensure demo user accounts are always seeded if missing
     cur.execute("SELECT COUNT(*) FROM users")
@@ -610,8 +683,9 @@ def get_sqlite_connection():
 
     raw_conn = sqlite3.connect(SQLITE_DB_PATH)
     raw_conn.row_factory = sqlite3.Row
-    # Register GREATEST function for compatibility
-    raw_conn.create_function("GREATEST", -1, max)
+    # Register GREATEST and LEAST function for compatibility
+    raw_conn.create_function("GREATEST", -1, lambda *args: max(args) if args else 0)
+    raw_conn.create_function("LEAST", -1, lambda *args: min(args) if args else 0)
     return SQLiteConnectionWrapper(raw_conn)
 
 
@@ -623,19 +697,49 @@ def ensure_mysql_migrations(conn):
         return
     try:
         with conn.cursor() as cur:
+            # Check products columns
             cur.execute("""
-                SELECT COUNT(*) as cnt FROM information_schema.COLUMNS 
-                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND COLUMN_NAME = 'volume'
+                SELECT COLUMN_NAME FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
             """)
-            res = cur.fetchone()
-            cnt = res.get("cnt", 0) if isinstance(res, dict) else res[0]
-            if cnt == 0:
+            prod_cols = {r["COLUMN_NAME"] if isinstance(r, dict) else r[0] for r in cur.fetchall()}
+            if "volume" not in prod_cols:
                 cur.execute("ALTER TABLE products ADD COLUMN volume FLOAT NOT NULL DEFAULT 1.0")
                 cur.execute("UPDATE products SET volume = 3.5 WHERE category = 'Heavy'")
                 cur.execute("UPDATE products SET volume = 1.5 WHERE category = 'Fragile'")
                 cur.execute("UPDATE products SET volume = 1.0 WHERE category = 'Tools'")
                 cur.execute("UPDATE products SET volume = 0.5 WHERE category = 'Electronics'")
                 cur.execute("UPDATE products SET volume = 0.1 WHERE category = 'Fasteners'")
+            if "sku" not in prod_cols:
+                cur.execute("ALTER TABLE products ADD COLUMN sku VARCHAR(50) NULL")
+                cur.execute("ALTER TABLE products ADD COLUMN reorder_threshold INT NOT NULL DEFAULT 15")
+                cur.execute("ALTER TABLE products ADD COLUMN unit_price FLOAT NOT NULL DEFAULT 19.99")
+                cur.execute("ALTER TABLE products ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0")
+                # Backfill SKUs
+                cur.execute("SELECT id, name, category FROM products ORDER BY id ASC")
+                all_p = cur.fetchall()
+                cat_pfx = {"Heavy": "HV", "Fragile": "FR", "Electronics": "EL", "Tools": "TL", "Fasteners": "FA", "Safety": "SF"}
+                pr_map = {"Heavy": 89.99, "Fragile": 129.50, "Electronics": 49.99, "Tools": 34.50, "Fasteners": 12.00, "Safety": 24.75}
+                counts = {}
+                for p_row in all_p:
+                    p_id = p_row["id"] if isinstance(p_row, dict) else p_row[0]
+                    p_cat = p_row["category"] if isinstance(p_row, dict) else p_row[2]
+                    c = counts.get(p_cat, 0) + 1
+                    counts[p_cat] = c
+                    p_sku = f"SKU-{cat_pfx.get(p_cat, 'GN')}-{c:03d}"
+                    p_price = pr_map.get(p_cat, 19.99)
+                    cur.execute("UPDATE products SET sku = %s, unit_price = %s, reorder_threshold = 15, is_archived = 0 WHERE id = %s", (p_sku, p_price, p_id))
+
+            # Check orders columns
+            cur.execute("""
+                SELECT COLUMN_NAME FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders'
+            """)
+            ord_cols = {r["COLUMN_NAME"] if isinstance(r, dict) else r[0] for r in cur.fetchall()}
+            if "total_amount" not in ord_cols:
+                cur.execute("ALTER TABLE orders ADD COLUMN total_amount FLOAT NOT NULL DEFAULT 0.0")
+            if "created_at" not in ord_cols:
+                cur.execute("ALTER TABLE orders ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
 
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS layout_snapshots (
@@ -647,6 +751,35 @@ def ensure_mysql_migrations(conn):
                     reduction_pct FLOAT NOT NULL DEFAULT 0.0,
                     user_email VARCHAR(120) NULL,
                     status VARCHAR(50) NOT NULL DEFAULT 'applied',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB;
+            """)
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS inventory_transactions (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    product_id INT NOT NULL,
+                    movement_type VARCHAR(50) NOT NULL,
+                    quantity_change INT NOT NULL,
+                    previous_quantity INT NOT NULL,
+                    new_quantity INT NOT NULL,
+                    reason VARCHAR(255) NULL,
+                    reference_id VARCHAR(100) NULL,
+                    user_email VARCHAR(120) NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT fk_inv_prod FOREIGN KEY (product_id)
+                        REFERENCES products(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB;
+            """)
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS notifications (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    type VARCHAR(50) NOT NULL,
+                    title VARCHAR(150) NOT NULL,
+                    message TEXT NOT NULL,
+                    severity VARCHAR(20) NOT NULL DEFAULT 'info',
+                    is_read TINYINT(1) NOT NULL DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB;
             """)

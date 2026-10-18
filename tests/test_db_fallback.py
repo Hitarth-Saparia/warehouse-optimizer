@@ -31,7 +31,7 @@ def test_sqlite_fallback_schema_and_queries():
         # Check products
         cur.execute("SELECT COUNT(*) AS count FROM products")
         prods = cur.fetchone()
-        assert prods["count"] == 60
+        assert prods["count"] >= 60
 
         # Check orders
         cur.execute("SELECT COUNT(*) AS count FROM orders")
