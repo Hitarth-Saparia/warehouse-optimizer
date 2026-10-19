@@ -71,9 +71,9 @@ function updateDashboardBannerIdentity(user) {
 
   if (accessEl) {
     if (isFleet) {
-      accessEl.innerHTML = '<span class="dot" style="background:#107C41;"></span> Fleet Coordinator access · mTSP balancing active';
+      accessEl.innerHTML = '<span class="dot" style="background:var(--primary);"></span> Fleet Coordinator access · mTSP balancing active';
     } else if (isSupervisor) {
-      accessEl.innerHTML = '<span class="dot" style="background:#f59e0b;"></span> Order Picker access · live queue active';
+      accessEl.innerHTML = '<span class="dot" style="background:var(--secondary);"></span> Order Picker access · live queue active';
     } else {
       accessEl.innerHTML = '<span class="dot"></span> Manager access · full audit logging on';
     }
@@ -253,10 +253,10 @@ function renderPowerBIClusteredChart(orders) {
 
     barsSvg += `
       <!-- Baseline Bar -->
-      <rect x="${xBefore}" y="${yBefore}" width="${barWidth}" height="${hBefore}" fill="#636366" rx="2" opacity="0.85"
+      <rect x="${xBefore}" y="${yBefore}" width="${barWidth}" height="${hBefore}" fill="#946F5C" rx="2" opacity="0.85"
         data-order="#${o.order_id}" data-type="Baseline" data-val="${o.distance_before}m" class="pbi-chart-bar" />
       <!-- Optimized Bar -->
-      <rect x="${xAfter}" y="${yAfter}" width="${barWidth}" height="${hAfter}" fill="#107C41" rx="2"
+      <rect x="${xAfter}" y="${yAfter}" width="${barWidth}" height="${hAfter}" fill="#A95C64" rx="2"
         data-order="#${o.order_id}" data-type="Optimized" data-val="${o.distance_after}m" class="pbi-chart-bar" />
       <!-- X-axis Label -->
       <text x="${groupX}" y="${svgHeight - 12}" fill="var(--pbi-text-dim)" font-size="10" text-anchor="middle" font-family="monospace">#${o.order_id}</text>
@@ -268,9 +268,9 @@ function renderPowerBIClusteredChart(orders) {
   let trendDots = '';
   if (trendPoints.length > 1) {
     const pointsStr = trendPoints.map(p => `${p.x},${p.y}`).join(' ');
-    trendPolyline = `<polyline points="${pointsStr}" fill="none" stroke="#F2C811" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />`;
+    trendPolyline = `<polyline points="${pointsStr}" fill="none" stroke="#D98850" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />`;
     trendDots = trendPoints.map(p => `
-      <circle cx="${p.x}" cy="${p.y}" r="3.5" fill="#F2C811" stroke="#181a22" stroke-width="1.5" />
+      <circle cx="${p.x}" cy="${p.y}" r="3.5" fill="#D98850" stroke="#181a22" stroke-width="1.5" />
     `).join('');
   }
 
@@ -314,13 +314,13 @@ function renderPowerBIVelocityDonut() {
           <!-- Background track -->
           <circle cx="85" cy="85" r="${radius}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="${strokeWidth}" />
           <!-- Segment A: Fast Movers (Zone A) -->
-          <circle cx="85" cy="85" r="${radius}" fill="none" stroke="#107C41" stroke-width="${strokeWidth}"
+          <circle cx="85" cy="85" r="${radius}" fill="none" stroke="#A95C64" stroke-width="${strokeWidth}"
             stroke-dasharray="${segA} ${circumference}" stroke-dashoffset="${offsetA}" />
           <!-- Segment B: Medium Movers (Zone B) -->
-          <circle cx="85" cy="85" r="${radius}" fill="none" stroke="#118DFF" stroke-width="${strokeWidth}"
+          <circle cx="85" cy="85" r="${radius}" fill="none" stroke="#C9A188" stroke-width="${strokeWidth}"
             stroke-dasharray="${segB} ${circumference}" stroke-dashoffset="${offsetB}" />
           <!-- Segment C: Slow / Bulk (Zone C/D) -->
-          <circle cx="85" cy="85" r="${radius}" fill="none" stroke="#F2C811" stroke-width="${strokeWidth}"
+          <circle cx="85" cy="85" r="${radius}" fill="none" stroke="#946F5C" stroke-width="${strokeWidth}"
             stroke-dasharray="${segC} ${circumference}" stroke-dashoffset="${offsetC}" />
         </svg>
         <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;">
@@ -332,24 +332,24 @@ function renderPowerBIVelocityDonut() {
       <div style="display: flex; flex-direction: column; gap: 0.65rem; min-width: 160px;">
         <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem;">
           <span style="display: flex; align-items: center; gap: 6px;">
-            <span style="width: 10px; height: 10px; border-radius: 2px; background: #107C41; display: inline-block;"></span>
+            <span style="width: 10px; height: 10px; border-radius: 2px; background: #A95C64; display: inline-block;"></span>
             <strong>Tier A (Fast)</strong>
           </span>
-          <span style="font-family: monospace; font-weight: 700; color: #107C41;">42% (25)</span>
+          <span style="font-family: monospace; font-weight: 700; color: #A95C64;">42% (25)</span>
         </div>
         <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem;">
           <span style="display: flex; align-items: center; gap: 6px;">
-            <span style="width: 10px; height: 10px; border-radius: 2px; background: #118DFF; display: inline-block;"></span>
+            <span style="width: 10px; height: 10px; border-radius: 2px; background: #C9A188; display: inline-block;"></span>
             <strong>Tier B (Med)</strong>
           </span>
-          <span style="font-family: monospace; font-weight: 700; color: #118DFF;">33% (20)</span>
+          <span style="font-family: monospace; font-weight: 700; color: #C9A188;">33% (20)</span>
         </div>
         <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem;">
           <span style="display: flex; align-items: center; gap: 6px;">
-            <span style="width: 10px; height: 10px; border-radius: 2px; background: #F2C811; display: inline-block;"></span>
+            <span style="width: 10px; height: 10px; border-radius: 2px; background: #946F5C; display: inline-block;"></span>
             <strong>Tier C (Bulk)</strong>
           </span>
-          <span style="font-family: monospace; font-weight: 700; color: #F2C811;">25% (15)</span>
+          <span style="font-family: monospace; font-weight: 700; color: #946F5C;">25% (15)</span>
         </div>
       </div>
     </div>
@@ -364,11 +364,11 @@ function renderPowerBICorridorHeatmap() {
   if (!container) return;
 
   const corridors = [
-    { name: 'Corridor 1 (Aisle A1–A6)', density: 92, status: 'High Flow', color: '#107C41' },
-    { name: 'Corridor 2 (Aisle B1–B6)', density: 68, status: 'Optimal', color: '#118DFF' },
-    { name: 'Corridor 3 (Aisle C1–C6)', density: 44, status: 'Normal', color: '#00BFA5' },
-    { name: 'Corridor 4 (Aisle D1–D7)', density: 24, status: 'Reserve Flow', color: '#8B95A5' },
-    { name: 'Packing Hub & Dispatch', density: 100, status: 'Central Staging', color: '#F2C811' }
+    { name: 'Corridor 1 (Aisle A1–A6)', density: 92, status: 'High Flow', color: '#A95C64' },
+    { name: 'Corridor 2 (Aisle B1–B6)', density: 68, status: 'Optimal', color: '#946F5C' },
+    { name: 'Corridor 3 (Aisle C1–C6)', density: 44, status: 'Normal', color: '#C9A188' },
+    { name: 'Corridor 4 (Aisle D1–D7)', density: 24, status: 'Reserve Flow', color: '#C3A697' },
+    { name: 'Packing Hub & Dispatch', density: 100, status: 'Central Staging', color: '#A87D77' }
   ];
 
   let html = '<div class="pbi-corridor-heatmap">';
@@ -406,13 +406,13 @@ function renderPowerBIStatisticalRigor(data) {
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem;">
       <div style="background: rgba(0,0,0,0.18); border: 1px solid var(--pbi-border); border-radius: 8px; padding: 0.75rem;">
         <div style="font-size: 0.68rem; color: var(--pbi-text-dim); text-transform: uppercase;">Paired t-Statistic</div>
-        <div style="font-size: 1.35rem; font-weight: 800; color: #10b981; font-family: monospace;">t = ${tStat}</div>
+        <div style="font-size: 1.35rem; font-weight: 800; color: var(--primary); font-family: monospace;">t = ${tStat}</div>
         <div style="font-size: 0.7rem; color: var(--pbi-text-dim);">Critical t* = 2.201</div>
       </div>
       <div style="background: rgba(0,0,0,0.18); border: 1px solid var(--pbi-border); border-radius: 8px; padding: 0.75rem;">
         <div style="font-size: 0.68rem; color: var(--pbi-text-dim); text-transform: uppercase;">p-Value (Alpha .05)</div>
-        <div style="font-size: 1.35rem; font-weight: 800; color: #10b981; font-family: monospace;">p &lt; 0.0001</div>
-        <div style="font-size: 0.7rem; color: #10b981;">Statistically Significant</div>
+        <div style="font-size: 1.35rem; font-weight: 800; color: var(--primary); font-family: monospace;">p &lt; 0.0001</div>
+        <div style="font-size: 0.7rem; color: var(--primary);">Statistically Significant</div>
       </div>
       <div style="background: rgba(0,0,0,0.18); border: 1px solid var(--pbi-border); border-radius: 8px; padding: 0.75rem;">
         <div style="font-size: 0.68rem; color: var(--pbi-text-dim); text-transform: uppercase;">95% Confidence Interval</div>
@@ -474,8 +474,8 @@ function renderPowerBIMatrixTable(orders, searchTerm = '', algorithmFilter = 'al
       <td><span class="badge badge-primary">${order.item_count} items</span></td>
       <td><span class="badge badge-cyan">${order.algorithm}</span></td>
       <td style="color: var(--pbi-text-dim); font-family: monospace;">${order.distance_before} m</td>
-      <td style="font-weight: 700; color: #10b981; font-family: monospace;">${order.distance_after} m</td>
-      <td style="color: #10b981; font-weight: 600; font-family: monospace;">-${order.distance_saved} m</td>
+      <td style="font-weight: 700; color: var(--primary); font-family: monospace;">${order.distance_after} m</td>
+      <td style="color: var(--primary); font-weight: 600; font-family: monospace;">-${order.distance_saved} m</td>
       <td>
         <div class="pbi-data-bar-cell">
           <div class="pbi-data-bar-fill" style="width: ${barWidthPct}%;"></div>
@@ -909,7 +909,7 @@ function renderWaveBatchesTable(workers) {
         <td>${orderIds || 'N/A'}</td>
         <td>${units} units</td>
         <td>${wave.unique_stops || 0} stops</td>
-        <td style="font-weight: 700; color: #10b981;">${dist} m</td>
+        <td style="font-weight: 700; color: var(--primary);">${dist} m</td>
       `;
       tbody.appendChild(tr);
     });

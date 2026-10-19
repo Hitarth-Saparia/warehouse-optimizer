@@ -7,7 +7,7 @@
   <title>Order Picking Route Optimizer | Warehouse Optimizer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="powerbi.css">
   <link rel="stylesheet" href="style.css">
   <script src="theme.js"></script>
@@ -299,23 +299,23 @@
           <!-- Legend Strip -->
           <div class="route-legend-strip">
             <span class="route-legend-item">
-              <span class="legend-swatch" style="background: linear-gradient(90deg, #0284c7, #38bdf8); box-shadow: 0 0 6px rgba(56, 189, 248, 0.8);"></span>
+              <span class="legend-swatch" style="background: linear-gradient(90deg, var(--primary), var(--secondary)); box-shadow: 0 0 6px var(--primary-glow);"></span>
               Optimized Tour
             </span>
             <span class="route-legend-item">
-              <span class="legend-swatch" style="background: linear-gradient(135deg, #fbbf24, #d97706); border-radius: 50%; color: #0f172a; font-size: 9px; font-weight: 800; border: 1.5px solid #fff;">1</span>
+              <span class="legend-swatch" style="background: linear-gradient(135deg, #D98850, #A95C64); border-radius: 50%; color: #FFFFFF; font-size: 9px; font-weight: 800; border: 1.5px solid #fff;">1</span>
               Pick Sequence (#)
             </span>
             <span class="route-legend-item">
-              <span class="legend-swatch" style="background: linear-gradient(135deg, #10b981, #059669); border: 1.5px solid #6ee7b7;"></span>
+              <span class="legend-swatch" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); border: 1.5px solid var(--primary);"></span>
               Packing Hub #1
             </span>
             <span class="route-legend-item">
-              <span class="legend-swatch" style="background: #334155; border: 1.2px solid #64748b;"></span>
+              <span class="legend-swatch" style="background: #202c33; border: 1.2px solid #2a3942;"></span>
               <span id="legend-shelves-label">24 Storage Bays</span>
             </span>
             <span class="route-legend-item">
-              <span class="legend-swatch" style="background: #64748b; height: 3px; border-radius: 1px;"></span>
+              <span class="legend-swatch" style="background: #54656f; height: 3px; border-radius: 1px;"></span>
               Corridor Lanes
             </span>
           </div>
@@ -1118,8 +1118,8 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // 1. Digital Twin Canvas Floor (Identical to graph.html)
-      const dark = typeof isDarkMode === 'function' && isDarkMode();
-      ctx.fillStyle = dark ? '#0f172a' : '#f8fafc';
+      const dark = typeof isDarkMode === 'function' ? isDarkMode() : document.documentElement.classList.contains('dark');
+      ctx.fillStyle = dark ? '#2B2421' : '#F7F5E9';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // World transformation (DPR + Pan + Zoom)
@@ -1147,7 +1147,7 @@
 
         // 1. Radiant Ambient Conduit Glow
         ctx.lineWidth = 10;
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+        ctx.strokeStyle = dark ? 'rgba(201, 161, 136, 0.35)' : 'rgba(169, 92, 100, 0.35)';
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
         ctx.beginPath();
@@ -1163,8 +1163,8 @@
 
         // 2. High-Contrast Core Line (Matching Shortest Path & TSP Overlay)
         ctx.lineWidth = 4;
-        ctx.strokeStyle = '#38bdf8';
-        ctx.shadowColor = 'rgba(56, 189, 248, 0.75)';
+        ctx.strokeStyle = dark ? '#C9A188' : '#A95C64';
+        ctx.shadowColor = dark ? 'rgba(201, 161, 136, 0.75)' : 'rgba(169, 92, 100, 0.75)';
         ctx.shadowBlur = 12;
         ctx.beginPath();
         for (let i = 0; i < path.length - 1; i++) {
@@ -1200,7 +1200,7 @@
           const u = nodeMap[path[i]];
           const v = nodeMap[path[i + 1]];
           if (u && v) {
-            drawDirectionChevron(ctx, u, v);
+            drawDirectionChevron(ctx, u, v, dark);
           }
         }
 
@@ -1210,7 +1210,7 @@
           if (p && p.id !== 1 && (!currentRoute.stops || !currentRoute.stops.includes(p.id))) {
             ctx.beginPath();
             ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
-            ctx.fillStyle = '#38bdf8';
+            ctx.fillStyle = dark ? '#C9A188' : '#A95C64';
             ctx.fill();
             ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = 1.2;
@@ -1230,7 +1230,7 @@
         const isHovered = hoveredNode && hoveredNode.id === n.id;
 
         if (isPacking) {
-          drawPackingStation(ctx, n, isHovered);
+          drawPackingStation(ctx, n, isHovered, dark);
         } else {
           drawPalletRack(ctx, n, isStop, isHovered, dark);
         }
@@ -1391,7 +1391,10 @@
     }
 
     // --- Sub-renderer: Directional Movement Chevron Arrow ---
-    function drawDirectionChevron(ctx, u, v) {
+    function drawDirectionChevron(ctx, u, v, dark) {
+      if (typeof dark === 'undefined') {
+        dark = typeof isDarkMode === 'function' ? isDarkMode() : document.documentElement.classList.contains('dark');
+      }
       const dx = v.x - u.x;
       const dy = v.y - u.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -1406,8 +1409,8 @@
       ctx.rotate(angle);
 
       // Aerodynamic Laser Chevron
-      ctx.fillStyle = '#0284c7';
-      ctx.strokeStyle = '#ffffff';
+      ctx.fillStyle = dark ? '#C9A188' : '#A95C64';
+      ctx.strokeStyle = dark ? '#F7F5E9' : '#FFFFFF';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(-5, -5.5);
@@ -1422,7 +1425,10 @@
     }
 
     // --- Sub-renderer: Packing & Dispatch Hub (Packing Dock #1) (Identical to graph.html) ---
-    function drawPackingStation(ctx, n, isHovered) {
+    function drawPackingStation(ctx, n, isHovered, dark) {
+      if (typeof dark === 'undefined') {
+        dark = typeof isDarkMode === 'function' ? isDarkMode() : document.documentElement.classList.contains('dark');
+      }
       ctx.save();
       const pw = 104;
       const ph = 56;
@@ -1434,18 +1440,18 @@
       const pulseSize = 36 + Math.sin(pulseAngle) * 5;
       ctx.beginPath();
       ctx.arc(n.x, n.y, pulseSize, 0, 2 * Math.PI);
-      ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+      ctx.fillStyle = dark ? 'rgba(201, 161, 136, 0.2)' : 'rgba(169, 92, 100, 0.15)';
       ctx.fill();
 
       const dockGrad = ctx.createLinearGradient(px, py, px, py + ph);
-      dockGrad.addColorStop(0, '#10b981');
-      dockGrad.addColorStop(1, '#047857');
+      dockGrad.addColorStop(0, dark ? '#C9A188' : '#A95C64');
+      dockGrad.addColorStop(1, '#8F4B52');
       ctx.fillStyle = dockGrad;
       ctx.beginPath();
       ctx.roundRect(px, py, pw, ph, 8);
       ctx.fill();
 
-      ctx.strokeStyle = isHovered ? '#a7f3d0' : '#ffffff';
+      ctx.strokeStyle = isHovered ? (dark ? '#F7F5E9' : '#C9A188') : '#ffffff';
       ctx.lineWidth = isHovered ? 3 : 2;
       ctx.stroke();
 
@@ -1506,11 +1512,11 @@
       // Rack Chassis Gradient (matching graph.html)
       const rackGrad = ctx.createLinearGradient(x, y, x, y + h);
       if (isStop) {
-        rackGrad.addColorStop(0, '#0284c7');
-        rackGrad.addColorStop(1, '#0369a1');
+        rackGrad.addColorStop(0, dark ? '#C9A188' : '#A95C64');
+        rackGrad.addColorStop(1, dark ? '#A87D77' : '#904850');
       } else {
-        rackGrad.addColorStop(0, dark ? '#334155' : '#475569');
-        rackGrad.addColorStop(1, dark ? '#1e293b' : '#334155');
+        rackGrad.addColorStop(0, dark ? '#3C332E' : '#FFFFFF');
+        rackGrad.addColorStop(1, dark ? '#2B2421' : '#F7F5E9');
       }
 
       ctx.fillStyle = rackGrad;
@@ -1518,13 +1524,13 @@
       ctx.roundRect(x, y, w, h, 6);
       ctx.fill();
 
-      ctx.strokeStyle = isStop ? '#38bdf8' : (dark ? '#64748b' : '#94a3b8');
+      ctx.strokeStyle = isStop ? (dark ? '#C9A188' : '#A95C64') : (dark ? '#503E33' : '#946F5C');
       ctx.lineWidth = isStop ? 2.5 : 1.2;
       ctx.stroke();
       ctx.shadowBlur = 0;
 
       // Shelf Label
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = isStop ? '#ffffff' : (dark ? '#eaeef0' : '#111b21');
       ctx.font = '700 11px "JetBrains Mono", monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -2271,7 +2277,7 @@
     window.addEventListener('themechange', () => {
       const canvas = document.getElementById('route-canvas');
       if (canvas) {
-        canvas.style.background = isDarkMode() ? '#161618' : '#F8F8FA';
+        canvas.style.background = isDarkMode() ? '#2B2421' : '#F7F5E9';
         drawRouteCanvas();
       }
     });

@@ -7,7 +7,7 @@
   <title>Warehouse Graph Editor | Warehouse Optimizer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="powerbi.css">
   <link rel="stylesheet" href="style.css">
   <script src="theme.js"></script>
@@ -16,21 +16,23 @@
   <style>
     /* Dedicated Floorplan Editor & Accessibility Styles */
     :root {
-      --graph-accent: #38bdf8;
-      --graph-hub: #10b981;
-      --graph-rack: #475569;
-      --graph-hazard: #f59e0b;
-      --graph-route-tsp: #06b6d4;
-      --graph-route-base: #f97316;
-      --coord-color: #047857;
+      --graph-accent: #A95C64;
+      --graph-hub: #503E33;
+      --graph-rack: #946F5C;
+      --graph-hazard: #D98850;
+      --graph-route-tsp: #A95C64;
+      --graph-route-base: #C9A188;
+      --coord-color: #A95C64;
     }
 
-    [data-theme="dark"] {
-      --graph-accent: #38bdf8;
-      --graph-hub: #10b981;
-      --graph-rack: #334155;
-      --graph-hazard: #f59e0b;
-      --coord-color: #86efac;
+    .dark, [data-theme="dark"] {
+      --graph-accent: #C9A188;
+      --graph-hub: #C9A188;
+      --graph-rack: #3C332E;
+      --graph-hazard: #E09A5A;
+      --graph-route-tsp: #C9A188;
+      --graph-route-base: #946F5C;
+      --coord-color: #C9A188;
     }
 
     /* Floating Canvas Controls - Positioned INSIDE the canvas wrapper */
@@ -1749,8 +1751,8 @@
       ctx.save();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const dark = typeof isDarkMode === 'function' && isDarkMode();
-      ctx.fillStyle = dark ? '#0f172a' : '#f8fafc';
+      const dark = typeof isDarkMode === 'function' ? isDarkMode() : document.documentElement.classList.contains('dark');
+      ctx.fillStyle = dark ? '#2B2421' : '#F7F5E9';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // 1. World scale transform (DPR + Pan + Zoom)
@@ -2026,14 +2028,14 @@
           }
 
           const dockGrad = ctx.createLinearGradient(px, py, px, py + ph);
-          dockGrad.addColorStop(0, isSelected ? '#059669' : '#10b981');
-          dockGrad.addColorStop(1, '#047857');
+          dockGrad.addColorStop(0, isSelected ? '#C9A188' : '#A95C64');
+          dockGrad.addColorStop(1, '#8F4B52');
           ctx.fillStyle = dockGrad;
           ctx.beginPath();
           ctx.roundRect(px, py, pw, ph, 8);
           ctx.fill();
 
-          ctx.strokeStyle = isSelected ? '#a7f3d0' : '#ffffff';
+          ctx.strokeStyle = isSelected ? (dark ? '#F7F5E9' : '#C9A188') : '#ffffff';
           ctx.lineWidth = isSelected ? 3 : 2;
           ctx.stroke();
           ctx.shadowBlur = 0;
@@ -2090,8 +2092,8 @@
             fillStyle = getHeatmapColor(weeklyPicks);
           } else {
             const rackGrad = ctx.createLinearGradient(x, y, x, y + h);
-            rackGrad.addColorStop(0, dark ? '#334155' : '#475569');
-            rackGrad.addColorStop(1, dark ? '#1e293b' : '#334155');
+            rackGrad.addColorStop(0, dark ? '#3C332E' : '#FFFFFF');
+            rackGrad.addColorStop(1, dark ? '#2B2421' : '#F7F5E9');
             fillStyle = rackGrad;
           }
 
@@ -2100,13 +2102,13 @@
           ctx.roundRect(x, y, w, h, 6);
           ctx.fill();
 
-          ctx.strokeStyle = isSelected ? '#38bdf8' : (dark ? '#64748b' : '#94a3b8');
+          ctx.strokeStyle = isSelected ? (dark ? '#C9A188' : '#A95C64') : (dark ? '#503E33' : '#946F5C');
           ctx.lineWidth = isSelected ? 2.5 : 1.2;
           ctx.stroke();
           ctx.shadowBlur = 0;
 
           // Shelf Label
-          ctx.fillStyle = '#ffffff';
+          ctx.fillStyle = isSelected ? '#ffffff' : (dark ? '#eaeef0' : '#111b21');
           ctx.font = 'bold 10px monospace';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';

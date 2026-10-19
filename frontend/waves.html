@@ -7,7 +7,7 @@
   <title>Wave Picking Management | Warehouse Optimizer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="powerbi.css">
   <link rel="stylesheet" href="style.css">
   <script src="theme.js"></script>
@@ -2107,8 +2107,8 @@
       ctx.save();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const dark = typeof isDarkMode === 'function' && isDarkMode();
-      ctx.fillStyle = dark ? '#161618' : '#F8F8FA';
+      const dark = typeof isDarkMode === 'function' ? isDarkMode() : document.documentElement.classList.contains('dark');
+      ctx.fillStyle = dark ? '#2B2421' : '#F7F5E9';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       ctx.save();
@@ -2225,12 +2225,12 @@
           const rx = n.x - rw / 2, ry = n.y - rh / 2;
 
           if (isStop) {
-            ctx.fillStyle = '#8b5cf6';
-            ctx.strokeStyle = isHovered ? '#c4b5fd' : '#ffffff';
+            ctx.fillStyle = dark ? '#C9A188' : '#A95C64';
+            ctx.strokeStyle = isHovered ? (dark ? '#F7F5E9' : '#C9A188') : '#ffffff';
             ctx.lineWidth = isHovered ? 3 : 2;
           } else {
-            ctx.fillStyle = dark ? '#1e293b' : '#ffffff';
-            ctx.strokeStyle = isHovered ? '#3b82f6' : (dark ? '#475569' : '#cbd5e1');
+            ctx.fillStyle = dark ? '#3C332E' : '#ffffff';
+            ctx.strokeStyle = isHovered ? (dark ? '#C9A188' : '#A95C64') : (dark ? '#503E33' : '#946F5C');
             ctx.lineWidth = isHovered ? 2 : 1.5;
           }
 
@@ -2239,7 +2239,7 @@
           ctx.fill();
           ctx.stroke();
 
-          ctx.fillStyle = isStop ? '#ffffff' : (dark ? '#f8fafc' : '#0f172a');
+          ctx.fillStyle = isStop ? '#ffffff' : (dark ? '#eaeef0' : '#111b21');
           ctx.font = 'bold 11px monospace';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
