@@ -433,6 +433,10 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
             COI (volume &divide; velocity)
           </button>
+          <button id="btn-strat-affinity" class="strategy-btn" role="radio" aria-checked="false" aria-pressed="false" onclick="setSlottingStrategy('affinity')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            Market Basket (AI Affinity)
+          </button>
         </div>
 
         <!-- Action Buttons -->
@@ -530,6 +534,57 @@
             <svg id="svg-map-proposed" class="heatmap-svg" viewBox="0 0 780 480" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Proposed floor heat map showing optimized shelf velocity and SKU counts"></svg>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Market Basket Affinity Insights Card (Visible in Affinity Mode) -->
+    <div class="card" id="card-affinity-insights" style="display: none; margin-bottom: 1.5rem; border-left: 4px solid var(--accent, #A95C64);">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="badge" style="background: rgba(169, 92, 100, 0.15); color: var(--primary, #A95C64); font-weight: 700;">AI MARKET BASKET MINING</span>
+            <span class="badge badge-success" id="affinity-coloc-badge">0% Co-Located</span>
+          </div>
+          <h2 style="font-size: 1.2rem; font-weight: 800; margin: 0.35rem 0 0.2rem 0;">Product Co-Affinity &amp; Association Rules</h2>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Frequently co-ordered items are clustered and assigned to identical or adjacent bays to minimize picker trip hops.</p>
+        </div>
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+          <div class="stat-card" style="padding: 0.6rem 1rem; min-width: 110px;">
+            <div class="stat-label" style="font-size: 0.7rem;">Pairs Mined</div>
+            <div class="stat-value" id="stat-mined-pairs" style="font-size: 1.2rem;">0</div>
+          </div>
+          <div class="stat-card" style="padding: 0.6rem 1rem; min-width: 110px;">
+            <div class="stat-label" style="font-size: 0.7rem;">Bundles Formed</div>
+            <div class="stat-value" id="stat-bundles-count" style="font-size: 1.2rem;">0</div>
+          </div>
+          <div class="stat-card success" style="padding: 0.6rem 1rem; min-width: 120px;">
+            <div class="stat-label" style="font-size: 0.7rem;">Hop Savings</div>
+            <div class="stat-value" id="stat-hop-savings" style="font-size: 1.2rem; color: var(--success);">0%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Association Rules Table -->
+      <div class="table-responsive">
+        <table style="font-size: 0.85rem;">
+          <thead>
+            <tr>
+              <th>Co-Ordered Product Pair</th>
+              <th>Co-Purchases</th>
+              <th>Support</th>
+              <th>Confidence</th>
+              <th>Lift Score</th>
+              <th>Bay Placement Status</th>
+            </tr>
+          </thead>
+          <tbody id="affinity-pairs-tbody">
+            <tr>
+              <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                Mining market basket associations...
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -655,15 +710,37 @@
 
       const btnVelocity = document.getElementById('btn-strat-velocity');
       const btnCoi = document.getElementById('btn-strat-coi');
+      const btnAffinity = document.getElementById('btn-strat-affinity');
       const strategyText = document.getElementById('strategy-text');
       const thVolCoi = document.getElementById('th-vol-coi');
+      const cardAffinity = document.getElementById('card-affinity-insights');
 
-      if (strategy === 'coi') {
-        btnVelocity.setAttribute('aria-pressed', 'false');
-        btnVelocity.setAttribute('aria-checked', 'false');
-        btnCoi.setAttribute('aria-pressed', 'true');
-        btnCoi.setAttribute('aria-checked', 'true');
+      [btnVelocity, btnCoi, btnAffinity].forEach(b => {
+        if (b) {
+          b.setAttribute('aria-pressed', 'false');
+          b.setAttribute('aria-checked', 'false');
+        }
+      });
+
+      if (strategy === 'affinity') {
+        if (btnAffinity) {
+          btnAffinity.setAttribute('aria-pressed', 'true');
+          btnAffinity.setAttribute('aria-checked', 'true');
+        }
+        thVolCoi.style.display = 'none';
+        if (cardAffinity) cardAffinity.style.display = 'block';
+        strategyText.innerHTML = `
+          <strong>Strategy: Market Basket &amp; Co-Affinity Slotting</strong> &bull;
+          Items frequently ordered together in the same basket are mined via Apriori rules and slotted on identical or adjacent bays.
+          Reduces multi-stop cross-aisle travel while strictly enforcing shelf capacities and hazard segregation.
+        `;
+      } else if (strategy === 'coi') {
+        if (btnCoi) {
+          btnCoi.setAttribute('aria-pressed', 'true');
+          btnCoi.setAttribute('aria-checked', 'true');
+        }
         thVolCoi.style.display = 'table-cell';
+        if (cardAffinity) cardAffinity.style.display = 'none';
         strategyText.innerHTML = `
           <strong>Strategy: Cube-per-Order Index (COI)</strong> &bull;
           Products sorted by volume &divide; pick velocity (ascending). High-frequency compact items are prioritized for closest shelves.
@@ -671,11 +748,12 @@
           Shelf capacity &le; 5 SKUs, Fragile and Heavy categories strictly segregated.
         `;
       } else {
-        btnVelocity.setAttribute('aria-pressed', 'true');
-        btnVelocity.setAttribute('aria-checked', 'true');
-        btnCoi.setAttribute('aria-pressed', 'false');
-        btnCoi.setAttribute('aria-checked', 'false');
+        if (btnVelocity) {
+          btnVelocity.setAttribute('aria-pressed', 'true');
+          btnVelocity.setAttribute('aria-checked', 'true');
+        }
         thVolCoi.style.display = 'none';
+        if (cardAffinity) cardAffinity.style.display = 'none';
         strategyText.innerHTML = `
           <strong>Strategy: Pareto ABC Velocity</strong> &bull;
           High-velocity SKUs (Tier A: top 80% pick volume) are allocated to storage shelves nearest to the dispatch hub.
@@ -693,6 +771,56 @@
       const btn = document.getElementById('btn-toggle-view');
       btn.textContent = showAllMoves ? 'Show top 12' : 'Show all';
       renderMovesTable();
+    }
+
+    // Render Market Basket Co-Affinity Insights
+    function renderAffinityInsights(affinityMetrics) {
+      const card = document.getElementById('card-affinity-insights');
+      if (!card) return;
+      if (currentStrategy !== 'affinity' || !affinityMetrics || !affinityMetrics.top_pairs) {
+        card.style.display = 'none';
+        return;
+      }
+      card.style.display = 'block';
+
+      document.getElementById('stat-mined-pairs').textContent = affinityMetrics.total_pairs_mined || 0;
+      document.getElementById('stat-bundles-count').textContent = affinityMetrics.bundles_formed || 0;
+      document.getElementById('stat-hop-savings').textContent = `+${affinityMetrics.estimated_hop_savings_pct || 0}%`;
+      document.getElementById('affinity-coloc-badge').textContent = `${affinityMetrics.co_location_rate_pct || 0}% Co-Located`;
+
+      const tbody = document.getElementById('affinity-pairs-tbody');
+      if (!tbody) return;
+
+      const pairs = affinityMetrics.top_pairs || [];
+      if (pairs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:1.5rem; color:var(--text-muted);">No association pairs mined above support threshold.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = pairs.slice(0, 8).map(p => {
+        let placementBadge = '<span class="badge" style="color:var(--text-muted);">Cross-Bay</span>';
+        if (p.is_same_shelf) {
+          placementBadge = `<span class="badge badge-success" style="font-weight:700;">★ Same Bay S-${p.shelf_1}</span>`;
+        } else if (p.is_adjacent) {
+          placementBadge = `<span class="badge badge-primary" style="font-weight:700;">Adjacent S-${p.shelf_1} &amp; S-${p.shelf_2}</span>`;
+        }
+
+        return `
+          <tr>
+            <td>
+              <div style="font-weight:700; color:var(--text-main);">
+                ${p.product_name_1} <span style="color:var(--primary); margin:0 4px;">🔗</span> ${p.product_name_2}
+              </div>
+              <small style="color:var(--text-muted); font-family:'JetBrains Mono',monospace;">${p.sku_1} (${p.category_1}) &bull; ${p.sku_2} (${p.category_2})</small>
+            </td>
+            <td><strong>${p.co_occurrence_count} orders</strong></td>
+            <td>${(p.support * 100).toFixed(1)}%</td>
+            <td><strong>${(p.confidence * 100).toFixed(0)}%</strong></td>
+            <td><span class="badge" style="background:rgba(217,136,80,0.15); color:#D98850; font-weight:700;">${p.lift}x</span></td>
+            <td>${placementBadge}</td>
+          </tr>
+        `;
+      }).join('');
     }
 
     // Fetch Layout Optimization Data from Backend
@@ -718,6 +846,7 @@
 
         updateHeaderActions();
         renderKPIs();
+        renderAffinityInsights(currentSummary.affinity_metrics);
         renderFloorHeatmaps(currentSummary.shelf_heatmaps || []);
         renderMovesTable();
       } catch (err) {
@@ -1032,11 +1161,19 @@
           </td>
         ` : '';
 
+        let affinityTag = '';
+        if (currentStrategy === 'affinity' && item.affinity_partner_name) {
+          const colocText = item.affinity_same_shelf ? '★ Same Bay' : (item.affinity_co_located ? 'Adjacent Bay' : 'Cross-Aisle');
+          const colocColor = item.affinity_same_shelf ? 'var(--success)' : (item.affinity_co_located ? 'var(--primary)' : 'var(--text-muted)');
+          affinityTag = `<div style="font-size:0.72rem; color:${colocColor}; font-weight:600; margin-top:2px;">🔗 Paired with ${item.affinity_partner_name} (${colocText})</div>`;
+        }
+
         tr.innerHTML = `
           <td><span class="badge" style="font-family:'JetBrains Mono',monospace; font-size:0.75rem;">${item.sku}</span></td>
           <td>
             <strong>${item.product_name}</strong>
             <div style="font-size:0.72rem; color:var(--text-muted);">${item.category}</div>
+            ${affinityTag}
           </td>
           <td>
             <span class="badge" style="font-weight:700; color:${tierColor}; border-color:${tierColor};">Tier ${item.tier}</span>

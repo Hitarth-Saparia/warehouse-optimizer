@@ -1551,10 +1551,49 @@ def _get_request_user_email():
                 conn.close()
     return "admin@warehouse.io"
 
+def fetch_order_baskets(conn):
+    """Fetches list of product sets ordered together in past orders for affinity mining."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT order_id, product_id FROM order_items ORDER BY order_id")
+        rows = cur.fetchall()
+    baskets = {}
+    for r in rows:
+        oid = r["order_id"]
+        pid = r["product_id"]
+        baskets.setdefault(oid, []).append(pid)
+    return list(baskets.values())
+
+@app.route("/api/market-basket/affinity", methods=["GET"])
+def get_market_basket_affinity():
+    """
+    Returns mined association rules, top co-occurrence pairs, support, confidence,
+    and lift from historical order baskets.
+    """
+    conn = get_db()
+    try:
+        products = fetch_all_products(conn)
+        order_baskets = fetch_order_baskets(conn)
+        from backend.layout_optimizer import mine_market_basket_affinity, build_affinity_bundles
+        pairs = mine_market_basket_affinity(order_baskets, products)
+        bundles = build_affinity_bundles(pairs, products)
+        bundles_serialized = [
+            [{"id": p.id, "name": p.name, "category": p.category, "sku": f"SKU-{p.id:04d}"} for p in b]
+            for b in bundles
+        ]
+        return jsonify({
+            "status": "success",
+            "total_orders_analyzed": len(order_baskets),
+            "total_pairs_mined": len(pairs),
+            "top_pairs": pairs[:20],
+            "bundles": bundles_serialized
+        })
+    finally:
+        conn.close()
+
 @app.route("/api/layout/optimize", methods=["GET", "POST"])
 def optimize_layout():
     """
-    Executes greedy layout optimization under chosen strategy (Velocity or COI).
+    Executes greedy layout optimization under chosen strategy (Velocity, COI, or Affinity).
     Returns proposed old vs new shelf assignments, travel index metrics, and floor heatmaps.
     """
     data = request.get_json(silent=True) or {}
@@ -1564,8 +1603,9 @@ def optimize_layout():
     try:
         products = fetch_all_products(conn)
         shelves = fetch_all_shelves(conn)
+        order_baskets = fetch_order_baskets(conn)
         optimizer = LayoutOptimizer()
-        assignments, summary = optimizer.optimize(products, shelves, strategy=strategy)
+        assignments, summary = optimizer.optimize(products, shelves, strategy=strategy, order_baskets=order_baskets)
 
         # Check if an undoable layout snapshot exists
         can_undo = False
@@ -1609,7 +1649,8 @@ def apply_layout():
             products = fetch_all_products(conn)
             shelves = fetch_all_shelves(conn)
             optimizer = LayoutOptimizer()
-            assignments, summary = optimizer.optimize(products, shelves, strategy=strategy)
+            order_baskets = fetch_order_baskets(conn)
+            assignments, summary = optimizer.optimize(products, shelves, strategy=strategy, order_baskets=order_baskets)
 
         optimizer = LayoutOptimizer()
         success, snapshot_id = optimizer.apply(

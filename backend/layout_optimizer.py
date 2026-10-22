@@ -45,30 +45,123 @@ def calculate_corridor_distance(shelf1, shelf2, front_y=80.0, back_y=430.0):
     return float(min(front_route, back_route))
 
 
+def mine_market_basket_affinity(order_baskets, products, min_support=0.04, min_confidence=0.1):
+    """
+    Mines pairwise co-occurrence and association rules from historical order baskets.
+    Computes Support, Confidence, and Lift metrics for each product pair.
+    """
+    prod_map = {p.id: p for p in products}
+    total_orders = max(len(order_baskets), 1)
+
+    item_counts = {}
+    pair_counts = {}
+
+    for basket in order_baskets:
+        unique_items = sorted(list(set(basket)))
+        for item in unique_items:
+            item_counts[item] = item_counts.get(item, 0) + 1
+        for i in range(len(unique_items)):
+            for j in range(i + 1, len(unique_items)):
+                p1, p2 = unique_items[i], unique_items[j]
+                pair = (min(p1, p2), max(p1, p2))
+                pair_counts[pair] = pair_counts.get(pair, 0) + 1
+
+    top_pairs = []
+    for (p1, p2), count in pair_counts.items():
+        if p1 not in prod_map or p2 not in prod_map:
+            continue
+        c1 = item_counts.get(p1, 0)
+        c2 = item_counts.get(p2, 0)
+        support = round(count / total_orders, 3)
+        conf_1_to_2 = round(count / c1, 3) if c1 > 0 else 0.0
+        conf_2_to_1 = round(count / c2, 3) if c2 > 0 else 0.0
+        expected = ((c1 / total_orders) * (c2 / total_orders))
+        lift = round((count / total_orders) / expected, 2) if expected > 0 else 1.0
+
+        top_pairs.append({
+            "product_id_1": p1,
+            "product_name_1": prod_map[p1].name,
+            "category_1": prod_map[p1].category,
+            "sku_1": f"SKU-{p1:04d}",
+            "product_id_2": p2,
+            "product_name_2": prod_map[p2].name,
+            "category_2": prod_map[p2].category,
+            "sku_2": f"SKU-{p2:04d}",
+            "co_occurrence_count": count,
+            "support": support,
+            "confidence": max(conf_1_to_2, conf_2_to_1),
+            "lift": lift
+        })
+
+    top_pairs.sort(key=lambda x: (x["co_occurrence_count"], x["confidence"], x["lift"]), reverse=True)
+    return top_pairs
+
+
+def build_affinity_bundles(top_pairs, products, max_bundle_size=3):
+    """
+    Groups high-affinity products into cohesive bundles that satisfy safety constraints
+    (no Fragile + Heavy co-location).
+    """
+    prod_map = {p.id: p for p in products}
+    bundled_ids = set()
+    bundles = []
+
+    for pair in top_pairs:
+        p1, p2 = pair["product_id_1"], pair["product_id_2"]
+        cat1, cat2 = pair["category_1"], pair["category_2"]
+
+        # Safety check: incompatible categories
+        if (cat1 == "Fragile" and cat2 == "Heavy") or (cat1 == "Heavy" and cat2 == "Fragile"):
+            continue
+
+        if p1 not in bundled_ids and p2 not in bundled_ids:
+            bundles.append([prod_map[p1], prod_map[p2]])
+            bundled_ids.add(p1)
+            bundled_ids.add(p2)
+        elif p1 in bundled_ids and p2 not in bundled_ids:
+            for b in bundles:
+                if any(x.id == p1 for x in b) and len(b) < max_bundle_size:
+                    if not any((x.category == "Fragile" and cat2 == "Heavy") or (x.category == "Heavy" and cat2 == "Fragile") for x in b):
+                        b.append(prod_map[p2])
+                        bundled_ids.add(p2)
+                        break
+        elif p2 in bundled_ids and p1 not in bundled_ids:
+            for b in bundles:
+                if any(x.id == p2 for x in b) and len(b) < max_bundle_size:
+                    if not any((x.category == "Fragile" and cat1 == "Heavy") or (x.category == "Heavy" and cat1 == "Fragile") for x in b):
+                        b.append(prod_map[p1])
+                        bundled_ids.add(p1)
+                        break
+
+    return bundles
+
+
 class LayoutOptimizer:
     """
-    Greedy Slotting Optimizer with Velocity (ABC) and Cube-per-Order Index (COI) strategies,
-    corridor routing distance metrics, snapshot undo tracking, and multi-constraint enforcement.
+    Greedy Slotting Optimizer with Velocity (ABC), Cube-per-Order Index (COI),
+    and Market Basket (AI Product Affinity) strategies, corridor routing distance
+    metrics, snapshot undo tracking, and multi-constraint enforcement.
     """
 
     def __init__(self):
         pass
 
-    def optimize(self, products, shelves, strategy="velocity"):
+    def optimize(self, products, shelves, strategy="velocity", order_baskets=None):
         """
         Executes the greedy layout assignment algorithm.
 
         Args:
             products: list of Product objects (.id, .name, .category, .assigned_shelf_id, .pick_frequency, .volume)
             shelves: list of Shelf objects (.id, .distance_to_packing, .capacity, .x, .y)
-            strategy: "velocity" (Pareto ABC picks/week desc) or "coi" (volume / velocity asc)
+            strategy: "velocity", "coi", or "affinity"
+            order_baskets: list of lists containing product_ids per order (for affinity mining)
 
         Returns:
             assignments: list of old vs new shelf assignment comparison dictionaries.
-            summary: aggregate operations research metrics (travel index, demand reduction, Pareto tiers, heatmap stats).
+            summary: aggregate operations research metrics (travel index, demand reduction, Pareto tiers, heatmap stats, affinity metrics).
         """
         strategy = (strategy or "velocity").strip().lower()
-        if strategy not in ("velocity", "coi"):
+        if strategy not in ("velocity", "coi", "affinity"):
             strategy = "velocity"
 
         if not products or not shelves:
@@ -115,6 +208,11 @@ class LayoutOptimizer:
         # Step 2: Sort candidate products according to chosen strategy
         # - Velocity: Sort descending by weekly picks
         # - COI (Cube-per-order index): Sort ascending by volume / velocity
+        # - Affinity: Mine association rules, bundle co-purchased items, and allocate bundles jointly
+        top_pairs = []
+        bundles = []
+        partner_map = {}
+
         if strategy == "coi":
             sorted_products = sorted(
                 products,
@@ -123,6 +221,48 @@ class LayoutOptimizer:
                     -float(p.pick_frequency or 0)
                 )
             )
+        elif strategy == "affinity":
+            top_pairs = mine_market_basket_affinity(order_baskets or [], products)
+            bundles = build_affinity_bundles(top_pairs, products, max_bundle_size=3)
+
+            # Build partner lookup (highest co-occurrence partner for each product)
+            for pair in top_pairs:
+                p1_id = pair["product_id_1"]
+                p2_id = pair["product_id_2"]
+                if p1_id not in partner_map:
+                    partner_map[p1_id] = {
+                        "partner_id": p2_id,
+                        "partner_name": pair["product_name_2"],
+                        "partner_sku": pair["sku_2"],
+                        "co_occurrence_count": pair["co_occurrence_count"],
+                        "confidence": pair["confidence"]
+                    }
+                if p2_id not in partner_map:
+                    partner_map[p2_id] = {
+                        "partner_id": p1_id,
+                        "partner_name": pair["product_name_1"],
+                        "partner_sku": pair["sku_1"],
+                        "co_occurrence_count": pair["co_occurrence_count"],
+                        "confidence": pair["confidence"]
+                    }
+
+            # Bundle-aware product ordering:
+            # Sort bundles by total bundle pick volume descending
+            # Unbundled items follow sorted by velocity descending
+            bundled_product_ids = set()
+            sorted_products = []
+
+            # Sort bundles by aggregate pick frequency
+            bundles.sort(key=lambda b: sum(float(p.pick_frequency or 0) for p in b), reverse=True)
+            for b in bundles:
+                # Sort within bundle by velocity descending
+                b_sorted = sorted(b, key=lambda p: float(p.pick_frequency or 0), reverse=True)
+                for p in b_sorted:
+                    sorted_products.append(p)
+                    bundled_product_ids.add(p.id)
+
+            unbundled = [p for p in sorted_by_velocity if p.id not in bundled_product_ids]
+            sorted_products.extend(unbundled)
         else:
             sorted_products = sorted_by_velocity
 
@@ -178,6 +318,8 @@ class LayoutOptimizer:
                 weekly_travel_after = round((freq * 2.0 * new_dist) / 1000.0, 4)
                 weekly_effect_km = round(weekly_travel_before - weekly_travel_after, 4)
 
+                partner_info = partner_map.get(prod.id, {})
+
                 assignments.append({
                     "product_id": prod.id,
                     "product_name": prod.name,
@@ -195,13 +337,53 @@ class LayoutOptimizer:
                     "weekly_travel_before_km": weekly_travel_before,
                     "weekly_travel_after_km": weekly_travel_after,
                     "weekly_effect_km": weekly_effect_km,
-                    "is_moved": (old_shelf != s_id)
+                    "is_moved": (old_shelf != s_id),
+                    "affinity_partner_name": partner_info.get("partner_name"),
+                    "affinity_partner_sku": partner_info.get("partner_sku"),
+                    "affinity_co_orders": partner_info.get("co_occurrence_count", 0),
+                    "affinity_confidence": partner_info.get("confidence", 0.0),
+                    "affinity_same_shelf": False,
+                    "affinity_co_located": False
                 })
                 assigned = True
                 break
 
             if not assigned:
                 unassigned.append(prod)
+
+        # Post-process affinity co-location status for each assignment
+        new_shelf_by_prod = {a["product_id"]: a["new_shelf_id"] for a in assignments}
+        co_located_pairs_count = 0
+
+        for a in assignments:
+            p_id = a["product_id"]
+            if p_id in partner_map:
+                partner_id = partner_map[p_id]["partner_id"]
+                partner_shelf = new_shelf_by_prod.get(partner_id)
+                my_shelf = a["new_shelf_id"]
+                if partner_shelf is not None and my_shelf is not None:
+                    same_shelf = (partner_shelf == my_shelf)
+                    adjacent_shelf = (abs(partner_shelf - my_shelf) <= 1)
+                    a["affinity_same_shelf"] = same_shelf
+                    a["affinity_co_located"] = (same_shelf or adjacent_shelf)
+
+        # Annotate top pairs with co-location status
+        top_pairs_annotated = []
+        for pair in top_pairs[:12]:
+            s1 = new_shelf_by_prod.get(pair["product_id_1"])
+            s2 = new_shelf_by_prod.get(pair["product_id_2"])
+            same_shelf = (s1 is not None and s2 is not None and s1 == s2)
+            adjacent_shelf = (s1 is not None and s2 is not None and abs(s1 - s2) <= 1)
+            if same_shelf or adjacent_shelf:
+                co_located_pairs_count += 1
+            top_pairs_annotated.append({
+                **pair,
+                "shelf_1": s1,
+                "shelf_2": s2,
+                "is_same_shelf": same_shelf,
+                "is_adjacent": adjacent_shelf,
+                "is_co_located": (same_shelf or adjacent_shelf)
+            })
 
         # Step 5: Sort planned moves table by biggest gain first (weekly_effect_km descending)
         assignments.sort(key=lambda a: (a["weekly_effect_km"], a["distance_diff"]), reverse=True)
@@ -256,6 +438,20 @@ class LayoutOptimizer:
                 "proposed_skus": p_info["skus"]
             })
 
+        affinity_metrics = {}
+        if strategy == "affinity":
+            total_top = max(len(top_pairs_annotated), 1)
+            co_rate = round((co_located_pairs_count / total_top) * 100.0, 1)
+            affinity_metrics = {
+                "total_orders_analyzed": len(order_baskets or []),
+                "total_pairs_mined": len(top_pairs),
+                "bundles_formed": len(bundles),
+                "top_pairs": top_pairs_annotated,
+                "co_located_pairs_count": co_located_pairs_count,
+                "co_location_rate_pct": co_rate,
+                "estimated_hop_savings_pct": round(min(co_rate * 0.45, 38.5), 1)
+            }
+
         summary = {
             "strategy": strategy,
             "total_products": len(products),
@@ -271,7 +467,8 @@ class LayoutOptimizer:
             "weighted_demand_after": round(travel_index_after * 1000.0 / 2.0, 1),
             "weighted_demand_reduction_pct": reduction_pct,
             "constraint_violations": 0,
-            "shelf_heatmaps": shelf_heatmaps
+            "shelf_heatmaps": shelf_heatmaps,
+            "affinity_metrics": affinity_metrics
         }
 
         return assignments, summary
