@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Interactive Warehouse Topology Graph and Floorplan Editor. Reposition shelves, connect corridors, simulate shortest Dijkstra paths, and manage hazard detours.">
+
+  <!-- Three.js & OrbitControls for 3D Digital Twin Mode -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <title>Warehouse Graph Editor | Warehouse Optimizer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -268,6 +272,181 @@
         grid-template-columns: 1fr !important;
       }
     }
+
+    /* 3D Digital Twin Studio Layout */
+    .twin-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 1.25rem;
+      height: calc(100vh - 180px);
+      min-height: 600px;
+    }
+    @media (max-width: 1024px) {
+      .twin-layout {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+    }
+    .canvas-card {
+      position: relative;
+      background: var(--card, #F7F5E9);
+      border: 1px solid var(--border, #946F5C);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-sm);
+    }
+    #canvas-container {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      min-height: 500px;
+      outline: none;
+    }
+    .canvas-hud-top {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      pointer-events: none;
+      z-index: 10;
+      flex-wrap: wrap;
+    }
+    .canvas-hud-top > * {
+      pointer-events: auto;
+    }
+    .hud-chip-group {
+      display: flex;
+      gap: 0.5rem;
+      background: var(--nav-bg, #43332A);
+      color: var(--card, #F7F5E9);
+      border: 1px solid var(--border-color, #946F5C);
+      padding: 5px 12px;
+      border-radius: 30px;
+      font-size: 0.8rem;
+      align-items: center;
+      box-shadow: 0 4px 12px rgba(80, 62, 51, 0.25);
+    }
+    .hud-controls-card {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      background: var(--nav-bg, #43332A);
+      color: var(--card, #F7F5E9);
+      border: 1px solid var(--border-color, #946F5C);
+      padding: 8px 14px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      z-index: 10;
+      font-size: 0.82rem;
+      box-shadow: 0 4px 12px rgba(80, 62, 51, 0.25);
+    }
+    .btn-view-pill {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-view-pill:hover {
+      background: var(--primary, #A95C64);
+      border-color: var(--primary, #A95C64);
+    }
+    .inspector-panel {
+      background: var(--card, #F7F5E9);
+      border: 1px solid var(--border, #946F5C);
+      border-radius: var(--radius, 8px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+    .inspector-header {
+      padding: 1.25rem;
+      border-bottom: 1px solid var(--border, #946F5C);
+      background: var(--muted, #E9C9BE);
+    }
+    .inspector-body {
+      padding: 1.25rem;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    .hud-product-item {
+      padding: 0.85rem;
+      border: 1px solid var(--border, #946F5C);
+      border-radius: 6px;
+      background: var(--card-bg, #FFFFFF);
+      transition: border-color 0.2s;
+    }
+    .hud-product-item:hover {
+      border-color: var(--primary, #A95C64);
+    }
+    .category-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .category-pill.electronics { background: rgba(169, 92, 100, 0.15); color: var(--primary, #A95C64); }
+    .category-pill.fasteners   { background: rgba(148, 111, 92, 0.18); color: var(--foreground, #503E33); }
+    .category-pill.tools       { background: rgba(217, 136, 80, 0.18); color: #D98850; }
+    .category-pill.safety      { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+    .category-pill.fragile     { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+    .category-pill.heavy       { background: rgba(100, 116, 139, 0.15); color: #64748b; }
+    .load-progress-track {
+      height: 8px;
+      background: var(--border, #946F5C);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .load-progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(67, 51, 42, 0.75);
+      backdrop-filter: blur(4px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      color: #fff;
+      font-weight: 600;
+    }
+    .spinner {
+      width: 42px;
+      height: 42px;
+      border: 3px solid rgba(255, 255, 255, 0.2);
+      border-top-color: var(--primary, #A95C64);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 12px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -285,7 +464,7 @@
         <a href="index.html">Dashboard</a>
         <a href="products.html">Products</a>
         <a href="layout.html">Layout Optimizer</a>
-        <a href="graph.html" class="active">Warehouse Graph</a>
+        <a href="graph.html" class="active">Floorplan &amp; 3D Twin</a>
         <a href="order-picking.html">Order Picking</a>
         <a href="waves.html">Wave Picking</a>
         <a href="fleet.html">Fleet Balancing</a>
@@ -302,12 +481,27 @@
   <div class="container">
     <!-- Page Header & Action Bar -->
     <div class="page-header" style="flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
-      <div>
-        <h1 class="page-title">Warehouse Topology Graph &amp; Floorplan Editor</h1>
-        <p class="page-subtitle">Interactive 2D Floorplan Studio: Reposition racks, add storage bays, connect corridors, and compute shortest Dijkstra paths</p>
+      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <h1 class="page-title">Warehouse Floorplan &amp; 3D Digital Twin</h1>
+          <p class="page-subtitle">Unified CAD Topology &amp; Spatial Digital Twin: Edit 2D corridors or inspect 3D multi-tier racks</p>
+        </div>
+
+        <!-- Studio Mode Switcher: 2D vs 3D -->
+        <div style="display: inline-flex; background: var(--card-bg, #FFFFFF); border: 1.5px solid var(--border-color, #946F5C); border-radius: 8px; padding: 3px; gap: 4px; box-shadow: var(--shadow-sm);">
+          <button id="btn-mode-2d" class="btn btn-primary" onclick="setStudioMode('2d')" style="padding: 5px 14px; font-size: 0.82rem; font-weight: 700;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+            2D CAD Editor
+          </button>
+          <button id="btn-mode-3d" class="btn btn-secondary" onclick="setStudioMode('3d')" style="padding: 5px 14px; font-size: 0.82rem; font-weight: 700;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"></path><path d="M3.3 7.5L12 12.5l8.7-5"></path><path d="M12 22V12.5"></path></svg>
+            3D Digital Twin
+          </button>
+        </div>
       </div>
 
-      <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center;">
+      <!-- 2D Actions Toolbar -->
+      <div id="actions-2d-toolbar" style="display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; width: 100%;">
         <span id="unsaved-badge" class="badge-unsaved" style="display: none;" role="status">
           <span style="width: 8px; height: 8px; background: #f59e0b; border-radius: 50%; display: inline-block;"></span>
           <span id="unsaved-text">Unsaved Changes</span>
@@ -371,7 +565,23 @@
         </button>
         <input type="file" id="import-file-input" accept=".json" style="display: none;" onchange="handleImportFile(event)">
       </div>
+
+      <!-- 3D Actions Toolbar -->
+      <div id="actions-3d-toolbar" style="display: none; flex-wrap: wrap; gap: 0.6rem; align-items: center; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; background: var(--card-bg, #FFFFFF); border: 1px solid var(--border, #946F5C); border-radius: 6px; padding: 4px 10px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="search-input" placeholder="Search SKU or Bay #..." style="background: transparent; border: none; outline: none; font-size: 0.82rem; color: var(--text-main); width: 170px;" onkeydown="if(event.key==='Enter') searchWarehouse()">
+          <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.75rem;" onclick="searchWarehouse()">Find</button>
+        </div>
+
+        <select id="filter-category" class="form-select" style="font-size: 0.82rem; padding: 6px 12px; min-width: 170px;" onchange="onCategoryFilterChange()">
+          <option value="ALL">All Categories</option>
+        </select>
+      </div>
     </div>
+
+    <!-- Section 2D Studio: CAD Toolbar & Canvas -->
+    <div id="section-2d-studio">
 
     <!-- Interactive Mode Toolbar -->
     <div class="graph-toolbar" role="toolbar" aria-label="Floorplan editing tools">
@@ -672,6 +882,95 @@
         </div>
       </div>
 
+    </div>
+    </div> <!-- /#section-2d-studio -->
+
+    <!-- Section 3D Studio: Digital Twin Viewport & Inspector -->
+    <div id="section-3d-studio" class="twin-layout" style="display: none;">
+      <!-- 3D Canvas Viewport Card -->
+      <div class="canvas-card">
+        <div id="canvas-container"></div>
+
+        <!-- Top Floating HUD Badges -->
+        <div class="canvas-hud-top">
+          <div class="hud-chip-group">
+            <span style="display: inline-block; width: 8px; height: 8px; background: #10b981; border-radius: 50%;"></span>
+            <span>Live 3D Twin</span>
+            <span style="opacity: 0.5;">|</span>
+            <span>Bays: <strong id="stat-total-bays" style="color: var(--primary, #A95C64);">25</strong></span>
+            <span style="opacity: 0.5;">|</span>
+            <span>SKUs: <strong id="stat-total-skus" style="color: var(--secondary, #C3A697);">60</strong></span>
+            <span style="opacity: 0.5;">|</span>
+            <span>Corridors: <strong id="stat-corridors" style="color: #D98850;">32</strong></span>
+          </div>
+
+          <div class="hud-chip-group">
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; margin: 0;">
+              <input type="checkbox" id="chk-corridors" checked onchange="toggleCorridors(this.checked)" style="cursor: pointer;">
+              <span>Corridor Paths</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Bottom Camera Presets Card -->
+        <div class="hud-controls-card">
+          <span style="font-weight: 700; color: var(--muted, #E9C9BE); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Camera:</span>
+          <button class="btn-view-pill" onclick="setCameraView('isometric')">Isometric (45°)</button>
+          <button class="btn-view-pill" onclick="setCameraView('topdown')">Top-Down (2D)</button>
+          <button class="btn-view-pill" onclick="setCameraView('front')">Front Elevation</button>
+          <button class="btn-view-pill" onclick="setCameraView('dispatch')">Dispatch Hub</button>
+          <span style="margin-left: 0.5rem; opacity: 0.75; font-size: 0.74rem;">• Drag to orbit • Scroll to zoom • Right-drag to pan</span>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="loading-overlay" style="display: none;">
+          <div class="spinner"></div>
+          <div>Synthesizing 3D Warehouse Geometry...</div>
+        </div>
+      </div>
+
+      <!-- Right Side Inspector Panel -->
+      <div class="inspector-panel">
+        <div class="inspector-header">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <span id="hud-shelf-badge" class="badge-unsaved" style="display: inline-block; background: rgba(169, 92, 100, 0.15); color: var(--primary, #A95C64); font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 4px;">AISLE 1</span>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Dist: <strong id="hud-dist-val" style="color: var(--text-main);">0.0 m</strong></span>
+          </div>
+          <h2 id="hud-shelf-title" style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin: 0;">Storage Rack Bay</h2>
+        </div>
+
+        <div class="inspector-body">
+          <!-- Shelf Capacity Load Section -->
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px;">
+              <span style="color: var(--text-muted); font-weight: 600;">Rack Utilization Load:</span>
+              <span id="hud-load-val" style="font-weight: 700; color: var(--text-main);">0 / 100 units (0%)</span>
+            </div>
+            <div class="load-progress-track">
+              <div id="hud-load-bar" class="load-progress-fill" style="width: 0%; background: #10b981;"></div>
+            </div>
+          </div>
+
+          <!-- Stored Products List -->
+          <div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+              <span>Assigned Products</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">Pareto Velocity</span>
+            </div>
+            <div id="hud-products-list" style="display: flex; flex-direction: column; gap: 0.65rem;">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div style="margin-top: auto; display: flex; flex-direction: column; gap: 0.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+            <a href="order-picking.html" class="btn btn-primary" style="justify-content: center; font-size: 0.85rem; text-decoration: none;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              Route Order to This Bay
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -2846,7 +3145,58 @@
       drawGraph();
     });
 
-    document.addEventListener('DOMContentLoaded', loadGraph);
+    // -------------------------------------------------------------
+    // Unified Studio Mode Switcher (2D CAD vs 3D Digital Twin)
+    // -------------------------------------------------------------
+    let currentStudioMode = '2d';
+    let threeInitialized = false;
+
+    function setStudioMode(mode) {
+      currentStudioMode = mode;
+      const is3D = (mode === '3d');
+      const sec2D = document.getElementById('section-2d-studio');
+      const sec3D = document.getElementById('section-3d-studio');
+      const btn2D = document.getElementById('btn-mode-2d');
+      const btn3D = document.getElementById('btn-mode-3d');
+      const act2D = document.getElementById('actions-2d-toolbar');
+      const act3D = document.getElementById('actions-3d-toolbar');
+
+      if (is3D) {
+        if (sec2D) sec2D.style.display = 'none';
+        if (sec3D) sec3D.style.display = 'grid';
+        if (act2D) act2D.style.display = 'none';
+        if (act3D) act3D.style.display = 'flex';
+        if (btn2D) { btn2D.className = 'btn btn-secondary'; }
+        if (btn3D) { btn3D.className = 'btn btn-primary'; }
+
+        // Initialize Three.js scene once, then load/refresh data
+        if (!threeInitialized) {
+          threeInitialized = true;
+          if (typeof init3DScene === 'function') init3DScene();
+        }
+        if (typeof loadWarehouseData === 'function') loadWarehouseData();
+        if (typeof onWindowResize === 'function') setTimeout(onWindowResize, 60);
+      } else {
+        if (sec2D) sec2D.style.display = 'block';
+        if (sec3D) sec3D.style.display = 'none';
+        if (act2D) act2D.style.display = 'flex';
+        if (act3D) act3D.style.display = 'none';
+        if (btn2D) { btn2D.className = 'btn btn-primary'; }
+        if (btn3D) { btn3D.className = 'btn btn-secondary'; }
+
+        resizeCanvas();
+        drawGraph();
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadGraph();
+      if (window.location.hash === '#3d') {
+        setTimeout(() => setStudioMode('3d'), 120);
+      }
+    });
   </script>
+  <script src="digital-twin.js"></script>
+  <script src="events.js"></script>
 </body>
 </html>
