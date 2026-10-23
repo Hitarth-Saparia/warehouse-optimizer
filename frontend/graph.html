@@ -3017,6 +3017,15 @@
     }
 
     async function toggleBlockCorridor(edge) {
+      if (typeof getAuthUser === 'function') {
+        const currentUser = getAuthUser();
+        const role = typeof getUserRoleKey === 'function' ? getUserRoleKey(currentUser) : (currentUser ? currentUser.role : null);
+        if (role === 'fleet') {
+          showToast("Fleet Lead has read-only navigation view. Only Operations Managers & Picker Leads can toggle physical aisle hazards.", "warning");
+          return;
+        }
+      }
+
       pushUndoState();
       const u = edge.from_shelf_id;
       const v = edge.to_shelf_id;

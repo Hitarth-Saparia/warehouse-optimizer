@@ -29,7 +29,7 @@
         <a href="index.html">Dashboard</a>
         <a href="products.html">Products</a>
         <a href="layout.html">Layout Optimizer</a>
-        <a href="graph.html">Floorplan &amp; 3D Twin</a>
+        <a href="graph.html">Warehouse Graph</a>
         <a href="order-picking.html" class="active" aria-current="page">Order Picking</a>
         <a href="waves.html">Wave Picking</a>
         <a href="fleet.html">Fleet Balancing</a>
@@ -112,6 +112,16 @@
             </svg>
             Custom Order
           </button>
+          <button id="btn-scanner" class="btn btn-secondary" onclick="openScannerModal()" style="border-color: var(--primary, #A95C64); color: var(--primary, #A95C64); font-weight: 700;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+              <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+              <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+              <line x1="7" y1="12" x2="17" y2="12"></line>
+            </svg>
+            📷 Barcode Scanner
+          </button>
         </div>
       </div>
 
@@ -166,6 +176,18 @@
       </svg>
       <div id="unreachable-alert-text">
         <strong>Route Unreachable:</strong> One or more shelves cannot be reached from Packing Hub #1 due to active corridor blockages or graph disconnections.
+      </div>
+    </div>
+
+    <!-- Dynamic Hazard Detour Warning Banner -->
+    <div id="detour-active-alert" class="alert alert-warning" style="display: none; margin-bottom: 1.25rem; background: rgba(245, 158, 11, 0.12); border: 1.5px solid rgba(245, 158, 11, 0.45); color: #b45309;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+      <div id="detour-alert-text">
+        <strong>⚠️ Active Hazard Detour:</strong> One or more warehouse aisles are currently marked as blocked. Routing engine dynamically detoured around obstructions.
       </div>
     </div>
 
@@ -318,6 +340,10 @@
               <span class="legend-swatch" style="background: #54656f; height: 3px; border-radius: 1px;"></span>
               Corridor Lanes
             </span>
+            <span class="route-legend-item">
+              <span class="legend-swatch" style="background: repeating-linear-gradient(45deg, #ef4444, #ef4444 3px, #fee2e2 3px, #fee2e2 6px); height: 5px; border-radius: 2px;"></span>
+              ⚠️ Blocked Hazard
+            </span>
           </div>
 
           <!-- Route Explanation Caption (Dedicated Row 1) -->
@@ -372,6 +398,7 @@
                       <th>Product</th>
                       <th style="width: 65px; text-align: center; white-space: nowrap;">Qty</th>
                       <th style="width: 95px; text-align: center; white-space: nowrap;">Shelf</th>
+                      <th style="width: 95px; text-align: right; white-space: nowrap;">Verification</th>
                     </tr>
                   </thead>
                   <tbody id="order-items-body"></tbody>
@@ -458,6 +485,15 @@
         const gRes = await fetch('/api/warehouse/graph');
         graphData = await gRes.json();
         updateShelfCountLabels();
+        if (graphData.blocked_corridors && graphData.blocked_corridors.length > 0) {
+          const alertDetour = document.getElementById('detour-active-alert');
+          if (alertDetour) {
+            alertDetour.style.display = 'flex';
+            document.getElementById('detour-alert-text').innerHTML = `
+              <strong>⚠️ Active Hazard Detour:</strong> ${graphData.blocked_corridors.length} corridor(s) currently marked as blocked. Routing engine dynamically detours around obstructions via safe crossways.
+            `;
+          }
+        }
       } catch (err) {
         console.error("Failed to load graph:", err);
       }
@@ -874,6 +910,20 @@
           `;
         }
 
+        // Show active detour warning if corridors are blocked
+        const alertDetour = document.getElementById('detour-active-alert');
+        if (alertDetour) {
+          const blockedCount = currentRoute.blocked_corridors_count || (graphData.blocked_corridors ? graphData.blocked_corridors.length : 0);
+          if (currentRoute.has_hazard_detour || blockedCount > 0) {
+            alertDetour.style.display = 'flex';
+            document.getElementById('detour-alert-text').innerHTML = `
+              <strong>⚠️ Active Hazard Detour:</strong> ${blockedCount} corridor(s) currently marked as blocked. Routing engine dynamically detoured around obstructions via safe crossways.
+            `;
+          } else {
+            alertDetour.style.display = 'none';
+          }
+        }
+
         document.getElementById('results-container').style.display = 'block';
 
         // Update Baseline Comparison
@@ -1027,13 +1077,24 @@
       currentRoute.items.forEach(it => {
         const tr = document.createElement('tr');
         const shelfCode = it.shelf_id ? 'S&#8209;' + String(it.shelf_id).padStart(2, '0') : 'Unassigned';
+        const isVerified = verifiedPicks.has(it.product_id);
+        if (isVerified) {
+          tr.style.background = 'rgba(16, 185, 129, 0.08)';
+        }
         tr.innerHTML = `
           <td style="font-weight: 500;">
+            ${isVerified ? '<span style="color: #10b981; margin-right: 4px;">✓</span>' : ''}
             ${it.name || 'Product Item'}
             <div style="font-size: 0.72rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; white-space: nowrap;">SKU #${it.product_id} · ${it.category || 'General'}</div>
           </td>
           <td style="text-align: center; white-space: nowrap;"><span class="badge cell-badge-nowrap" style="background: var(--bg-main); color: var(--text-main); font-weight: 700; border: 1px solid var(--border);">${it.quantity}&nbsp;pcs</span></td>
           <td style="text-align: center; white-space: nowrap;"><span class="badge badge-primary cell-badge-nowrap">${shelfCode}</span></td>
+          <td style="text-align: right; white-space: nowrap;">
+            ${isVerified
+              ? '<span class="badge badge-success" style="font-size: 0.72rem; padding: 2px 8px;">✓ Verified</span>'
+              : `<button class="btn btn-secondary btn-sm" onclick="openScannerForItem(${it.product_id}, ${it.shelf_id || 0}, '${escapeHtml(it.name || '').replace(/'/g, "\\'")}')" style="padding: 2px 8px; font-size: 0.72rem; border-color: var(--primary, #A95C64); color: var(--primary, #A95C64);">📷 Verify</button>`
+            }
+          </td>
         `;
         itemsBody.appendChild(tr);
       });
@@ -1042,8 +1103,9 @@
       itemsFoot.innerHTML = `
         <tr class="sticky-total-row">
           <td style="text-align: left; text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.05em; white-space: nowrap;">Total Units Requested</td>
-          <td style="text-align: center; font-weight: 800; color: #0284c7; white-space: nowrap;"><span style="white-space: nowrap; font-variant-numeric: tabular-nums;">${totalUnits}&nbsp;pcs</span></td>
+          <td style="text-align: center; font-weight: 800; color: var(--primary, #A95C64); white-space: nowrap;"><span style="white-space: nowrap; font-variant-numeric: tabular-nums;">${totalUnits}&nbsp;pcs</span></td>
           <td style="text-align: center; font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;">${currentRoute.items.length}&nbsp;SKUs</td>
+          <td style="text-align: right; font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;">${verifiedPicks.size}/${currentRoute.items.length} verified</td>
         </tr>
       `;
     }
@@ -1361,9 +1423,24 @@
         const v = nodeMap[e.to_shelf_id];
         if (!u || !v) return;
 
+        const isBlocked = graphData.blocked_corridors && graphData.blocked_corridors.some(b => {
+          const bMin = Math.min(b.from_shelf, b.to_shelf);
+          const bMax = Math.max(b.from_shelf, b.to_shelf);
+          const eMin = Math.min(e.from_shelf_id, e.to_shelf_id);
+          const eMax = Math.max(e.from_shelf_id, e.to_shelf_id);
+          return bMin === eMin && bMax === eMax;
+        });
+
         ctx.save();
-        ctx.strokeStyle = dark ? '#334155' : '#cbd5e1';
-        ctx.lineWidth = 2.5;
+        if (isBlocked) {
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 3.5;
+          ctx.setLineDash([7, 4]);
+        } else {
+          ctx.strokeStyle = dark ? '#334155' : '#cbd5e1';
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([]);
+        }
         ctx.beginPath();
         ctx.moveTo(u.x, u.y);
         ctx.lineTo(v.x, v.y);
@@ -1372,19 +1449,37 @@
         // Metric Distance Pill on Edge Midpoint
         const mx = (u.x + v.x) / 2;
         const my = (u.y + v.y) / 2;
-        ctx.fillStyle = dark ? '#1e293b' : '#ffffff';
-        ctx.strokeStyle = dark ? '#475569' : '#94a3b8';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.roundRect(mx - 16, my - 8, 32, 16, 4);
-        ctx.fill();
-        ctx.stroke();
 
-        ctx.fillStyle = dark ? '#94a3b8' : '#475569';
-        ctx.font = '700 8.5px "JetBrains Mono", monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(`${e.distance}m`, mx, my);
+        if (isBlocked) {
+          ctx.setLineDash([]);
+          ctx.fillStyle = '#fee2e2';
+          ctx.strokeStyle = '#dc2626';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(mx - 28, my - 9, 56, 18, 5);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#b91c1c';
+          ctx.font = '800 8.5px "JetBrains Mono", monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`⚠️ BLOCKED`, mx, my);
+        } else {
+          ctx.fillStyle = dark ? '#1e293b' : '#ffffff';
+          ctx.strokeStyle = dark ? '#475569' : '#94a3b8';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.roundRect(mx - 16, my - 8, 32, 16, 4);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = dark ? '#94a3b8' : '#475569';
+          ctx.font = '700 8.5px "JetBrains Mono", monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`${e.distance}m`, mx, my);
+        }
         ctx.restore();
       });
       ctx.restore();
@@ -2282,7 +2377,371 @@
       }
     });
 
+    // -------------------------------------------------------------
+    // Hardware Barcode & QR Code Pick Verification Engine
+    // -------------------------------------------------------------
+    let verifiedPicks = new Set();
+    let activeScannerTarget = null;
+    let barcodeDetector = null;
+    let cameraStream = null;
+    let scanInterval = null;
+    let audioCtx = null;
+
+    if ('BarcodeDetector' in window) {
+      try {
+        barcodeDetector = new BarcodeDetector({ formats: ['qr_code', 'code_128', 'ean_13', 'upc_a'] });
+      } catch (e) {
+        console.info('BarcodeDetector init fallback:', e);
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+      }[m]));
+    }
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playAudioFeedback(isSuccess) {
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (isSuccess) {
+          // Double harmonic high-pitch warehouse chime: 880Hz -> 1760Hz
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, now);
+          osc.frequency.setValueAtTime(1760, now + 0.08);
+          gain.gain.setValueAtTime(0.25, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+          osc.start(now);
+          osc.stop(now + 0.32);
+        } else {
+          // Mismatch buzz tone: 220Hz saw-tooth descending to 130Hz
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.linearRampToValueAtTime(130, now + 0.28);
+          gain.gain.setValueAtTime(0.35, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+          osc.start(now);
+          osc.stop(now + 0.34);
+        }
+      } catch (err) {
+        console.warn('Web Audio API not supported:', err);
+      }
+    }
+
+    function openScannerForItem(productId, shelfId, prodName) {
+      openScannerModal({ productId, shelfId, prodName });
+    }
+
+    async function openScannerModal(target = null) {
+      activeScannerTarget = target;
+      const modal = document.getElementById('scanner-modal');
+      const title = document.getElementById('scanner-target-title');
+      const feedback = document.getElementById('scanner-feedback');
+      const testChips = document.getElementById('scanner-test-chips');
+      const manualInput = document.getElementById('scanner-manual-input');
+
+      if (feedback) {
+        feedback.className = 'scanner-alert';
+        feedback.innerHTML = 'Point camera at shelf QR or product barcode, or select a simulated tag below.';
+      }
+      if (manualInput) manualInput.value = '';
+
+      if (target) {
+        title.innerHTML = `Target: <strong>${escapeHtml(target.prodName)}</strong> &bull; <span class="badge badge-primary">Shelf S-${target.shelfId}</span>`;
+      } else {
+        title.innerHTML = `Scanner Mode: <strong>General Pick Verification</strong>`;
+      }
+
+      // Populate test chips
+      if (testChips && currentRoute && currentRoute.items) {
+        testChips.innerHTML = '';
+        currentRoute.items.forEach(it => {
+          const chipShelf = document.createElement('button');
+          chipShelf.className = 'scanner-chip';
+          chipShelf.textContent = `SHELF-${it.shelf_id}`;
+          chipShelf.onclick = () => submitScannedBarcode(`SHELF-${it.shelf_id}`);
+          testChips.appendChild(chipShelf);
+
+          const chipSku = document.createElement('button');
+          chipSku.className = 'scanner-chip';
+          chipSku.textContent = `SKU-${it.product_id}`;
+          chipSku.onclick = () => submitScannedBarcode(`SKU-${it.product_id}`);
+          testChips.appendChild(chipSku);
+        });
+
+        const chipInvalid = document.createElement('button');
+        chipInvalid.className = 'scanner-chip scanner-chip-invalid';
+        chipInvalid.textContent = 'INVALID-SKU-999';
+        chipInvalid.title = 'Test mismatch error buzz';
+        chipInvalid.onclick = () => submitScannedBarcode('INVALID-SKU-999');
+        testChips.appendChild(chipInvalid);
+      }
+
+      modal.style.display = 'flex';
+      await startCamera();
+    }
+
+    function closeScannerModal() {
+      stopCamera();
+      document.getElementById('scanner-modal').style.display = 'none';
+    }
+
+    async function startCamera() {
+      const video = document.getElementById('scanner-video');
+      const errorMsg = document.getElementById('scanner-cam-error');
+      if (errorMsg) errorMsg.style.display = 'none';
+
+      try {
+        stopCamera();
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' } }
+          });
+          if (video) {
+            video.srcObject = cameraStream;
+            await video.play();
+            startDetectionLoop(video);
+          }
+        }
+      } catch (err) {
+        console.warn('Camera inaccessible:', err);
+        if (errorMsg) {
+          errorMsg.style.display = 'block';
+          errorMsg.textContent = 'Camera stream not available. You can use one-click simulated barcodes or manual input below.';
+        }
+      }
+    }
+
+    function stopCamera() {
+      if (scanInterval) {
+        clearInterval(scanInterval);
+        scanInterval = null;
+      }
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+      }
+      const video = document.getElementById('scanner-video');
+      if (video) video.srcObject = null;
+    }
+
+    function startDetectionLoop(video) {
+      if (!barcodeDetector) return;
+      if (scanInterval) clearInterval(scanInterval);
+      scanInterval = setInterval(async () => {
+        if (video.readyState >= 2) {
+          try {
+            const codes = await barcodeDetector.detect(video);
+            if (codes && codes.length > 0 && codes[0].rawValue) {
+              submitScannedBarcode(codes[0].rawValue);
+            }
+          } catch (e) {}
+        }
+      }, 600);
+    }
+
+    async function submitScannedBarcode(code) {
+      const orderId = document.getElementById('order-select').value;
+      if (!orderId) return;
+
+      const trimmedCode = (code || '').trim();
+      if (!trimmedCode) return;
+
+      const feedback = document.getElementById('scanner-feedback');
+
+      try {
+        const payload = {
+          scanned_code: trimmedCode,
+          shelf_id: activeScannerTarget ? activeScannerTarget.shelfId : null,
+          product_id: activeScannerTarget ? activeScannerTarget.productId : null
+        };
+
+        const res = await fetch(`/api/orders/${orderId}/verify-pick`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.verified) {
+          playAudioFeedback(true);
+          feedback.className = 'scanner-alert scanner-alert-success';
+          feedback.innerHTML = `<strong>✓ VERIFIED!</strong> ${escapeHtml(data.message)}`;
+
+          if (currentRoute && currentRoute.items) {
+            const found = currentRoute.items.find(it =>
+              it.shelf_id === data.shelf_id ||
+              (activeScannerTarget && it.product_id === activeScannerTarget.productId) ||
+              it.name === data.product_name
+            );
+            if (found) {
+              verifiedPicks.add(found.product_id);
+            }
+          }
+
+          const totalUnits = (currentRoute && currentRoute.items) ? currentRoute.items.reduce((s, it) => s + (it.quantity || 1), 0) : 0;
+          renderItemsTable(totalUnits);
+
+          setTimeout(() => {
+            closeScannerModal();
+          }, 1200);
+
+        } else {
+          playAudioFeedback(false);
+          feedback.className = 'scanner-alert scanner-alert-error';
+          feedback.innerHTML = `<strong>✗ MISMATCH!</strong> ${escapeHtml(data.message || 'Scanned barcode does not match target.')}`;
+        }
+      } catch (err) {
+        console.error('Pick verification failed:', err);
+        playAudioFeedback(false);
+        feedback.className = 'scanner-alert scanner-alert-error';
+        feedback.innerHTML = `Verification network error. Check connection.`;
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', initializePage);
   </script>
+
+  <!-- Barcode & QR Code Hardware Scanner Modal -->
+  <div id="scanner-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(30, 22, 17, 0.78); backdrop-filter: blur(6px); z-index: 300; align-items: center; justify-content: center;">
+    <div style="background: var(--card, #F7F5E9); border: 1.5px solid var(--border, #946F5C); border-radius: 12px; width: 92%; max-width: 520px; padding: 1.5rem; box-shadow: 0 25px 35px -5px rgba(80, 62, 51, 0.45); max-height: 90vh; overflow-y: auto;">
+      
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.25rem;">📷</span>
+          <h2 style="font-size: 1.15rem; font-weight: 800; color: var(--text-main, #503E33); margin: 0;">Hardware Barcode &amp; QR Scanner</h2>
+        </div>
+        <button onclick="closeScannerModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted, #946F5C); line-height: 1;">&times;</button>
+      </div>
+
+      <div id="scanner-target-title" style="font-size: 0.85rem; color: var(--text-muted, #946F5C); margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border, #946F5C);">
+        Target: General Pick Verification
+      </div>
+
+      <!-- Viewfinder / Camera Video Feed -->
+      <div style="position: relative; width: 100%; height: 240px; background: #000; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+        <video id="scanner-video" playsinline autoplay muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+        
+        <!-- Viewfinder Reticle Corners -->
+        <div style="position: absolute; width: 170px; height: 170px; pointer-events: none; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);">
+          <!-- Corners in Terracotta accent -->
+          <div style="position: absolute; top: -2px; left: -2px; width: 20px; height: 20px; border-top: 4px solid var(--primary, #A95C64); border-left: 4px solid var(--primary, #A95C64); border-radius: 4px 0 0 0;"></div>
+          <div style="position: absolute; top: -2px; right: -2px; width: 20px; height: 20px; border-top: 4px solid var(--primary, #A95C64); border-right: 4px solid var(--primary, #A95C64); border-radius: 0 4px 0 0;"></div>
+          <div style="position: absolute; bottom: -2px; left: -2px; width: 20px; height: 20px; border-bottom: 4px solid var(--primary, #A95C64); border-left: 4px solid var(--primary, #A95C64); border-radius: 0 0 0 4px;"></div>
+          <div style="position: absolute; bottom: -2px; right: -2px; width: 20px; height: 20px; border-bottom: 4px solid var(--primary, #A95C64); border-right: 4px solid var(--primary, #A95C64); border-radius: 0 0 4px 0;"></div>
+          <!-- Glowing Scan Laser Line -->
+          <div class="scanner-laser"></div>
+        </div>
+
+        <div id="scanner-cam-error" style="display: none; position: absolute; padding: 12px; text-align: center; color: #f87171; font-size: 0.8rem; background: rgba(0,0,0,0.85); border-radius: 8px; max-width: 80%;"></div>
+      </div>
+
+      <!-- Feedback Status Alert Banner -->
+      <div id="scanner-feedback" class="scanner-alert" style="margin-top: 0.85rem;">
+        Point camera at shelf QR or product barcode, or select a simulated tag below.
+      </div>
+
+      <!-- One-Click Simulated Barcode Chips -->
+      <div style="margin-top: 1rem;">
+        <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted, #946F5C); margin-bottom: 0.45rem;">
+          Quick Test Barcodes (Click to simulate scan):
+        </div>
+        <div id="scanner-test-chips" style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 85px; overflow-y: auto;"></div>
+      </div>
+
+      <!-- Manual Barcode Input Fallback -->
+      <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+        <input type="text" id="scanner-manual-input" class="form-input" placeholder="e.g. SHELF-14 or SKU-3" style="flex: 1; font-size: 0.85rem;" onkeydown="if(event.key==='Enter') submitScannedBarcode(this.value)">
+        <button class="btn btn-primary" onclick="submitScannedBarcode(document.getElementById('scanner-manual-input').value)" style="white-space: nowrap; font-size: 0.85rem;">
+          Verify Code
+        </button>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem;">
+        <span style="font-size: 0.76rem; color: var(--text-muted, #946F5C);">🔊 Web Audio confirmation chime enabled</span>
+        <button class="btn btn-secondary" onclick="closeScannerModal()" style="font-size: 0.82rem; padding: 4px 14px;">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .scanner-laser {
+      position: absolute;
+      width: 100%;
+      height: 2px;
+      background: var(--primary, #A95C64);
+      box-shadow: 0 0 8px var(--primary, #A95C64), 0 0 14px var(--primary, #A95C64);
+      animation: scanLaser 2s ease-in-out infinite alternate;
+    }
+    @keyframes scanLaser {
+      0% { top: 10%; }
+      100% { top: 90%; }
+    }
+    .scanner-alert {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      background: rgba(148, 111, 92, 0.12);
+      color: var(--text-main, #503E33);
+      border-left: 4px solid var(--primary, #A95C64);
+      transition: all 0.25s ease;
+    }
+    .scanner-alert-success {
+      background: rgba(16, 185, 129, 0.15) !important;
+      color: #065f46 !important;
+      border-left-color: #10b981 !important;
+    }
+    .scanner-alert-error {
+      background: rgba(239, 68, 68, 0.15) !important;
+      color: #b91c1c !important;
+      border-left-color: #ef4444 !important;
+    }
+    .scanner-chip {
+      background: var(--card-bg, #ffffff);
+      border: 1px solid var(--border, #946F5C);
+      color: var(--text-main, #503E33);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-family: var(--font-mono, monospace);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .scanner-chip:hover {
+      background: var(--primary, #A95C64);
+      color: #ffffff;
+      border-color: var(--primary, #A95C64);
+    }
+    .scanner-chip-invalid {
+      border-color: #fca5a5;
+      color: #b91c1c;
+      background: rgba(239, 68, 68, 0.08);
+    }
+    .scanner-chip-invalid:hover {
+      background: #ef4444;
+      color: #ffffff;
+      border-color: #ef4444;
+    }
+  </style>
+  <script src="events.js"></script>
 </body>
 </html>

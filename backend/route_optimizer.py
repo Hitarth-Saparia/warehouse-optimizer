@@ -207,6 +207,8 @@ class RouteOptimizer:
             "baseline_time_seconds": baseline_time,
             "time_saved_seconds": time_saved,
             "legs": legs,
+            "blocked_corridors_count": len(self.warehouse.blocked_edges) if hasattr(self.warehouse, 'blocked_edges') else 0,
+            "has_hazard_detour": bool(getattr(self.warehouse, 'blocked_edges', None)),
             "unreachable": False,
             "unreachable_stops": []
         }
