@@ -3049,6 +3049,8 @@
           showToast(`Corridor ${u} ⇄ ${v} blocked for maintenance hazard.`, "warning");
         }
 
+        unsavedChangesCount = 0;
+        updateUnsavedBadge();
         recomputeAllShortestPaths();
         updateInspector();
         drawGraph();
