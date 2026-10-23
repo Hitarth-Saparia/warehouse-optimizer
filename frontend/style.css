@@ -1447,9 +1447,11 @@ body.login-page .navbar {
   background: #FFF9DB;
 }
 
+.demo-chip b,
 .demo-chip-role {
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 600;
+  color: var(--text-main);
 }
 
 .demo-chip-email {
