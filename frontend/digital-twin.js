@@ -60,6 +60,7 @@ let bloomPass = null;
 let bloomActive = true;
 let highBayLampsGroup = null;
 let overheadGirdersGroup = null;
+let architectureGroup = null;
 
 // Configuration
 const CONFIG = {
@@ -135,6 +136,9 @@ function init3DScene() {
 
   // Floor Grid, Polished Epoxy & Surroundings
   buildWarehouseFloor();
+
+  // Architectural Realism: Perimeter Walls, Loading Docks, Bollards & Guardrails
+  buildWarehouseArchitecture();
 
   // Raycasting
   raycaster = new THREE.Raycaster();
@@ -405,6 +409,592 @@ function buildWarehouseFloor() {
   const curbE = new THREE.Mesh(curbGeoEW, wallMat);
   curbE.position.set(CONFIG.floorWidth / 2 + 0.3, 0.2, 0);
   scene.add(curbE);
+}
+
+/**
+ * Builds realistic warehouse architectural infrastructure:
+ * 1. Perimeter industrial walls with corrugated siding, structural I-beams & clerestory daylight windows.
+ * 2. Logistics loading docks on the West wall with roll-up ribbed shutter doors, exterior trailer ramps, and LED signal beacons.
+ * 3. Heavy-duty yellow & black safety bollards at every aisle corner and dock portal.
+ * 4. Dual-rail industrial steel guardrails protecting Central Dispatch Hub (Shelf 1) and pedestrian paths.
+ * 5. High-contrast floor markings (zebra safety aprons, pedestrian green walkways, and AGV traffic direction arrows).
+ */
+function buildWarehouseArchitecture() {
+  if (architectureGroup) {
+    scene.remove(architectureGroup);
+  }
+  architectureGroup = new THREE.Group();
+  architectureGroup.name = "Warehouse_Architecture";
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const wallBaseColor = isDark ? 0x181e28 : 0xd8dce3;
+  const steelColumnColor = isDark ? 0x242e3d : 0x94a3b8;
+  const trimColor = isDark ? 0x0f172a : 0x475569;
+
+  const wallMat = new THREE.MeshStandardMaterial({
+    color: wallBaseColor,
+    metalness: 0.72,
+    roughness: 0.42
+  });
+
+  const steelMat = new THREE.MeshStandardMaterial({
+    color: steelColumnColor,
+    metalness: 0.85,
+    roughness: 0.35
+  });
+
+  const trimMat = new THREE.MeshStandardMaterial({
+    color: trimColor,
+    metalness: 0.6,
+    roughness: 0.5
+  });
+
+  // -------------------------------------------------------------
+  // 1. NORTH WALL (Full-height high-bay wall with clerestory ribbon windows)
+  // -------------------------------------------------------------
+  const wallHeight = 9.2;
+  const northZ = -CONFIG.floorDepth / 2 - 0.25;
+
+  const northWallGeo = new THREE.BoxGeometry(CONFIG.floorWidth + 1.6, wallHeight, 0.5);
+  const northWall = new THREE.Mesh(northWallGeo, wallMat);
+  northWall.position.set(0, wallHeight / 2, northZ);
+  northWall.receiveShadow = true;
+  architectureGroup.add(northWall);
+
+  // Upper Clerestory Ribbon Daylight Windows (y = 7.2 to 8.6)
+  const windowMat = new THREE.MeshStandardMaterial({
+    color: 0xfffbeb,
+    emissive: 0xfffaed,
+    emissiveIntensity: 0.45,
+    roughness: 0.1,
+    transparent: true,
+    opacity: 0.88
+  });
+  const windowGeo = new THREE.BoxGeometry(CONFIG.floorWidth - 4, 1.2, 0.55);
+  const clerestoryWin = new THREE.Mesh(windowGeo, windowMat);
+  clerestoryWin.position.set(0, 7.8, northZ);
+  architectureGroup.add(clerestoryWin);
+
+  // Vertical Structural I-Beams along North Wall
+  [-30, -20, -10, 0, 10, 20, 30].forEach(colX => {
+    const colGeo = new THREE.BoxGeometry(0.5, wallHeight + 0.3, 0.6);
+    const column = new THREE.Mesh(colGeo, steelMat);
+    column.position.set(colX, (wallHeight + 0.3) / 2, northZ + 0.3);
+    column.castShadow = true;
+    architectureGroup.add(column);
+  });
+
+  // Horizontal Wall Girt / Support Beam
+  const girtGeo = new THREE.BoxGeometry(CONFIG.floorWidth + 1.2, 0.22, 0.35);
+  const girt1 = new THREE.Mesh(girtGeo, steelMat);
+  girt1.position.set(0, 4.2, northZ + 0.25);
+  architectureGroup.add(girt1);
+
+  // -------------------------------------------------------------
+  // 2. EAST WALL (Corrugated industrial siding with power equipment)
+  // -------------------------------------------------------------
+  const eastX = CONFIG.floorWidth / 2 + 0.25;
+  const eastWallGeo = new THREE.BoxGeometry(0.5, wallHeight, CONFIG.floorDepth + 1.6);
+  const eastWall = new THREE.Mesh(eastWallGeo, wallMat);
+  eastWall.position.set(eastX, wallHeight / 2, 0);
+  eastWall.receiveShadow = true;
+  architectureGroup.add(eastWall);
+
+  // Vertical Structural I-Beams along East Wall
+  [-20, -10, 0, 10, 20].forEach(colZ => {
+    const col = new THREE.Mesh(new THREE.BoxGeometry(0.6, wallHeight + 0.3, 0.5), steelMat);
+    col.position.set(eastX - 0.3, (wallHeight + 0.3) / 2, colZ);
+    col.castShadow = true;
+    architectureGroup.add(col);
+  });
+
+  // Wall Equipment: Industrial Electrical Switchgear / Breaker Box
+  const breakerBoxMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.3 });
+  const breakerBox = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.8, 1.2), breakerBoxMat);
+  breakerBox.position.set(eastX - 0.28, 2.2, -6.0);
+  architectureGroup.add(breakerBox);
+
+  // High Voltage Warning Plate on Breaker Box
+  const voltPlateMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+  const voltPlate = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.3, 0.5), voltPlateMat);
+  voltPlate.position.set(eastX - 0.46, 2.3, -6.0);
+  architectureGroup.add(voltPlate);
+
+  // Emergency Fire Hose Reel Cabinet (Bright Red)
+  const fireCabinetMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.3, metalness: 0.4 });
+  const fireCabinet = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.2, 0.9), fireCabinetMat);
+  fireCabinet.position.set(eastX - 0.26, 1.8, 8.0);
+  architectureGroup.add(fireCabinet);
+
+  // -------------------------------------------------------------
+  // 3. WEST WALL: LOGISTICS LOADING DOCKS & ROLL-UP SHUTTER DOORS
+  // -------------------------------------------------------------
+  const westX = -CONFIG.floorWidth / 2 - 0.25;
+
+  // Solid Wall Sections around the two loading dock openings
+  const westSolidNorth = new THREE.Mesh(new THREE.BoxGeometry(0.5, wallHeight, 15.5), wallMat);
+  westSolidNorth.position.set(westX, wallHeight / 2, -19.75);
+  architectureGroup.add(westSolidNorth);
+
+  const westSolidCenter = new THREE.Mesh(new THREE.BoxGeometry(0.5, wallHeight, 6.0), wallMat);
+  westSolidCenter.position.set(westX, wallHeight / 2, 0);
+  architectureGroup.add(westSolidCenter);
+
+  const westSolidSouth = new THREE.Mesh(new THREE.BoxGeometry(0.5, wallHeight, 15.5), wallMat);
+  westSolidSouth.position.set(westX, wallHeight / 2, 19.75);
+  architectureGroup.add(westSolidSouth);
+
+  // Lintel beams above dock openings (y = 5.2 to wallHeight)
+  const lintelGeo = new THREE.BoxGeometry(0.5, wallHeight - 5.2, 6.2);
+  const lintel1 = new THREE.Mesh(lintelGeo, wallMat);
+  lintel1.position.set(westX, 5.2 + (wallHeight - 5.2) / 2, -6.0);
+  architectureGroup.add(lintel1);
+
+  const lintel2 = new THREE.Mesh(lintelGeo, wallMat);
+  lintel2.position.set(westX, 5.2 + (wallHeight - 5.2) / 2, 6.0);
+  architectureGroup.add(lintel2);
+
+  // Build the 2 Loading Dock Portals
+  buildLoadingDockPortal(westX, -6.0, "DOCK 01 • OUTBOUND DISPATCH", true);  // Dock 1 (Open with outdoor light & ramp)
+  buildLoadingDockPortal(westX,  6.0, "DOCK 02 • INBOUND RECEIVING", false); // Dock 2 (Closed ribbed shutter door)
+
+  // -------------------------------------------------------------
+  // 4. SOUTH PERIMETER (Foreground Safety Parapet & Handrail)
+  // -------------------------------------------------------------
+  const southZ = CONFIG.floorDepth / 2 + 0.25;
+  const southParapet = new THREE.Mesh(new THREE.BoxGeometry(CONFIG.floorWidth + 1.2, 0.6, 0.4), trimMat);
+  southParapet.position.set(0, 0.3, southZ);
+  architectureGroup.add(southParapet);
+
+  // Dual-rail tubular safety yellow handrail along south parapet
+  createSafetyGuardrail(-CONFIG.floorWidth / 2, southZ, CONFIG.floorWidth / 2, southZ, true);
+
+  // -------------------------------------------------------------
+  // 5. SAFETY BOLLARDS & GUARDRAILS
+  // -------------------------------------------------------------
+  // Aisle rack row corner bollards (protects upright columns from forklift turning damage)
+  const aisleXPositions = [-14, -6, 2, 10];
+  aisleXPositions.forEach(ax => {
+    createSafetyBollard(ax - 2.0, -17.0);
+    createSafetyBollard(ax + 2.0, -17.0);
+    createSafetyBollard(ax - 2.0,  17.0);
+    createSafetyBollard(ax + 2.0,  17.0);
+  });
+
+  // Bollards protecting Loading Docks
+  createSafetyBollard(westX + 1.2, -9.2);
+  createSafetyBollard(westX + 1.2, -2.8);
+  createSafetyBollard(westX + 1.2,  2.8);
+  createSafetyBollard(westX + 1.2,  9.2);
+
+  // Heavy-Duty Guardrails enclosing Central Dispatch Hub (Shelf 1 at x = -21, z = -1)
+  const hubX = -21, hubZ = -1;
+  createSafetyGuardrail(hubX - 4.5, hubZ - 4.0, hubX + 4.5, hubZ - 4.0); // North boundary
+  createSafetyGuardrail(hubX - 4.5, hubZ + 4.0, hubX + 4.5, hubZ + 4.0); // South boundary
+  createSafetyGuardrail(hubX - 4.5, hubZ - 4.0, hubX - 4.5, hubZ + 4.0); // West boundary
+  createSafetyGuardrail(hubX + 4.5, hubZ - 4.0, hubX + 4.5, hubZ - 1.5); // East boundary (North half)
+  createSafetyGuardrail(hubX + 4.5, hubZ + 1.5, hubX + 4.5, hubZ + 4.0); // East boundary (South half)
+
+  // Bollards at the open dispatch entrance gate
+  createSafetyBollard(hubX + 4.5, hubZ - 1.5);
+  createSafetyBollard(hubX + 4.5, hubZ + 1.5);
+
+  // -------------------------------------------------------------
+  // 6. DETAILED INDUSTRIAL FLOOR MARKINGS
+  // -------------------------------------------------------------
+  buildFloorSafetyMarkings(hubX, hubZ);
+
+  scene.add(architectureGroup);
+}
+
+/**
+ * Builds an industrial loading dock portal with roll-up shutter doors,
+ * rubber dock bumpers, status beacons, and exterior trailer staging.
+ */
+function buildLoadingDockPortal(wallX, centerZ, bayTitle, isOpen) {
+  const portalGroup = new THREE.Group();
+  portalGroup.position.set(wallX, 0, centerZ);
+
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.3 });
+  const hazardMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+
+  // 1. Steel Portal Jambs (Left & Right)
+  const jambGeo = new THREE.BoxGeometry(0.7, 5.2, 0.4);
+  const jambL = new THREE.Mesh(jambGeo, frameMat);
+  jambL.position.set(0, 2.6, -2.8);
+  portalGroup.add(jambL);
+
+  const jambR = new THREE.Mesh(jambGeo, frameMat);
+  jambR.position.set(0, 2.6, 2.8);
+  portalGroup.add(jambR);
+
+  // Hazard Stripes on Portal Frame
+  const stripeGeo = new THREE.BoxGeometry(0.72, 0.2, 0.42);
+  [-2.8, 2.8].forEach(jz => {
+    [1.0, 2.0, 3.0, 4.0].forEach(sy => {
+      const stripe = new THREE.Mesh(stripeGeo, hazardMat);
+      stripe.position.set(0, sy, jz);
+      portalGroup.add(stripe);
+    });
+  });
+
+  // Top Header Beam across Portal
+  const headerGeo = new THREE.BoxGeometry(0.7, 0.4, 6.0);
+  const header = new THREE.Mesh(headerGeo, frameMat);
+  header.position.set(0, 5.0, 0);
+  portalGroup.add(header);
+
+  // 2. Heavy Molded Rubber Dock Bumpers
+  const bumperMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
+  const bumperGeo = new THREE.BoxGeometry(0.4, 0.9, 0.3);
+  const bL = new THREE.Mesh(bumperGeo, bumperMat);
+  bL.position.set(-0.35, 0.5, -2.8);
+  portalGroup.add(bL);
+
+  const bR = new THREE.Mesh(bumperGeo, bumperMat);
+  bR.position.set(-0.35, 0.5, 2.8);
+  portalGroup.add(bR);
+
+  // 3. Roll-Up Shutter Door & Exterior Trailer
+  if (isOpen) {
+    // Partially open roll-up shutter (rolled up to 3.8m)
+    const rolledSlatGeo = new THREE.BoxGeometry(0.12, 1.4, 5.2);
+    const rolledSlatMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.85, roughness: 0.35 });
+    const rolledSlats = new THREE.Mesh(rolledSlatGeo, rolledSlatMat);
+    rolledSlats.position.set(0, 4.5, 0);
+    portalGroup.add(rolledSlats);
+
+    // Coiled Door Drum at top
+    const drumGeo = new THREE.CylinderGeometry(0.35, 0.35, 5.3, 16);
+    const drum = new THREE.Mesh(drumGeo, frameMat);
+    drum.rotation.x = Math.PI / 2;
+    drum.position.set(0, 5.2, 0);
+    portalGroup.add(drum);
+
+    // Exterior Concrete Loading Ramp
+    const rampMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6 });
+    const ramp = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.2, 5.4), rampMat);
+    ramp.position.set(-2.0, 0.1, 0);
+    portalGroup.add(ramp);
+
+    // Parked Delivery Truck Trailer (Rear visible at dock seal)
+    const trailerGroup = new THREE.Group();
+    trailerGroup.position.set(-4.2, 0, 0);
+
+    const trailerBodyMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.3, roughness: 0.4 });
+    const trailerBody = new THREE.Mesh(new THREE.BoxGeometry(4.0, 3.8, 4.8), trailerBodyMat);
+    trailerBody.position.set(0, 2.1, 0);
+    trailerGroup.add(trailerBody);
+
+    // Rear Conspicuity Tape (Red & White reflective bar)
+    const conspicMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    const conspicBar = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.15, 4.6), conspicMat);
+    conspicBar.position.set(2.02, 0.65, 0);
+    trailerGroup.add(conspicBar);
+
+    portalGroup.add(trailerGroup);
+
+    // Outdoor Sunlight Spill streaming into warehouse
+    const dockSunlight = new THREE.SpotLight(0xfff7ed, 1.8, 16, Math.PI / 3.2, 0.6, 1.2);
+    dockSunlight.position.set(-1.0, 4.8, 0);
+    dockSunlight.target.position.set(7.0, 0, 0);
+    portalGroup.add(dockSunlight);
+    portalGroup.add(dockSunlight.target);
+
+    // Dock Traffic Signal Beacon: Green "CLEAR / READY"
+    const beaconGeo = new THREE.SphereGeometry(0.12, 16, 16);
+    const beaconMat = new THREE.MeshStandardMaterial({
+      color: 0x10b981,
+      emissive: 0x10b981,
+      emissiveIntensity: 2.8,
+      roughness: 0.1
+    });
+    const beacon = new THREE.Mesh(beaconGeo, beaconMat);
+    beacon.position.set(0.42, 5.4, -2.8);
+    portalGroup.add(beacon);
+
+  } else {
+    // Closed Sectional Roll-Up Door with Corrugated Horizontal Ribs
+    const doorMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      metalness: 0.85,
+      roughness: 0.3
+    });
+    const doorPanel = new THREE.Mesh(new THREE.BoxGeometry(0.12, 4.9, 5.2), doorMat);
+    doorPanel.position.set(0, 2.45, 0);
+    portalGroup.add(doorPanel);
+
+    // Horizontal Steel Rib Lines across shutter door
+    const ribMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.9, roughness: 0.2 });
+    for (let ry = 0.5; ry < 4.8; ry += 0.5) {
+      const rib = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 5.18), ribMat);
+      rib.position.set(0, ry, 0);
+      portalGroup.add(rib);
+    }
+
+    // Dock Traffic Signal Beacon: Red "BUSY / INBOUND"
+    const beaconGeo = new THREE.SphereGeometry(0.12, 16, 16);
+    const beaconMat = new THREE.MeshStandardMaterial({
+      color: 0xef4444,
+      emissive: 0xef4444,
+      emissiveIntensity: 2.5,
+      roughness: 0.1
+    });
+    const beacon = new THREE.Mesh(beaconGeo, beaconMat);
+    beacon.position.set(0.42, 5.4, -2.8);
+    portalGroup.add(beacon);
+  }
+
+  // Overhead Stenciled Dock Placard
+  const signCanvas = document.createElement('canvas');
+  signCanvas.width = 384;
+  signCanvas.height = 80;
+  const sCtx = signCanvas.getContext('2d');
+  sCtx.fillStyle = '#0f172a';
+  sCtx.fillRect(0, 0, 384, 80);
+  sCtx.strokeStyle = isOpen ? '#10b981' : '#f59e0b';
+  sCtx.lineWidth = 6;
+  sCtx.strokeRect(4, 4, 376, 72);
+  sCtx.fillStyle = '#ffffff';
+  sCtx.font = 'bold 24px sans-serif';
+  sCtx.textAlign = 'center';
+  sCtx.textBaseline = 'middle';
+  sCtx.fillText(bayTitle, 192, 40);
+
+  const signTexture = new THREE.CanvasTexture(signCanvas);
+  const signSpriteMat = new THREE.SpriteMaterial({ map: signTexture, transparent: true });
+  const signSprite = new THREE.Sprite(signSpriteMat);
+  signSprite.scale.set(3.4, 0.72, 1);
+  signSprite.position.set(0.4, 5.6, 0);
+  portalGroup.add(signSprite);
+
+  architectureGroup.add(portalGroup);
+}
+
+/**
+ * Creates heavy-duty yellow & black safety bollards at rack corners and dock entries.
+ */
+function createSafetyBollard(x, z) {
+  const bollardGroup = new THREE.Group();
+  bollardGroup.position.set(x, 0, z);
+
+  // Steel Baseplate
+  const baseMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.04, 0.38), baseMat);
+  base.position.y = 0.02;
+  bollardGroup.add(base);
+
+  // Safety Yellow Steel Post
+  const postMat = new THREE.MeshStandardMaterial({
+    color: 0xfacc15,
+    metalness: 0.45,
+    roughness: 0.28
+  });
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 1.15, 16), postMat);
+  post.position.y = 0.6;
+  post.castShadow = true;
+  bollardGroup.add(post);
+
+  // Reflective Black Hazard Bands
+  const bandMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+  const bandGeo = new THREE.CylinderGeometry(0.135, 0.135, 0.08, 16);
+
+  const band1 = new THREE.Mesh(bandGeo, bandMat);
+  band1.position.y = 0.72;
+  bollardGroup.add(band1);
+
+  const band2 = new THREE.Mesh(bandGeo, bandMat);
+  band2.position.y = 0.94;
+  bollardGroup.add(band2);
+
+  // Top Cap Dome
+  const domeMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5 });
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), domeMat);
+  dome.position.y = 1.17;
+  bollardGroup.add(dome);
+
+  architectureGroup.add(bollardGroup);
+  return bollardGroup;
+}
+
+/**
+ * Creates dual-rail tubular safety steel guardrails with kickplates.
+ */
+function createSafetyGuardrail(x1, z1, x2, z2, isLow = false) {
+  const railGroup = new THREE.Group();
+
+  const dist = Math.hypot(x2 - x1, z2 - z1);
+  if (dist < 0.2) return;
+
+  const ang = Math.atan2(z2 - z1, x2 - x1);
+  const mx = (x1 + x2) / 2;
+  const mz = (z1 + z2) / 2;
+
+  railGroup.position.set(mx, 0, mz);
+  railGroup.rotation.y = -ang;
+
+  const railMat = new THREE.MeshStandardMaterial({
+    color: 0xf59e0b,
+    metalness: 0.65,
+    roughness: 0.3
+  });
+  const postMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.4 });
+
+  const topHeight = isLow ? 0.9 : 1.1;
+  const midHeight = isLow ? 0.45 : 0.6;
+
+  // Top Tubular Rail
+  const topRailGeo = new THREE.CylinderGeometry(0.038, 0.038, dist, 12);
+  const topRail = new THREE.Mesh(topRailGeo, railMat);
+  topRail.rotation.z = Math.PI / 2;
+  topRail.position.y = topHeight;
+  railGroup.add(topRail);
+
+  // Mid Tubular Rail
+  const midRailGeo = new THREE.CylinderGeometry(0.032, 0.032, dist, 12);
+  const midRail = new THREE.Mesh(midRailGeo, railMat);
+  midRail.rotation.z = Math.PI / 2;
+  midRail.position.y = midHeight;
+  railGroup.add(midRail);
+
+  // Base Kickplate / Toe-board
+  const kickGeo = new THREE.BoxGeometry(dist, 0.12, 0.03);
+  const kick = new THREE.Mesh(kickGeo, postMat);
+  kick.position.y = 0.08;
+  railGroup.add(kick);
+
+  // Vertical Posts spaced ~2.2m apart
+  const numPosts = Math.max(2, Math.round(dist / 2.2) + 1);
+  for (let i = 0; i < numPosts; i++) {
+    const t = i / (numPosts - 1);
+    const px = -dist / 2 + t * dist;
+
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.06, topHeight + 0.04, 0.06), postMat);
+    post.position.set(px, (topHeight + 0.04) / 2, 0);
+    railGroup.add(post);
+
+    // Anchor baseplate
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.02, 0.18), postMat);
+    plate.position.set(px, 0.01, 0);
+    railGroup.add(plate);
+  }
+
+  architectureGroup.add(railGroup);
+  return railGroup;
+}
+
+/**
+ * Builds industrial floor safety markings:
+ * - High-contrast yellow/black hazard apron around Dispatch Hub
+ * - Dedicated green non-slip pedestrian walkway
+ * - AGV directional floor arrows along main transit aisles
+ * - Stenciled aisle row numbers on the floor
+ */
+function buildFloorSafetyMarkings(hubX, hubZ) {
+  // 1. High-Contrast Hazard Zebra Border around Dispatch Apron
+  const borderGroup = new THREE.Group();
+  const stripeMat = new THREE.MeshBasicMaterial({ color: 0x0f172a }); // Black zebra stripes
+
+  // Top & bottom hazard borders (x from hubX-4.6 to hubX+4.6)
+  for (let x = hubX - 4.2; x <= hubX + 4.2; x += 0.8) {
+    const s1 = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.005, 0.4), stripeMat);
+    s1.position.set(x, 0.015, hubZ - 3.75);
+    s1.rotation.y = Math.PI / 4;
+    borderGroup.add(s1);
+
+    const s2 = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.005, 0.4), stripeMat);
+    s2.position.set(x, 0.015, hubZ + 3.75);
+    s2.rotation.y = Math.PI / 4;
+    borderGroup.add(s2);
+  }
+  architectureGroup.add(borderGroup);
+
+  // 2. Green Non-Slip Pedestrian Safety Walkway (Connecting Dock to Packing)
+  const walkwayMat = new THREE.MeshStandardMaterial({
+    color: 0x064e3b, // Dark Forest Green Epoxy
+    roughness: 0.5,
+    metalness: 0.1
+  });
+  // Walkway strip running along z = -12 from West wall to East side
+  const walkway = new THREE.Mesh(new THREE.PlaneGeometry(50, 1.4), walkwayMat);
+  walkway.rotation.x = -Math.PI / 2;
+  walkway.position.set(-6.0, 0.01, -12.0);
+  architectureGroup.add(walkway);
+
+  // Parallel Solid White Border Lines along Walkway
+  const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+  [-12.7, -11.3].forEach(lz => {
+    const pts = [new THREE.Vector3(-31, 0.012, lz), new THREE.Vector3(19, 0.012, lz)];
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    architectureGroup.add(new THREE.Line(geo, lineMat));
+  });
+
+  // 3. AGV Floor Directional Arrows (Painted on main corridor floors)
+  const arrowPositions = [
+    { x: -14, z: -8,  ang: 0 },
+    { x: -14, z:  8,  ang: 0 },
+    { x:  -6, z: -8,  ang: Math.PI },
+    { x:  -6, z:  8,  ang: Math.PI },
+    { x:   2, z: -8,  ang: 0 },
+    { x:   2, z:  8,  ang: 0 },
+    { x:  10, z: -8,  ang: Math.PI },
+    { x:  10, z:  8,  ang: Math.PI }
+  ];
+
+  arrowPositions.forEach(ap => {
+    const arrowGroup = new THREE.Group();
+    arrowGroup.position.set(ap.x, 0.012, ap.z);
+    arrowGroup.rotation.y = ap.ang;
+
+    const chevronMat = new THREE.MeshBasicMaterial({ color: 0xf1f5f9 });
+    // Chevron shaft & head
+    const shaft = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.9), chevronMat);
+    shaft.rotation.x = -Math.PI / 2;
+    arrowGroup.add(shaft);
+
+    const headL = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.55), chevronMat);
+    headL.rotation.x = -Math.PI / 2;
+    headL.rotation.z = Math.PI / 4;
+    headL.position.set(-0.16, 0, 0.32);
+    arrowGroup.add(headL);
+
+    const headR = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.55), chevronMat);
+    headR.rotation.x = -Math.PI / 2;
+    headR.rotation.z = -Math.PI / 4;
+    headR.position.set(0.16, 0, 0.32);
+    arrowGroup.add(headR);
+
+    architectureGroup.add(arrowGroup);
+  });
+
+  // 4. Stenciled Aisle Floor Row Numbers
+  const aisleStencils = [
+    { text: "AISLE 1", x: -14, z: -16.0 },
+    { text: "AISLE 2", x:  -6, z: -16.0 },
+    { text: "AISLE 3", x:   2, z: -16.0 },
+    { text: "AISLE 4", x:  10, z: -16.0 }
+  ];
+
+  aisleStencils.forEach(st => {
+    const sCanvas = document.createElement('canvas');
+    sCanvas.width = 256;
+    sCanvas.height = 64;
+    const ctx = sCanvas.getContext('2d');
+    ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+    ctx.fillRect(0, 0, 256, 64);
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = 'bold 36px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(st.text, 128, 32);
+
+    const texture = new THREE.CanvasTexture(sCanvas);
+    const spriteMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.6), spriteMat);
+    plane.rotation.x = -Math.PI / 2;
+    plane.position.set(st.x, 0.015, st.z);
+    architectureGroup.add(plane);
+  });
 }
 
 /**
