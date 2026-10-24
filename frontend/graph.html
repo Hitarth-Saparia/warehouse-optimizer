@@ -577,6 +577,18 @@
         <select id="filter-category" class="form-select" style="font-size: 0.82rem; padding: 6px 12px; min-width: 170px;" onchange="onCategoryFilterChange()">
           <option value="ALL">All Categories</option>
         </select>
+
+        <!-- 3D AGV Simulation Controls -->
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-left: auto;">
+          <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted);">Simulate Tour:</span>
+          <select id="select-3d-order" class="form-select" style="font-size: 0.82rem; padding: 6px 12px; min-width: 210px;" onchange="handle3DOrderSelect(this.value)">
+            <option value="">Select Order to Simulate...</option>
+          </select>
+          <button class="btn btn-primary" id="btn-run-3d-agv" onclick="trigger3DAGVRun()" style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.82rem; padding: 6px 14px; font-weight: 700;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            Simulate AGV
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1222,15 +1234,18 @@
     }
 
     async function loadAvailableOrdersForOverlay() {
-      const sel = document.getElementById('select-route-overlay');
-      if (!sel) return;
+      const sel2D = document.getElementById('select-route-overlay');
+      const sel3D = document.getElementById('select-3d-order');
+      if (!sel2D && !sel3D) return;
       try {
         const res = await fetch('/api/orders');
         if (!res.ok) return;
         const orders = await res.json();
-        sel.innerHTML = '<option value="">None (Standard Graph)</option>' + orders.map(o => {
+        const opts = orders.map(o => {
           return `<option value="${o.id}">Order #${o.id} - ${o.customer_name} (${(o.items||[]).length} items)</option>`;
         }).join('');
+        if (sel2D) sel2D.innerHTML = '<option value="">None (Standard Graph)</option>' + opts;
+        if (sel3D) sel3D.innerHTML = '<option value="">Select Order to Simulate...</option>' + opts;
       } catch (e) {
         console.warn("Could not load orders for overlay:", e);
       }
@@ -1243,6 +1258,7 @@
         document.getElementById('legend-tsp-chip').style.display = 'none';
         document.getElementById('route-stats-pill').style.display = 'none';
         drawGraph();
+        if (typeof closeAGVSimulation === 'function') closeAGVSimulation();
         return;
       }
 
@@ -1260,8 +1276,39 @@
 
         showToast(`Loaded Route for Order #${orderId} (${routeData.total_distance}m total travel)`, 'success');
         drawGraph();
+
+        // Also update 3D simulation if 3D scene is active
+        if (typeof loadRouteIn3DTwin === 'function' && currentStudioMode === '3d') {
+          loadRouteIn3DTwin(routeData);
+        }
       } catch (err) {
         showToast("Error loading order route: " + err.message, "error");
+      }
+    }
+
+    function handle3DOrderSelect(orderId) {
+      const sel2D = document.getElementById('select-route-overlay');
+      if (sel2D) sel2D.value = orderId;
+      if (orderId && typeof simulate3DOrder === 'function') {
+        simulate3DOrder(orderId);
+      } else if (!orderId && typeof closeAGVSimulation === 'function') {
+        closeAGVSimulation();
+      }
+    }
+
+    function trigger3DAGVRun() {
+      const sel3D = document.getElementById('select-3d-order');
+      let orderId = sel3D ? sel3D.value : null;
+      if (!orderId) {
+        if (sel3D && sel3D.options.length > 1) {
+          sel3D.selectedIndex = 1;
+          orderId = sel3D.value;
+        }
+      }
+      if (orderId && typeof simulate3DOrder === 'function') {
+        simulate3DOrder(orderId);
+      } else {
+        showToast("Please select an order from the dropdown to simulate.", "warning");
       }
     }
 
@@ -3202,8 +3249,26 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       loadGraph();
-      if (window.location.hash === '#3d') {
-        setTimeout(() => setStudioMode('3d'), 120);
+      const hash = window.location.hash || '';
+      const search = window.location.search || '';
+      const combined = hash + '&' + search;
+      const is3D = combined.includes('3d');
+      const orderMatch = combined.match(/order=([0-9]+)/);
+      const requestedOrder = orderMatch ? orderMatch[1] : null;
+
+      if (is3D) {
+        setTimeout(() => {
+          setStudioMode('3d');
+          if (requestedOrder) {
+            setTimeout(() => {
+              const sel3D = document.getElementById('select-3d-order');
+              if (sel3D) sel3D.value = requestedOrder;
+              if (typeof simulate3DOrder === 'function') {
+                simulate3DOrder(requestedOrder);
+              }
+            }, 350);
+          }
+        }, 150);
       }
     });
   </script>
