@@ -3474,6 +3474,34 @@ tr.sticky-total-row {
   box-shadow: 0 0 12px rgba(245, 158, 11, 0.45) !important;
 }
 
+.btn-bloom-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #946F5C);
+  color: var(--text-main);
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-bloom-toggle:hover {
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.btn-bloom-toggle.active {
+  background: linear-gradient(135deg, #0284c7, #2563eb) !important;
+  color: #ffffff !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.45) !important;
+}
+
+
 
 
 

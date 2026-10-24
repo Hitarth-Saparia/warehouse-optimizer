@@ -54,6 +54,13 @@ let heatmapMetric = 'velocity'; // 'velocity' | 'capacity'
 let heatmapPulseRacks = [];
 let heatmapTooltip = null;
 
+// Cinematic Lighting & Post-Processing Bloom State
+let composer = null;
+let bloomPass = null;
+let bloomActive = true;
+let highBayLampsGroup = null;
+let overheadGirdersGroup = null;
+
 // Configuration
 const CONFIG = {
   floorWidth: 70,
@@ -120,10 +127,13 @@ function init3DScene() {
   controls.maxDistance = 120;
   controls.target.set(0, 1.5, 0);
 
+  // Initialize Three.js Post-Processing (Cinematic Bloom & Glow)
+  initPostProcessing(width, height);
+
   // Lighting
   setupLighting();
 
-  // Floor Grid & Surroundings
+  // Floor Grid, Polished Epoxy & Surroundings
   buildWarehouseFloor();
 
   // Raycasting
@@ -159,13 +169,71 @@ function init3DScene() {
 }
 
 /**
- * Dynamic lighting with soft industrial ambient and directional warehouse bays.
+ * Initializes Three.js Post-Processing (UnrealBloomPass) for cinematic neon glow and industrial radiance.
+ */
+function initPostProcessing(width, height) {
+  if (typeof THREE.EffectComposer === 'undefined' || typeof THREE.UnrealBloomPass === 'undefined') {
+    console.info('Three.js Post-Processing scripts not loaded, using standard renderer fallback.');
+    return;
+  }
+  try {
+    composer = new THREE.EffectComposer(renderer);
+    const renderPass = new THREE.RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    // UnrealBloomPass: (resolution, strength, radius, threshold)
+    // Strength 0.52 gives headlights, amber beacons, and hot racks a vibrant neon halo
+    // Threshold 0.76 ensures normal diffuse racks/walls don't get blown out
+    bloomPass = new THREE.UnrealBloomPass(
+      new THREE.Vector2(width, height),
+      0.52, // Bloom strength
+      0.42, // Bloom radius
+      0.76  // Bloom luminance threshold
+    );
+    composer.addPass(bloomPass);
+
+    if (typeof THREE.ShaderPass !== 'undefined' && typeof THREE.CopyShader !== 'undefined') {
+      const copyPass = new THREE.ShaderPass(THREE.CopyShader);
+      copyPass.renderToScreen = true;
+      composer.addPass(copyPass);
+    }
+  } catch (err) {
+    console.warn('Post-processing composer initialization failed:', err);
+    composer = null;
+  }
+}
+
+/**
+ * Toggles Cinematic Bloom Post-Processing on or off.
+ */
+function toggle3DBloom(forceState) {
+  bloomActive = (forceState !== undefined) ? !!forceState : !bloomActive;
+  const btn = document.getElementById('btn-toggle-3d-bloom');
+  if (btn) {
+    if (bloomActive) {
+      btn.classList.add('active');
+      btn.setAttribute('aria-pressed', 'true');
+    } else {
+      btn.classList.remove('active');
+      btn.setAttribute('aria-pressed', 'false');
+    }
+  }
+  showToast(bloomActive ? '✨ Cinematic Bloom & Volumetric Lighting: ON' : 'Cinematic Bloom: OFF (Standard Mode)', 'info');
+}
+
+/**
+ * Dynamic cinematic lighting with high-bay industrial pendant fixtures,
+ * steel roof rafters, soft ambient fill, and directional warehouse sunlight.
  */
 function setupLighting() {
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+  // Ambient Fill Light
+  const ambientLight = new THREE.AmbientLight(isDark ? 0x222a38 : 0xffffff, isDark ? 0.8 : 0.7);
   scene.add(ambientLight);
 
-  const mainLight = new THREE.DirectionalLight(0xfff8ee, 1.2);
+  // Key Directional Warehouse Light (Sunlight streaming from high warehouse clerestory windows)
+  const mainLight = new THREE.DirectionalLight(0xfff8ee, 1.25);
   mainLight.position.set(25, 45, 30);
   mainLight.castShadow = true;
   mainLight.shadow.mapSize.width = 2048;
@@ -177,25 +245,102 @@ function setupLighting() {
   mainLight.shadow.camera.right = d;
   mainLight.shadow.camera.top = d;
   mainLight.shadow.camera.bottom = -d;
-  mainLight.shadow.bias = -0.0005;
+  mainLight.shadow.bias = -0.0004;
   scene.add(mainLight);
 
-  // Subtle cool fill light
-  const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.4);
+  // Subtle cool blue industrial rim fill
+  const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.45);
   fillLight.position.set(-30, 25, -20);
   scene.add(fillLight);
+
+  // High-Bay Industrial Pendant Fixtures Group
+  highBayLampsGroup = new THREE.Group();
+  highBayLampsGroup.name = "HighBay_Industrial_Pendants";
+
+  // Positions over major aisle corridors
+  const lampPositions = [
+    [-18, -12], [0, -12], [18, -12],
+    [-18,  12], [0,  12], [18,  12]
+  ];
+
+  const hoodMat = new THREE.MeshStandardMaterial({
+    color: 0x1e293b,
+    metalness: 0.8,
+    roughness: 0.3
+  });
+  const bulbMat = new THREE.MeshStandardMaterial({
+    color: 0xfffbeb,
+    emissive: 0xfff7ed,
+    emissiveIntensity: 2.4,
+    roughness: 0.1
+  });
+
+  lampPositions.forEach(([lx, lz]) => {
+    const lampGroup = new THREE.Group();
+    lampGroup.position.set(lx, 7.8, lz);
+
+    // Suspension conduit wire
+    const wireGeo = new THREE.CylinderGeometry(0.015, 0.015, 1.8);
+    const wire = new THREE.Mesh(wireGeo, hoodMat);
+    wire.position.y = 0.9;
+    lampGroup.add(wire);
+
+    // Bell reflector hood
+    const hoodGeo = new THREE.ConeGeometry(0.85, 0.5, 16, 1, true);
+    const hood = new THREE.Mesh(hoodGeo, hoodMat);
+    hood.position.y = 0;
+    lampGroup.add(hood);
+
+    // Glowing LED core bulb
+    const bulbGeo = new THREE.SphereGeometry(0.24, 16, 16);
+    const bulb = new THREE.Mesh(bulbGeo, bulbMat);
+    bulb.position.y = -0.08;
+    lampGroup.add(bulb);
+
+    // Downward Industrial Spotlight pool on the floor
+    const spot = new THREE.SpotLight(0xfffaed, 0.9, 22, Math.PI / 4, 0.65, 1.2);
+    spot.position.set(0, -0.1, 0);
+    spot.target.position.set(0, -8, 0);
+    lampGroup.add(spot);
+    lampGroup.add(spot.target);
+
+    highBayLampsGroup.add(lampGroup);
+  });
+  scene.add(highBayLampsGroup);
+
+  // Overhead Structural Steel Trusses / Girders
+  overheadGirdersGroup = new THREE.Group();
+  overheadGirdersGroup.name = "Overhead_Steel_Trusses";
+  const girderMat = new THREE.MeshStandardMaterial({
+    color: 0x334155,
+    metalness: 0.85,
+    roughness: 0.4
+  });
+
+  [-18, 0, 18].forEach(gx => {
+    // Cross beam spanning full floor depth
+    const girderGeo = new THREE.BoxGeometry(0.35, 0.5, CONFIG.floorDepth + 2);
+    const girder = new THREE.Mesh(girderGeo, girderMat);
+    girder.position.set(gx, 8.8, 0);
+    girder.castShadow = true;
+    overheadGirdersGroup.add(girder);
+  });
+  scene.add(overheadGirdersGroup);
 }
 
 /**
- * Procedural warehouse concrete floor with safety stripes and perimeter curb.
+ * Procedural warehouse floor with polished industrial epoxy coating,
+ * high-contrast specular reflections, dispatch hazard perimeter, and safety lanes.
  */
 function buildWarehouseFloor() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  
+  // Polished Epoxy Concrete Floor
   const floorGeo = new THREE.PlaneGeometry(CONFIG.floorWidth, CONFIG.floorDepth);
   const floorMat = new THREE.MeshStandardMaterial({
-    color: isDark ? 0x1a1e24 : 0xdedede,
-    roughness: 0.85,
-    metalness: 0.15
+    color: isDark ? 0x11161d : 0xdedede,
+    roughness: 0.22,  // Polished epoxy gloss
+    metalness: 0.26   // Industrial concrete resin specular sheen
   });
   const floor = new THREE.Mesh(floorGeo, floorMat);
   floor.rotation.x = -Math.PI / 2;
@@ -207,14 +352,41 @@ function buildWarehouseFloor() {
   const gridHelper = new THREE.GridHelper(
     Math.max(CONFIG.floorWidth, CONFIG.floorDepth),
     Math.round(CONFIG.floorWidth / 2),
-    isDark ? 0x334155 : 0xc7d2fe,
-    isDark ? 0x222a35 : 0xe2e8f0
+    isDark ? 0x1e293b : 0xc7d2fe,
+    isDark ? 0x17202e : 0xe2e8f0
   );
-  gridHelper.position.y = 0.01;
+  gridHelper.position.y = 0.008;
   scene.add(gridHelper);
 
+  // Dispatch Hub (Shelf 1) Hazard Zone Perimeter (Safety Yellow / Black Crosshatch Border)
+  const hubHazardGeo = new THREE.PlaneGeometry(8.5, 7.5);
+  const hubHazardMat = new THREE.MeshBasicMaterial({
+    color: 0xf59e0b,
+    transparent: true,
+    opacity: 0.22,
+    side: THREE.DoubleSide
+  });
+  const hubHazard = new THREE.Mesh(hubHazardGeo, hubHazardMat);
+  hubHazard.rotation.x = -Math.PI / 2;
+  const hubCoords = mapCoordsTo3D(80, 260);
+  hubHazard.position.set(hubCoords.x, 0.012, hubCoords.z);
+  scene.add(hubHazard);
+
+  // Dispatch Hub Yellow Warning Outline Border
+  const hubBorderPoints = [
+    new THREE.Vector3(hubCoords.x - 4.25, 0.014, hubCoords.z - 3.75),
+    new THREE.Vector3(hubCoords.x + 4.25, 0.014, hubCoords.z - 3.75),
+    new THREE.Vector3(hubCoords.x + 4.25, 0.014, hubCoords.z + 3.75),
+    new THREE.Vector3(hubCoords.x - 4.25, 0.014, hubCoords.z + 3.75),
+    new THREE.Vector3(hubCoords.x - 4.25, 0.014, hubCoords.z - 3.75)
+  ];
+  const hubBorderGeo = new THREE.BufferGeometry().setFromPoints(hubBorderPoints);
+  const hubBorderMat = new THREE.LineBasicMaterial({ color: 0xf59e0b, linewidth: 3 });
+  const hubBorderLine = new THREE.Line(hubBorderGeo, hubBorderMat);
+  scene.add(hubBorderLine);
+
   // Safety perimeter curb
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0x3b4252, roughness: 0.7 });
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6, metalness: 0.4 });
   const curbGeo = new THREE.BoxGeometry(CONFIG.floorWidth + 1.2, 0.4, 0.6);
 
   const curbN = new THREE.Mesh(curbGeo, wallMat);
@@ -925,6 +1097,9 @@ function toggleCorridors(enabled) {
 /**
  * Animation loop.
  */
+/**
+ * Animation loop supporting both Cinematic Bloom (EffectComposer) and Standard WebGLRenderer.
+ */
 function animate() {
   animationFrameId = requestAnimationFrame(animate);
   const dt = Math.min(agvAnimClock.getDelta(), 0.1);
@@ -935,13 +1110,16 @@ function animate() {
   if (typeof updateHeatmapAnimation === 'function') {
     updateHeatmapAnimation(dt);
   }
-  if (renderer && scene && camera) {
+  
+  if (bloomActive && composer) {
+    composer.render();
+  } else if (renderer && scene && camera) {
     renderer.render(scene, camera);
   }
 }
 
 /**
- * Handles window resize.
+ * Handles window resize for Camera, Renderer, and Post-Processing Composer.
  */
 function onWindowResize() {
   const container = document.getElementById('canvas-container');
@@ -953,6 +1131,12 @@ function onWindowResize() {
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
   renderer.setSize(width, height);
+  if (composer) {
+    composer.setSize(width, height);
+    if (bloomPass) {
+      bloomPass.resolution.set(width, height);
+    }
+  }
 }
 
 /**
@@ -1203,8 +1387,13 @@ function createAGVMesh() {
   agvBeaconLight.position.set(0, 2.0, -0.45);
   group.add(agvBeaconLight);
 
-  // 7. LED Headlights
-  const headLightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  // 7. LED Headlights & Volumetric Light Cones
+  const headLightMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0xfffbeb,
+    emissiveIntensity: 2.8,
+    roughness: 0.1
+  });
   const headL = new THREE.Mesh(new THREE.CircleGeometry(0.06, 16), headLightMat);
   headL.position.set(-0.45, 0.48, 0.86);
   group.add(headL);
@@ -1213,7 +1402,27 @@ function createAGVMesh() {
   headR.position.set(0.45, 0.48, 0.86);
   group.add(headR);
 
-  const headBeam = new THREE.SpotLight(0xffffff, 2.0, 16, Math.PI / 4, 0.5, 1.0);
+  // Volumetric Headlight Beams (Semi-transparent additive cones)
+  const coneGeo = new THREE.ConeGeometry(0.55, 4.0, 16, 1, true);
+  const coneMat = new THREE.MeshBasicMaterial({
+    color: 0xfff7ed,
+    transparent: true,
+    opacity: 0.14,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+  const beamL = new THREE.Mesh(coneGeo, coneMat);
+  beamL.rotation.x = Math.PI / 2;
+  beamL.position.set(-0.45, 0.48, 2.86);
+  group.add(beamL);
+
+  const beamR = new THREE.Mesh(coneGeo, coneMat);
+  beamR.rotation.x = Math.PI / 2;
+  beamR.position.set(0.45, 0.48, 2.86);
+  group.add(beamR);
+
+  const headBeam = new THREE.SpotLight(0xfffbeb, 2.5, 22, Math.PI / 4, 0.6, 1.2);
   headBeam.position.set(0, 0.5, 0.85);
   headBeam.target.position.set(0, 0, 8.0);
   group.add(headBeam);

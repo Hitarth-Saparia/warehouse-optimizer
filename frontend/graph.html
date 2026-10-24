@@ -8,6 +8,13 @@
   <!-- Three.js & OrbitControls for 3D Digital Twin Mode -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- Three.js Post-Processing (Cinematic Bloom & Lighting) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
   <title>Warehouse Graph Editor | Warehouse Optimizer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -582,6 +589,12 @@
         <button class="btn-heatmap-toggle" id="btn-toggle-3d-heatmap" onclick="toggle3DHeatmap()" title="Toggle Thermal Activity Heatmap Layer">
           <span class="heatmap-fire-icon">🔥</span>
           Heatmap Mode
+        </button>
+
+        <!-- 3D Cinematic Bloom & Lighting Toggle -->
+        <button class="btn-bloom-toggle active" id="btn-toggle-3d-bloom" onclick="toggle3DBloom()" title="Toggle Cinematic Industrial Bloom & Volumetric Lighting">
+          <span style="font-size: 0.95rem;">✨</span>
+          Cinematic Bloom
         </button>
 
         <!-- 3D AGV Simulation Controls -->
