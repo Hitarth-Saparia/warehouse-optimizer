@@ -3314,6 +3314,167 @@ tr.sticky-total-row {
   }
 }
 
+/* ==============================================================================
+   3D Digital Twin: Thermal / Activity Heatmap Layer & Colorbar Legend
+   ============================================================================== */
+.heatmap-3d-legend {
+  position: absolute;
+  top: 55px;
+  right: 18px;
+  width: 260px;
+  background: rgba(18, 20, 23, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 12px;
+  padding: 12px 14px;
+  z-index: 45;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 16px -2px rgba(245, 158, 11, 0.25);
+  color: #f8fafc;
+  font-family: var(--font-sans, system-ui);
+  animation: fadeIn 0.25s ease;
+}
+
+.heatmap-legend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 0.82rem;
+}
+
+.heatmap-fire-icon {
+  font-size: 15px;
+  filter: drop-shadow(0 0 6px #f59e0b);
+}
+
+.heatmap-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.heatmap-close-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.heatmap-metric-selector {
+  display: flex;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 2px;
+  margin-bottom: 10px;
+  gap: 2px;
+}
+
+.heatmap-metric-pill {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.heatmap-metric-pill.active {
+  background: #f59e0b;
+  color: #0f172a;
+}
+
+.heatmap-colorbar-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #1e3a8a 0%, #0284c7 25%, #84cc16 50%, #f59e0b 75%, #ff1744 100%);
+  margin-bottom: 6px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 10px rgba(245, 158, 11, 0.3);
+}
+
+.heatmap-colorbar-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: #94a3b8;
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 10px;
+}
+
+.heatmap-telemetry-meta {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.72rem;
+}
+
+.heatmap-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 3D Hover Telemetry Tooltip */
+.heatmap-hover-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  color: #ffffff;
+  z-index: 60;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 12px rgba(245, 158, 11, 0.3);
+  display: none;
+  font-family: var(--font-sans, system-ui);
+  transform: translate(14px, -50%);
+  max-width: 250px;
+}
+
+.btn-heatmap-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #946F5C);
+  color: var(--text-main);
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-heatmap-toggle:hover {
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+.btn-heatmap-toggle.active {
+  background: linear-gradient(135deg, #f59e0b, #ea580c) !important;
+  color: #ffffff !important;
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.45) !important;
+}
+
+
 
 
 

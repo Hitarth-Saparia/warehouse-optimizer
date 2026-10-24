@@ -48,6 +48,12 @@ let agvAnimState = {
   totalDistance: 0.0
 };
 
+// Thermal / Activity Heatmap State
+let heatmapActive = false;
+let heatmapMetric = 'velocity'; // 'velocity' | 'capacity'
+let heatmapPulseRacks = [];
+let heatmapTooltip = null;
+
 // Configuration
 const CONFIG = {
   floorWidth: 70,
@@ -379,14 +385,16 @@ function createPalletRackMesh(shelf, productsOnShelf) {
   const plaqueGeo = new THREE.PlaneGeometry(1.0, 0.5);
   const plaque = new THREE.Mesh(plaqueGeo, plaqueMat);
   plaque.position.set(0, h + 0.3, 0);
+  plaque.userData.isPlaque = true;
   rackGroup.add(plaque);
+  rackGroup.userData.plaque = plaque;
 
   // Invisible Hitbox for precise raycasting
   const hitboxGeo = new THREE.BoxGeometry(w + 0.4, h + 0.8, d + 0.4);
   const hitboxMat = new THREE.MeshBasicMaterial({ visible: false });
   const hitbox = new THREE.Mesh(hitboxGeo, hitboxMat);
   hitbox.position.set(0, h / 2, 0);
-  hitbox.userData = { parentRack: rackGroup };
+  hitbox.userData = { parentRack: rackGroup, isHitbox: true };
   rackGroup.add(hitbox);
   rackGroup.userData.hitbox = hitbox;
 
@@ -659,8 +667,13 @@ function onMouseMove(event) {
         unhighlightRack(hoveredRack);
       }
       hoveredRack = parentRack;
-      highlightRack(hoveredRack, 0x38bdf8);
+      if (!heatmapActive) {
+        highlightRack(hoveredRack, 0x38bdf8);
+      }
       renderer.domElement.style.cursor = 'pointer';
+    }
+    if (heatmapActive && parentRack) {
+      updateHeatmapTooltip(parentRack.userData.shelfId, event.clientX, event.clientY);
     }
   } else {
     if (hoveredRack && hoveredRack.userData.shelfId !== selectedShelfId) {
@@ -668,6 +681,9 @@ function onMouseMove(event) {
     }
     hoveredRack = null;
     renderer.domElement.style.cursor = 'default';
+    if (heatmapActive) {
+      hideHeatmapTooltip();
+    }
   }
 }
 
@@ -764,6 +780,40 @@ function updateInspectorHUD(shelfId) {
   if (hudLoadBar) {
     hudLoadBar.style.width = `${loadPct}%`;
     hudLoadBar.style.background = loadPct > 85 ? '#ef4444' : loadPct > 60 ? '#f59e0b' : '#10b981';
+  }
+
+  // Thermal Activity Heatmap Section in Inspector
+  const analyticsContainer = document.getElementById('hud-heatmap-analytics');
+  if (analyticsContainer) {
+    if (shelf.id === 1) {
+      analyticsContainer.innerHTML = '';
+    } else {
+      const metrics = computeWarehouseHeatmapMetrics();
+      const score = metrics.shelfScores.get(shelfId);
+      if (score) {
+        const thermal = getThermalColorData(score.value, metrics.minVal, metrics.maxVal);
+        const metricValText = heatmapMetric === 'velocity' ? `${Math.round(score.value).toLocaleString()} picks/yr` : `${score.value}% capacity`;
+        analyticsContainer.innerHTML = `
+          <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; padding: 10px; margin: 10px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-weight: 700; font-size: 0.8rem; color: #fbbf24;">Thermal Zone:</span>
+              <span style="background: ${thermal.css}; color: #ffffff; font-weight: 700; font-size: 0.72rem; padding: 2px 7px; border-radius: 4px;">${thermal.zone}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 3px;">
+              <span>${heatmapMetric === 'velocity' ? 'Pick Velocity' : 'Load Level'}:</span>
+              <strong style="color: var(--text-main);">${metricValText} (${score.percentile}th %)</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
+              <span>Golden Zone Position:</span>
+              <strong style="color: ${score.isGoldenZone ? '#10b981' : '#94a3b8'};">${score.isGoldenZone ? '★ YES (Prime Proximity)' : 'Standard Bay'}</strong>
+            </div>
+            <div style="font-size: 0.72rem; color: ${score.adviceColor}; line-height: 1.35; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.08);">
+              ${score.advice}
+            </div>
+          </div>
+        `;
+      }
+    }
   }
 
   // Product List
@@ -881,6 +931,9 @@ function animate() {
   if (controls) controls.update();
   if (typeof updateAGVAnimation === 'function') {
     updateAGVAnimation(dt);
+  }
+  if (typeof updateHeatmapAnimation === 'function') {
+    updateHeatmapAnimation(dt);
   }
   if (renderer && scene && camera) {
     renderer.render(scene, camera);
@@ -1852,6 +1905,446 @@ async function simulate3DOrder(orderId) {
   } finally {
     showLoadingSpinner(false);
   }
+}
+
+// ==============================================================================
+// 3D THERMAL / ACTIVITY HEATMAP LAYER ENGINE
+// ==============================================================================
+
+/**
+ * Calculates operational metrics (Sales Velocity or Capacity %) across all bays.
+ */
+function computeWarehouseHeatmapMetrics() {
+  const shelfScores = new Map();
+  const sortedByDist = [...warehouseData.shelves].filter(s => s.id !== 1).sort((a, b) => (a.distance_to_packing || 0) - (b.distance_to_packing || 0));
+  const goldenSet = new Set(sortedByDist.slice(0, 6).map(s => s.id));
+
+  let minVal = Infinity;
+  let maxVal = -Infinity;
+
+  const storageShelves = warehouseData.shelves.filter(s => s.id !== 1);
+
+  storageShelves.forEach(shelf => {
+    let val = 0;
+    if (heatmapMetric === 'velocity') {
+      const prods = warehouseData.products.filter(p => p.assigned_shelf_id === shelf.id);
+      val = prods.reduce((sum, p) => sum + (p.pick_frequency || 0), 0);
+    } else {
+      const cap = shelf.capacity || 5;
+      const prods = warehouseData.products.filter(p => p.assigned_shelf_id === shelf.id);
+      const load = shelf.current_load || prods.length;
+      val = Math.round((load / cap) * 100);
+    }
+
+    if (val < minVal) minVal = val;
+    if (val > maxVal) maxVal = val;
+
+    shelfScores.set(shelf.id, {
+      shelfId: shelf.id,
+      value: val,
+      isGoldenZone: goldenSet.has(shelf.id),
+      distance: shelf.distance_to_packing || 0
+    });
+  });
+
+  if (minVal === Infinity) { minVal = 0; maxVal = 100; }
+  if (minVal === maxVal) { maxVal = minVal + 1; }
+
+  // Compute percentile ranking & slotting advice
+  const allVals = Array.from(shelfScores.values()).map(s => s.value).sort((a, b) => a - b);
+  shelfScores.forEach(s => {
+    const rank = allVals.indexOf(s.value);
+    const pct = Math.round(((rank + 1) / allVals.length) * 100);
+    s.percentile = pct;
+
+    if (heatmapMetric === 'velocity') {
+      if (pct >= 75 && s.isGoldenZone) {
+        s.advice = "Optimal Golden Zone Slotting! High-velocity SKUs positioned nearest to dispatch.";
+        s.adviceColor = "#10b981";
+      } else if (pct >= 75 && !s.isGoldenZone) {
+        s.advice = "Sub-Optimal Slotting! High-velocity items located far from dispatch cause travel bloat. Run Layout Optimizer.";
+        s.adviceColor = "#f87171";
+      } else if (pct < 35 && s.isGoldenZone) {
+        s.advice = "Prime Space Underutilized! Low-velocity SKU occupies dispatch-adjacent bay.";
+        s.adviceColor = "#fbbf24";
+      } else {
+        s.advice = "Standard Storage Slotting: Appropriate balance between turnover and distance.";
+        s.adviceColor = "#94a3b8";
+      }
+    } else {
+      if (s.value >= 90) {
+        s.advice = "High Capacity Warning: Shelf is near maximum physical weight/SKU limit.";
+        s.adviceColor = "#f87171";
+      } else if (s.value <= 30) {
+        s.advice = "Underloaded Bay: Available capacity for high-volume consolidation.";
+        s.adviceColor = "#38bdf8";
+      } else {
+        s.advice = "Balanced Capacity: Normal operational occupancy.";
+        s.adviceColor = "#10b981";
+      }
+    }
+  });
+
+  return { shelfScores, minVal, maxVal, goldenSet };
+}
+
+/**
+ * Maps normalized score [0..1] to smooth thermal color spectrum.
+ */
+function getThermalColorData(val, minVal, maxVal) {
+  const range = Math.max(1, maxVal - minVal);
+  const t = Math.min(1.0, Math.max(0.0, (val - minVal) / range));
+  
+  let hex, css, zone, emissiveHex, emissiveIntensity;
+  
+  if (t < 0.25) {
+    const subT = t / 0.25;
+    hex = interpolateHex(0x1e3a8a, 0x0284c7, subT);
+    css = '#0284c7';
+    zone = 'Cold Zone (Low Velocity)';
+    emissiveHex = 0x000000;
+    emissiveIntensity = 0.0;
+  } else if (t < 0.55) {
+    const subT = (t - 0.25) / 0.30;
+    hex = interpolateHex(0x059669, 0x84cc16, subT);
+    css = '#84cc16';
+    zone = 'Moderate Turnover';
+    emissiveHex = 0x059669;
+    emissiveIntensity = 0.15;
+  } else if (t < 0.80) {
+    const subT = (t - 0.55) / 0.25;
+    hex = interpolateHex(0xf59e0b, 0xea580c, subT);
+    css = '#ea580c';
+    zone = 'Active Zone (High Turnover)';
+    emissiveHex = 0xf59e0b;
+    emissiveIntensity = 0.35;
+  } else {
+    const subT = (t - 0.80) / 0.20;
+    hex = interpolateHex(0xef4444, 0xff1744, subT);
+    css = '#ff1744';
+    zone = '🔥 Hot Zone (Golden / Bottleneck)';
+    emissiveHex = 0xef4444;
+    emissiveIntensity = 0.65;
+  }
+
+  return { t, hex, css, zone, emissiveHex, emissiveIntensity };
+}
+
+function interpolateHex(color1, color2, factor) {
+  const r1 = (color1 >> 16) & 255;
+  const g1 = (color1 >> 8) & 255;
+  const b1 = color1 & 255;
+
+  const r2 = (color2 >> 16) & 255;
+  const g2 = (color2 >> 8) & 255;
+  const b2 = color2 & 255;
+
+  const r = Math.round(r1 + factor * (r2 - r1));
+  const g = Math.round(g1 + factor * (g2 - g1));
+  const b = Math.round(b1 + factor * (b2 - b1));
+
+  return (r << 16) | (g << 8) | b;
+}
+
+/**
+ * Toggles Heatmap Mode ON / OFF.
+ */
+function toggle3DHeatmap(forceState) {
+  if (typeof forceState === 'boolean') {
+    heatmapActive = forceState;
+  } else {
+    heatmapActive = !heatmapActive;
+  }
+
+  const btn = document.getElementById('btn-toggle-3d-heatmap');
+  if (btn) {
+    btn.classList.toggle('active', heatmapActive);
+    btn.innerHTML = heatmapActive 
+      ? `<span class="heatmap-fire-icon">🔥</span> Heatmap: ON`
+      : `<span class="heatmap-fire-icon">🔥</span> Heatmap Mode`;
+  }
+
+  if (heatmapActive) {
+    applyHeatmapMaterials();
+    showToast(`Thermal Activity Heatmap Active (${heatmapMetric === 'velocity' ? 'Sales Turnover' : 'Capacity Load %'})`, 'info');
+  } else {
+    restoreOriginalRackMaterials();
+    showToast('Thermal Heatmap deactivated', 'info');
+  }
+}
+
+/**
+ * Changes active heatmap metric: 'velocity' or 'capacity'.
+ */
+function set3DHeatmapMetric(metric) {
+  heatmapMetric = metric;
+  const btnVel = document.getElementById('btn-metric-velocity');
+  const btnCap = document.getElementById('btn-metric-capacity');
+  if (btnVel) btnVel.className = (metric === 'velocity' ? 'heatmap-metric-pill active' : 'heatmap-metric-pill');
+  if (btnCap) btnCap.className = (metric === 'capacity' ? 'heatmap-metric-pill active' : 'heatmap-metric-pill');
+
+  if (heatmapActive) {
+    applyHeatmapMaterials();
+  }
+}
+
+/**
+ * Applies thermal gradient materials to 3D racks.
+ */
+function applyHeatmapMaterials() {
+  heatmapPulseRacks = [];
+  const metrics = computeWarehouseHeatmapMetrics();
+
+  rackMeshes.forEach((mesh, shelfId) => {
+    if (shelfId === 1) return; // Keep Hub distinct
+
+    const score = metrics.shelfScores.get(shelfId);
+    if (!score) return;
+
+    const thermal = getThermalColorData(score.value, metrics.minVal, metrics.maxVal);
+    score.thermal = thermal;
+
+    if (thermal.t >= 0.75) {
+      heatmapPulseRacks.push(mesh);
+    }
+
+    mesh.traverse(child => {
+      if (child.isMesh && !child.userData.isHitbox && !child.userData.isPlaque) {
+        if (!child.userData.origMaterial) {
+          child.userData.origMaterial = child.material;
+        }
+
+        child.material = new THREE.MeshStandardMaterial({
+          color: thermal.hex,
+          roughness: 0.35,
+          metalness: 0.35,
+          emissive: thermal.emissiveHex,
+          emissiveIntensity: thermal.emissiveIntensity
+        });
+      }
+    });
+  });
+
+  applyCorridorTrafficHeatmap(metrics);
+  updateHeatmapLegend(metrics);
+
+  if (selectedShelfId) {
+    updateInspectorHUD(selectedShelfId);
+  }
+}
+
+/**
+ * Restores original materials to all racks and corridors.
+ */
+function restoreOriginalRackMaterials() {
+  heatmapPulseRacks = [];
+  rackMeshes.forEach((mesh, shelfId) => {
+    if (shelfId === 1) return;
+    mesh.traverse(child => {
+      if (child.isMesh && child.userData.origMaterial) {
+        child.material = child.userData.origMaterial;
+      }
+    });
+  });
+
+  if (warehouseData.graph && warehouseData.graph.edges && warehouseData.graph.nodes) {
+    renderCorridorEdges(warehouseData.graph.edges, warehouseData.graph.nodes);
+  }
+
+  const legend = document.getElementById('heatmap-3d-legend');
+  if (legend) legend.style.display = 'none';
+  hideHeatmapTooltip();
+
+  if (selectedShelfId) {
+    updateInspectorHUD(selectedShelfId);
+  }
+}
+
+/**
+ * Colors corridor floor segments based on traffic / hot zone proximity.
+ */
+function applyCorridorTrafficHeatmap(metrics) {
+  if (!corridorLinesGroup || !warehouseData.graph || !warehouseData.graph.edges || !warehouseData.graph.nodes) return;
+  corridorLinesGroup.clear();
+
+  const nodeMap = new Map();
+  warehouseData.graph.nodes.forEach(n => nodeMap.set(n.id, mapCoordsTo3D(n.x, n.y)));
+
+  warehouseData.graph.edges.forEach(edge => {
+    const from = nodeMap.get(edge.from_shelf_id);
+    const to = nodeMap.get(edge.to_shelf_id);
+    if (!from || !to) return;
+
+    const scoreFrom = metrics.shelfScores.get(edge.from_shelf_id);
+    const scoreTo = metrics.shelfScores.get(edge.to_shelf_id);
+    const tFrom = scoreFrom ? scoreFrom.thermal.t : 0.2;
+    const tTo = scoreTo ? scoreTo.thermal.t : 0.2;
+    const maxT = Math.max(tFrom, tTo);
+
+    let colorHex = 0x0284c7;
+    let opacity = 0.45;
+    let linewidth = 2;
+
+    if (maxT >= 0.75) {
+      colorHex = 0xff1744; // Hot Red corridor
+      opacity = 0.95;
+      linewidth = 4;
+    } else if (maxT >= 0.5) {
+      colorHex = 0xf59e0b; // Amber corridor
+      opacity = 0.8;
+      linewidth = 3;
+    } else if (maxT >= 0.3) {
+      colorHex = 0x84cc16; // Lime corridor
+      opacity = 0.6;
+    }
+
+    const points = [
+      new THREE.Vector3(from.x, 0.05, from.z),
+      new THREE.Vector3(to.x, 0.05, to.z)
+    ];
+    const geo = new THREE.BufferGeometry().setFromPoints(points);
+    const lineMat = new THREE.LineBasicMaterial({
+      color: colorHex,
+      transparent: true,
+      opacity: opacity,
+      linewidth: linewidth
+    });
+    const line = new THREE.Line(geo, lineMat);
+    corridorLinesGroup.add(line);
+  });
+}
+
+/**
+ * Breathing emissive pulse animation on Hot Zone racks.
+ */
+function updateHeatmapAnimation(dt) {
+  if (!heatmapActive || heatmapPulseRacks.length === 0) return;
+  const time = agvAnimClock.getElapsedTime();
+  heatmapPulseRacks.forEach(mesh => {
+    const pulse = 0.45 + 0.35 * Math.sin(time * 3.8 + (mesh.userData.shelfId || 0) * 0.7);
+    mesh.traverse(child => {
+      if (child.isMesh && child.material && child.material.emissive && !child.userData.isHitbox && !child.userData.isPlaque) {
+        child.material.emissiveIntensity = pulse;
+      }
+    });
+  });
+}
+
+/**
+ * Floating 3D Colorbar Legend.
+ */
+function ensureHeatmapLegend() {
+  let legend = document.getElementById('heatmap-3d-legend');
+  if (!legend) {
+    const card = document.querySelector('#section-3d-studio .canvas-card') || document.getElementById('canvas-container');
+    if (!card) return null;
+
+    legend = document.createElement('div');
+    legend.id = 'heatmap-3d-legend';
+    legend.className = 'heatmap-3d-legend';
+    legend.innerHTML = `
+      <div class="heatmap-legend-header">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span class="heatmap-fire-icon">🔥</span>
+          <strong>Thermal Activity Heatmap</strong>
+        </div>
+        <button class="heatmap-close-btn" onclick="toggle3DHeatmap(false)" title="Close Heatmap">✕</button>
+      </div>
+
+      <div class="heatmap-metric-selector">
+        <button class="heatmap-metric-pill active" id="btn-metric-velocity" onclick="set3DHeatmapMetric('velocity')">
+          Sales Velocity
+        </button>
+        <button class="heatmap-metric-pill" id="btn-metric-capacity" onclick="set3DHeatmapMetric('capacity')">
+          Capacity Load %
+        </button>
+      </div>
+
+      <div class="heatmap-colorbar-track"></div>
+      <div class="heatmap-colorbar-labels">
+        <span id="heatmap-lbl-min">Cold (0)</span>
+        <span>Moderate</span>
+        <span id="heatmap-lbl-max" style="color: #ff3366; font-weight: 700;">Hot (Max)</span>
+      </div>
+
+      <div class="heatmap-telemetry-meta">
+        <div class="heatmap-meta-row">
+          <span>Golden Zone Bays:</span>
+          <strong id="heatmap-golden-count" style="color: #fbbf24;">6 Bays (Near Hub)</strong>
+        </div>
+        <div class="heatmap-meta-row">
+          <span>Corridor Traffic Glow:</span>
+          <strong id="heatmap-bottleneck-label" style="color: #ff3366;">Active Gradient</strong>
+        </div>
+      </div>
+    `;
+    card.appendChild(legend);
+  }
+  return legend;
+}
+
+function updateHeatmapLegend(metrics) {
+  const legend = ensureHeatmapLegend();
+  if (!legend) return;
+  legend.style.display = 'block';
+
+  const lblMin = document.getElementById('heatmap-lbl-min');
+  const lblMax = document.getElementById('heatmap-lbl-max');
+  if (lblMin && lblMax) {
+    if (heatmapMetric === 'velocity') {
+      lblMin.textContent = `Min (${Math.round(metrics.minVal).toLocaleString()})`;
+      lblMax.textContent = `Hot (${Math.round(metrics.maxVal).toLocaleString()})`;
+    } else {
+      lblMin.textContent = `Min (${metrics.minVal}%)`;
+      lblMax.textContent = `Max (${metrics.maxVal}%)`;
+    }
+  }
+}
+
+/**
+ * Hover Telemetry Tooltip.
+ */
+function ensureHeatmapTooltip() {
+  if (!heatmapTooltip) {
+    heatmapTooltip = document.createElement('div');
+    heatmapTooltip.id = 'heatmap-hover-tooltip';
+    heatmapTooltip.className = 'heatmap-hover-tooltip';
+    document.body.appendChild(heatmapTooltip);
+  }
+  return heatmapTooltip;
+}
+
+function updateHeatmapTooltip(shelfId, clientX, clientY) {
+  if (!heatmapActive || shelfId === 1) {
+    hideHeatmapTooltip();
+    return;
+  }
+  const tooltip = ensureHeatmapTooltip();
+  const metrics = computeWarehouseHeatmapMetrics();
+  const score = metrics.shelfScores.get(shelfId);
+  if (!score) return;
+
+  const thermal = getThermalColorData(score.value, metrics.minVal, metrics.maxVal);
+  const metricLabel = heatmapMetric === 'velocity' ? `${Math.round(score.value).toLocaleString()} picks/yr` : `${score.value}% capacity`;
+
+  tooltip.innerHTML = `
+    <div style="font-weight: 800; font-size: 0.8rem; margin-bottom: 2px; color: ${thermal.css};">
+      Bay S-${shelfId} &bull; ${thermal.zone}
+    </div>
+    <div style="font-size: 0.72rem; color: #cbd5e1; margin-bottom: 2px;">
+      ${heatmapMetric === 'velocity' ? 'Pick Velocity' : 'Load'}: <strong>${metricLabel}</strong> (${score.percentile}th %)
+    </div>
+    <div style="font-size: 0.7rem; color: ${score.isGoldenZone ? '#fbbf24' : '#94a3b8'};">
+      Golden Zone: <strong>${score.isGoldenZone ? '★ YES (Prime Proximity)' : 'Standard Bay'}</strong>
+    </div>
+  `;
+  tooltip.style.left = `${clientX + 14}px`;
+  tooltip.style.top = `${clientY}px`;
+  tooltip.style.display = 'block';
+}
+
+function hideHeatmapTooltip() {
+  if (heatmapTooltip) heatmapTooltip.style.display = 'none';
 }
 
 // Bootstrap on DOM ready (standalone mode)

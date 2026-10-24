@@ -578,6 +578,12 @@
           <option value="ALL">All Categories</option>
         </select>
 
+        <!-- 3D Heatmap Mode Toggle -->
+        <button class="btn-heatmap-toggle" id="btn-toggle-3d-heatmap" onclick="toggle3DHeatmap()" title="Toggle Thermal Activity Heatmap Layer">
+          <span class="heatmap-fire-icon">🔥</span>
+          Heatmap Mode
+        </button>
+
         <!-- 3D AGV Simulation Controls -->
         <div style="display: flex; align-items: center; gap: 0.5rem; margin-left: auto;">
           <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted);">Simulate Tour:</span>
@@ -962,6 +968,9 @@
               <div id="hud-load-bar" class="load-progress-fill" style="width: 0%; background: #10b981;"></div>
             </div>
           </div>
+
+          <!-- Thermal Heatmap Analytics Card -->
+          <div id="hud-heatmap-analytics"></div>
 
           <!-- Stored Products List -->
           <div>
